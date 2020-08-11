@@ -266,6 +266,7 @@ cbaroverride = ['NotImplimented']
 
 #Takes absolute directory path name as string
 #Returns list of sub-folders and list of all other contents
+#Example: HomeDirFolders,HomeDirContents = DirectoryContents(os.path.abspath("."))
 def DirectoryContents(AbsPath):
 	#Obtain contents of supplied directory and initiate folders list
 	DirContents = os.listdir( AbsPath )		#List of all contents (inc non-folders).
@@ -279,6 +280,49 @@ def DirectoryContents(AbsPath):
 	#endfor
 
 	return(DirFolders,DirContents)
+#enddef
+
+
+#Takes simulation folder directory (absolute path) and returns Sim128 normalisation constants
+#Example: Variables,Values,Units = ReadNormConstants(Dir)
+def ReadNormConstants(Dir):
+
+	# NOTE: Duplicated variable names in output file --- ADDRESS BY SPLITTING Sim128 FILE INTO SECTIONS
+	#'D beam inj. vlc.','Crit. vlc. axis','SlowD rate axis'				--- ON TOP AND POST NORM SETS
+	#'psimax','major_r','rleng','left','right','zleng','raxis','zaxis'	--- ON PRE AND POST NORM SETS
+
+	#Normalisation constants are stored within: sim128-aug<Shot>.<num>.txt
+	sim128File = sorted(glob.glob(Dir+'*sim128-aug*txt'))[0]
+	sim128Data = open(sim128File).readlines()
+
+	#Manually define variable names in sim128 file --- ADD FUNCTIONALITY TO ENABLE USER SELECTION
+	TopVariables = ['Mag.fld. at axis','Bulk density','Alfven velocity','D gyro frequency','Alfv gyro radius','SlowD time axis']
+	PreNormVariables = ['psimax','major_r','rleng','left','right','zleng','bottom_sim','top_sim','raxis','zaxis']
+	PostNormVariables = ['psimax','major_r','rleng','left','right','zleng','raxis','zaxis','D beam inj. vlc.','Crit. vlc. axis','SlowD rate axis','maximum ion temperature','maximum elc temperature',]
+	InputVariables = TopVariables + PreNormVariables + PostNormVariables
+	
+	#Initialise variable, values and units output lists
+	Variables,Values,Units = list(),list(),list()
+
+	#Identify variable name in sim128 file and strip value and unit
+	for i in range(0,len(InputVariables)):
+		Variable = InputVariables[i]
+	
+		#--- ADD FUNCTIONALITY TO RE-NAME VARIABLES FROM PRE-WRITTEN LIST
+		Variables.append(Variable)
+
+		Value = filter(lambda x:Variable in x, sim128Data)[0].strip(' \t\n\r,='+Variable)
+		try: Value = float(Value)
+		except: Value = float(Value[0:11])
+		Values.append(Value)
+
+		Unit = filter(lambda x:Variable in x, sim128Data)[0].strip(' \t\n\r,='+Variable)
+		try: Unit = '['+Unit.split('[')[1]
+		except: Unit = '[-]'
+		Units.append(Unit)
+	#endfor
+
+	return(Variables,Values,Units)
 #enddef
 
 
@@ -442,11 +486,16 @@ Globalvarlist = list()
 Globalnumvars = list()
 
 #Create mesh_size lists and SI conversion
+Raxis = list()				#raxis		[m]
+Zaxis = list()				#zaxis		[m]
+PhiMode = list()			#phimax		[Rad]
+RGeo = list()				#major_r	[m]
+InboardLCFS = list()		#left 		[m]
+OutputLCFS = list()			#right 		[m]
+
 R_mesh = list()
 Z_mesh = list()
 Phi_mesh = list()
-Raxis = list()
-Zaxis = list()
 
 Depth = list()
 Radius = list()
@@ -568,10 +617,6 @@ mem_gib = mem_bytes/(1024.**3)
 ext = image_extension
 
 
-
-
-
-
 #Obtain home directory and contents
 Root = os.path.abspath(".")
 HomeDirFolders,HomeDirContents = DirectoryContents(Root)
@@ -617,18 +662,8 @@ for i in range(0,len(HomeDirFolders)):
 		NOT_SIMULATION_FOLDER = 1
 	#endif
 #endfor
-exit()
-
-
-files = sorted(glob.glob(Dir[-1]+'/data/*energy_n*'))
-print files
-aux = np.loadtxt(files[0],skiprows=1)
-energy_phys = np.empty((0,aux.shape[1]))
-print energy_phys
-
-
 #If no folders detected, end analysis script.
-if numfolders == 0:
+if NumFolders == 0:
 	print '-------------------------------------------'
 	print 'No Ouput Files Detected, Aborting Analysis.'
 	print '-------------------------------------------'
@@ -636,256 +671,41 @@ if numfolders == 0:
 	exit()
 #endif
 
-print DirFolders
-print DirFiles
-exit()
+#==========##========================##==========#
+#==========##========================##==========#
 
 
-# NORMALSIED VALUES CONTAINED WITHIN: sim128-aug034570.3530
-
-#Begin the retrieval of geometry from mesh and input files.
-icpnam = filter(lambda x: 'icp.nam' in x, Dir)
-icpdat = filter(lambda x: 'icp.dat' in x, Dir)
-icpout = filter(lambda x: 'icp.out' in x, Dir)
-mesh = filter(lambda x: 'initmesh.out' in x, Dir)
-TEC2D = filter(lambda x: 'TECPLOT2D.PDT' in x, Dir)
-
-#Loop over all folders and retrieve mesh sizes and SI sizes.
-for l in range(0,numfolders):
-	
-	#==========##===== INITMESH.OUT READIN =====##==========#
-	#==========##===============================##==========#
-
-	#Attempt automated retrieval of mesh sizes.
-	try:
-		#Identify mesh size from TECPLOT2D file. (Data Array Always Correct Size)
-		meshdata = open(TEC2D[l]).readlines()
-
-		#Zone line holds data, split at comma, R&Z values are given by "I=,J=" respectively.
-		R = filter(lambda x: 'ZONE' in x, meshdata)[0].split(",")[0].strip(' \t\n\r,=ZONE I')
-		Z = filter(lambda x: 'ZONE' in x, meshdata)[0].split(",")[1].strip(' \t\n\r,=ZONE J')
-		R_mesh.append( int(filter(lambda x: x.isdigit(), R)) )
-		Z_mesh.append( int(filter(lambda x: x.isdigit(), Z)) )
-
-	except ValueError:
-		#Identify mesh size from initmesh.out file. (Issues with Q-VT and Magmesh)
-		meshdata = open(mesh[l]).readline()
-		R_mesh.append([int(i) for i in meshdata.split()][1])
-		if Magmesh == 1: Z_mesh.append([int(i)+1 for i in meshdata.split()][3])
-		elif Magmesh == 2: Z_mesh.append([int(i)+3 for i in meshdata.split()][3])
-		elif Magmesh == 3: Z_mesh.append([int(i)+5 for i in meshdata.split()][3])
-		#endif
-
-	except:
-		#If data for current file exists, ask for manual input.
-		if l <= len(TEC2D)-1:
-
-			#If the initmesh.out file cannot be found, manual input is required.
-			print '#======================================================================#'
-			print 'INITMESH GEOMETRY READIN ERROR, PLEASE MANUALLY DEFINE MESH GEOMETRY FOR'
-			print '#======================================================================#'
-			print Dirlist[l]
-			r_mesh = int(raw_input("DEFINE NUM RADIAL CELLS:"))
-			z_mesh = int(raw_input("DEFINE NUM AXIAL CELLS:"))
-			print ''
-
-			R_mesh.append(r_mesh)
-			Z_mesh.append(z_mesh)
-		#endif
-	#endtry
-
-	#Retrieve entire mesh for plotting if requested.	#MESH PLOTTING NOT WORKING#
-	if image_plotmesh == True:							#MESH PLOTTING NOT WORKING#
-		print '#================================================#'
-		print 'Mesh Outline Plotting Does Not Currently Function.'
-		print '#================================================#'
-		print ''
-		#Extract mesh data from initmesh.out			#MESH PLOTTING NOT WORKING#
-		mesh = open(mesh[l]).readlines()				#MESH PLOTTING NOT WORKING#
-	#endif
 
 
-	#==========##===== ICP.NAM READIN =====##==========#
-	#==========##==========================##==========#
-
-	#Attempt automated retrieval of SI conversion units.
-	NamelistData = open(icpnam[l]).readlines()
-
-	#Mesh Geometry Namelist Inputs
-	try:
-		RADIUS = float(filter(lambda x:'RADIUS=' in x, NamelistData)[0].strip(' \t\n\r,=RADIUS'))
-		RADIUST = float(filter(lambda x:'RADIUST=' in x, NamelistData)[0].strip(' \t\n\r,=RADIUST'))
-		HEIGHT = float(filter(lambda x:'HEIGHT=' in x, NamelistData)[0].strip(' \t\n\r,=HEIGHT'))
-		HEIGHTT = float(filter(lambda x:'HEIGHTT=' in x, NamelistData)[0].strip(' \t\n\r,=HEIGHTT'))
-		DEPTH = float(filter(lambda x:'DEPTH=' in x, NamelistData)[0].strip(' \t\n\r,=DEPTH'))
-		SYM = float(filter(lambda x:'ISYM=' in x, NamelistData)[0].strip(' \t\n\r,=ISYM'))
-		if image_plotsymmetry == True: Isymlist.append(SYM)
-		else: Isymlist.append(0)
-		if RADIUS > 0.0: Radius.append(RADIUS)
-		elif RADIUST > 0.0: Radius.append(RADIUST)
-		if HEIGHT > 0.0: Height.append(HEIGHT)
-		elif HEIGHTT > 0.0: Height.append(HEIGHTT)
-		Depth.append(DEPTH)
-		#endif
-		dr.append(Radius[-1]/(R_mesh[-1]-1))
-		dz.append(Height[-1]/(Z_mesh[-1]-1))
-	except:
-		#If the geometry section cannot be found, manual input is required.
-		print '#====================================================================#'
-		print 'ICP.NAM GEOMETRY READIN ERROR, PLEASE MANUALLY DEFINE MESH SI SIZE FOR'
-		print '#====================================================================#'
-		print Dirlist[l]
-		radius = float(raw_input("DEFINE RADIUST [cm]:"))
-		height = float(raw_input("DEFINE HEIGHTT [cm]:"))
-		depth = float(raw_input("DEFINE DEPTH [cm]:"))
-		print ''
-
-		Radius.append(radius)
-		Height.append(height)
-		Depth.append(depth)
-		dr.append(Radius[-1]/(R_mesh[-1]-1))
-		dz.append(Height[-1]/(Z_mesh[-1]-1))
-	#endtry
-
-	#Material Namelist Inputs (frequencies/voltages/powers)   [FREQGLOB ONLY READS 10 CHARACTERS]
-	try:
-		NUMMETALS = int(filter(lambda x: x.isdigit(),filter(lambda x:'IMETALS' in x,NamelistData)[0]))+1
-		CMETALS = filter(lambda x: 'CMETAL=' in x, NamelistData)[0].split()[1:NUMMETALS]
-		VRFM.append(filter(lambda x: 'VRFM=' in x, NamelistData)[0].split()[1:NUMMETALS])
-		VRFM2.append(filter(lambda x: 'VRFM_2=' in x, NamelistData)[0].split()[1:NUMMETALS])
-		FREQM.append(filter(lambda x: 'FREQM=' in x, NamelistData)[0].split()[1:NUMMETALS])
-		FREQM2.append(filter(lambda x: 'FREQM_2=' in x, NamelistData)[0].split()[1:NUMMETALS])
-		FREQC.append(filter(lambda x: 'FREQC=' in x, NamelistData)[0].split()[1:NUMMETALS])
-		FREQGLOB.append(float(filter(lambda x:'FREQ=' in x, NamelistData)[0].strip(' \t\n\r,=FREQ')[0:10]))
-		IRFPOW.append(float(filter(lambda x:'IRFPOW=' in x, NamelistData)[0].strip(' \t\n\r,=IRFPOW')))
-		IETRODEM.append(filter(lambda x:'IETRODEM=' in x, NamelistData)[0].split()[1:NUMMETALS])
-		for i in range(0,len(IETRODEM[l])): IETRODEM[l][i] = int(IETRODEM[l][i].strip(','))
-		PRESOUT.append(  float(filter(lambda x:'PRESOUT=' in x, NamelistData)[0].strip(' \t\n\r,=PRESOUT')))
-	except:
-		print '#==========================================================================#'
-		print 'ICP.NAM MATERIAL DEFINITIONS READIN ERROR, USING DEFAULT MATERIAL PROPERTIES'
-		print '#===========================================================================#'
-		FREQM.append(13.56E6)
-		FREQM2.append(13.56E6)
-		FREQC.append(13.56E6)
-		FREQGLOB.append(13.56E6)
-		VRFM.append(300.0)
-		VRFM2.append(150.0)
-		IRFPOW.append(100.0)
-		PRESOUT.append(0.85)
-	#endtry
-
-	#Plasma Chemistry Monte-Carlo (PCMC) Namelist Inputs
-	try:
-		IEBINSPCMC = float(filter(lambda x: 'IEBINSPCMC=' in x, NamelistData)[0].split()[0].strip(' \t\n\r,=IEBINSPCMC'))
-		EMAXIPCMC = float(filter(lambda x: 'EMAXIPCMC=' in x, NamelistData)[0].split()[0].strip(' \t\n\r,=EMAXIPCMC '))
-	except:
-		print '#======================================================#'
-		print 'ICP.NAM PCMC READIN ERROR, USING DEFAULT PCMC PROPERTIES'
-		print '#======================================================#'
-		IEBINSPCMC = 250
-		EMAXIPCMC = 160
-	#endtry
-
-	#Phase-Resolved IMOVIE Namelist Inputs
-	try:
-		IMOVIE_FRAMES.append(int(filter(lambda x:'IMOVIE_FRAMES=' in x, NamelistData)[0].strip(' \t\n\r,=IMOVIE_FRAMES')))
-	except:
-		print '#==================================================================#'
-		print 'ICP.NAM IMOVIE READIN ERROR, USING DEFAULT PHASE RESOLVED PROPERTIES'
-		print '#==================================================================#'
-		IMOVIE_FRAMES.append(180)
-	#endtry
 
 
-	#==========##===== ICP.DAT READIN =====##==========#
-	#==========##==========================##==========#
-
-	#Attempt automated retrieval of atomic species
-	ChemistryData = open(icpdat[l]).readlines()
-
-	#Plasma chemistry .dat file inputs
-	try:
-		#Determine end of chemistry set species definition
-		for i in range(0,len(ChemistryData)):
-
-			#Atomic Species Defined In Header, read in data line by line from icp.dat
-			#len(Header.split()) = 13 for atomic or molecular species definition
-			#len(Header.split()) = 8 for material surface interaction definition 
-			if len(ChemistryData[i].split()) == 13:
-				SpeciesName     = ChemistryData[i].split()[0]
-				Charge          = int(ChemistryData[i].split()[2])
-				MolecularWeight = float(ChemistryData[i].split()[4])
-				StickingCoeff   = float(ChemistryData[i].split()[6])
-				TransportBool   = int(ChemistryData[i].split()[8])
-				ReturnFrac      = float(ChemistryData[i].split()[10])
-				ReturnSpecies   = ChemistryData[i].split()[11]
-
-				#Collect all atomic species (including electrons)
-				if SpeciesName not in AtomicSpecies: AtomicSpecies.append(SpeciesName)
-				#Seperate species by charge
-				if Charge == 0 and SpeciesName not in NeutSpecies: NeutSpecies.append(SpeciesName)
-				elif Charge >= 1 and SpeciesName not in PosSpecies:  PosSpecies.append(SpeciesName)
-				elif Charge <= -1 and SpeciesName not in NegSpecies: NegSpecies.append(SpeciesName)
-				#List of recognized ground-state neutral species for fluid analysis.
-				FluidSpecies = ['AR','AR3S','O2','O']	#FLUID SPECIES ARE STILL MANUALLY DEFINED
-
-				#Collect icp.dat header if required for later use
-				header_icpdat.append([SpeciesName,Charge,MolecularWeight,StickingCoeff, TransportBool,ReturnFrac,ReturnSpecies])
-			#####
-
-			#End of Chemistry Header Denoted By '*', as soon as this is reached, stop reading in.
-			elif len(ChemistryData[i].split()) != 13 and len(ChemistryData[i].split()) !=8:
-				if ChemistryData[i].split()[0] == '*': break
-			#endif
-		#endfor
-	except:
-		print '#==================================================================#'
-		print 'ICP.COM ATOMIC SPECIES READIN ERROR, USING DEFAULT ATOMIC PROPERTIES'
-		print '#==================================================================#'
-		#List of dafault recognised neutral/metastable atomic sets, add new sets as required.
-		ArgonReduced = ['AR','AR+','AR*']
-		ArgonFull = ['AR3S','AR4SM','AR4SR','AR4SPM','AR4SPR','AR4P','AR4D','AR+','AR2+','AR2*']
-		Oxygen = ['O','O+','O-','O*','O2','O2+','O2*']
-
-		AtomicSpecies = ['E']+ArgonReduced+ArgonFull+Oxygen
-		NeutSpecies = ['AR3S','AR4SM','AR4SR','AR4SPM','AR4SPR','AR4P','AR4D','AR2*','O','O*','O2','O2*']
-		PosSpecies = ['AR+','AR2+','O+','O2+']
-		NegSpecies = ['E','O-']
-		#List of recognized ground-state neutral species for fluid analysis.
-		FluidSpecies = ['AR','AR3S','O2','O']
-	#endtry 
-
-	#==========##========================##==========#
-	#==========##========================##==========#
 
 
-	#clean up variables and assign required types.
-	try:
-#		for i in range(0,len(CMETALS[l])): CMETALS[l][i] = CMETALS[i].strip(',\'') #!!!BROKEN!!!
-		VRFM[l] = float( VRFM[l][IETRODEM[l].index(1)].strip(',') )
-		VRFM2[l] = float( VRFM2[l][IETRODEM[l].index(1)].strip(',') )
-		FREQM[l] = float( FREQM[l][IETRODEM[l].index(1)].strip(',') )
-		FREQM2[l] = float( FREQM2[l][IETRODEM[l].index(1)].strip(',') )
-		try: FREQC[l] = float( FREQMC[l][IETRODEM[l].index(1)].strip(',') )
-		except: ICP_Material_Not_Found=1
 
-		MINFREQ.append( min([FREQM[l],FREQM2[l],FREQC[l],FREQGLOB[l]]) )
-		MAXFREQ.append( max([FREQM[l],FREQM2[l],FREQC[l],FREQGLOB[l]]) )
-	except:
-		Material_Property_Conversion_Error=1
-	#endtry
+
+l=0
+
+print Dir[l]
+
+Variables,Values,Units = ReadNormConstants(Dir[l])
+print Variables[1],Values[1],Units[1]
+print ''
+
+files = sorted(glob.glob(Dir[l]+'data/*energy_n*'))
+print files
+print ''
+
+aux = np.loadtxt(files[0],skiprows=1)
+energy_phys = np.empty((0,aux.shape[1]))
+for afile in files:
+  print afile.split('/')[-1]
+  aux = np.loadtxt(afile,skiprows=1)
+  energy_phys = np.concatenate((energy_phys,aux))
 #endfor
+print len(energy_phys)
+print ''
 
-#==========##========================##==========#
-#==========##========================##==========#
-
-
-
-
-
-
-
+exit()
 
 
 
