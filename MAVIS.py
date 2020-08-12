@@ -190,6 +190,9 @@ cbaroverride = ['NotImplimented']
 
 
 
+
+
+
 #============================#
 #        ####TODO####        #
 #============================#
@@ -199,22 +202,20 @@ cbaroverride = ['NotImplimented']
 #Stuff
 
 # Possible Diagnostics?
-savefig_monoprofiles = False			#Single-Variables; fixed height/radius
-savefig_multiprofiles = False			#Multi-Variables; same folder
-savefig_comparelineouts = False			#Multi-Variables; all folders
-savefig_trendphaseaveraged = False		#Single-Variables; fixed cell location (or max/min)
-savefig_trendphaseresolved = True		#Single-Variables; Phase-resolved data.
-savefig_pulseprofiles = False			#Single-Variables; plotted against real-time axis
+#savefig_monoprofiles = False			#Single-Variables; fixed height/radius
+#savefig_multiprofiles = False			#Multi-Variables; same folder
+#savefig_comparelineouts = False		#Multi-Variables; all folders
+#savefig_trendphaseaveraged = False		#Single-Variables; fixed cell location (or max/min)
+#savefig_trendphaseresolved = True		#Single-Variables; Phase-resolved data.
+#savefig_pulseprofiles = False			#Single-Variables; plotted against real-time axis
 
-savefig_phaseresolve1D = False			#1D Phase Resolved Images
-savefig_phaseresolve2D = False			#2D Phase Resolved Images
-savefig_PROES =	False					#Simulated PROES Diagnostic
+#savefig_phaseresolve1D = False			#1D Phase Resolved Images
+#savefig_phaseresolve2D = False			#2D Phase Resolved Images
+#savefig_PROES = False					#Simulated PROES Diagnostic
 
-savefig_IEDFangular = False				#2D images of angular IEDF; single folders.
-savefig_IEDFtrends = False				#1D IEDF trends; all folders.
-savefig_EEDF = False					#NO PLOTTING ROUTINE		#IN DEVELOPMENT#
-
-
+#savefig_IEDFangular = False			#2D images of angular IEDF; single folders.
+#savefig_IEDFtrends = False				#1D IEDF trends; all folders.
+#savefig_EEDF = False					#NO PLOTTING ROUTINE		#IN DEVELOPMENT#
 
 
 
@@ -526,6 +527,46 @@ def CreateNewFolder(Dir,DirString):
 
 
 
+
+
+
+
+
+
+#====================================================================#
+					#WELCOME TEXT AND INFORMATION#
+#====================================================================#
+
+print ''
+print '-------------------------------------------------------'
+print ' .___  ___.      ___   ____    ____  __       _______. '
+print ' |   \/   |     /   \  \   \  /   / |  |     /       | '
+print ' |  \  /  |    /  ^  \  \   \/   /  |  |    |   (----` '
+print ' |  |\/|  |   /  /_\  \  \      /   |  |     \   \     '
+print ' |  |  |  |  /  _____  \  \    /    |  | .----)   |    '
+print ' |__|  |__| /__/     \__\  \__/     |__| |_______/     '
+print '                                                 v0.0.2'
+print '-------------------------------------------------------'
+print ''
+print 'The following diagnostics were requested:'
+print '-----------------------------------------'
+if True in [savefig_energyphys1D,savefig_energyharm1D]:
+	print'# 1D Energy Analysis'
+print '-----------------------------------------'
+print ''
+
+#=====================================================================#
+#=====================================================================#
+
+
+
+
+
+
+
+
+
+
 #====================================================================#
  						#INITIATE GLOBAL LISTS#
 #====================================================================#
@@ -534,9 +575,6 @@ def CreateNewFolder(Dir,DirString):
 Dir = list()			#List of simulation folders 					struc:[folder]
 DirFiles = list()		#List of data files in each simulation folder 	struc:[folder][filenames]
 NumFolders = 0			#Number of simulation folders
-
-Globalvarlist = list()
-Globalnumvars = list()
 
 #Create mesh_size lists and SI conversion
 Raxis = list()				#raxis		[m]
@@ -590,10 +628,6 @@ DataEEDF = list()				#Data[folder][Variable][Datapoint]
 IterMovieData = list()			#ITERMovieData[folder][timestep][variable][datapoints]
 PhaseMovieData = list()			#PhaseMovieData[folder][timestep][variable][datapoints]
 
-Moviephaselist = list()			#'CYCL = n'
-MovieIterlist = list()			#'ITER = n'
-EEDF_TDlist = list()			#'???'
-
 header_itermovie = list()
 header_phasemovie = list()
 header_IEDFlist = list()
@@ -601,58 +635,6 @@ header_2Dlist = list()
 
 #=====================================================================#
 #=====================================================================#
-
-
-
-
-
-
-
-
-
-
-#====================================================================#
-					#WELCOME TEXT AND INFORMATION#
-#====================================================================#
-
-print ''
-print '-------------------------------------------------------'
-print ' .___  ___.      ___   ____    ____  __       _______. '
-print ' |   \/   |     /   \  \   \  /   / |  |     /       | '
-print ' |  \  /  |    /  ^  \  \   \/   /  |  |    |   (----` '
-print ' |  |\/|  |   /  /_\  \  \      /   |  |     \   \     '
-print ' |  |  |  |  /  _____  \  \    /    |  | .----)   |    '
-print ' |__|  |__| /__/     \__\  \__/     |__| |_______/     '
-print '                                                 v0.0.1'
-print '-------------------------------------------------------'
-print ''
-print 'The following diagnostics were requested:'
-print '-----------------------------------------'
-if True in [savefig_phaseresolve2D,savefig_PROES]:
-	print'# 2D Phase-Resolved Movie Processing'
-if True in [savefig_phaseresolve1D]:
-	print'# 1D Phase-Resolved Profile Processing'
-if True in [savefig_monoprofiles,savefig_multiprofiles,savefig_comparelineouts,savefig_pulseprofiles]:
-	print'# 1D Steady-State Profile Processing'
-if True in [print_generaltrends]:
-	print'# 1D Specific Trend Analysis'
-if savefig_trendphaseaveraged == True:
-	print'# 1D Steady-State Trend Processing'
-if savefig_trendphaseresolved == True:
-	print'# 1D Phase-Resolved Trend Processing'
-if True in [savefig_IEDFangular,savefig_IEDFtrends,savefig_EEDF]:
-	print'# Angular Energy Distribution Processing'
-print '-----------------------------------------'
-print ''
-
-#=====================================================================#
-#=====================================================================#
-
-
-
-
-
-
 
 
 
@@ -690,7 +672,7 @@ for l in range(0,len(HomeDirFolders)):
 		NumFolders += 1
 
 		#Extract contents from current simulation folder and /data/ subfolder
-		DataDir = Root+HomeDirFolders[i]+'/data/'
+		DataDir = Root+HomeDirFolders[l]+'/data/'
 		DataDirContents = DirectoryContents(DataDir)[1]		#Data Folder level
 		SimDirContents = SubDirContents						#Simulation Folder Level
 
@@ -708,7 +690,7 @@ for l in range(0,len(HomeDirFolders)):
 		for j in range(0,len(DataDirContents)):
 			Filename = DataDirContents[j]
 			if any([x in Filename for x in FileExtensions]):
-				Prefix = Dir[-1]+'data/'
+				Prefix = Dir[-1]+'data/'						#Note: Dir ends with a '/'
 				DirFiles[-1].append(Prefix+Filename)
 				#endif
 			#endif
@@ -717,8 +699,13 @@ for l in range(0,len(HomeDirFolders)):
 		CURRENT_FOLDER_IS_NOT_SIMULATION_FOLDER = 1
 	#endif
 #endfor
+
 #If no folders detected, end analysis script.
-if NumFolders == 0:
+if NumFolders > 0:
+	print '----------------------------------------'
+	print 'Data Readin Complete, Starting Analysis:'
+	print '----------------------------------------'
+elif NumFolders == 0:
 	print '-------------------------------------------'
 	print 'No Ouput Files Detected, Aborting Analysis.'
 	print '-------------------------------------------'
@@ -726,8 +713,17 @@ if NumFolders == 0:
 	exit()
 #endif
 
-#==========##========================##==========#
-#==========##========================##==========#
+#=====================================================================#
+#=====================================================================#
+
+
+
+
+
+
+
+
+
 
 
 
@@ -748,25 +744,49 @@ if NumFolders == 0:
 				 	    #1D ENERGY DIAGNOSTICS#
 #====================================================================#
 
-if 
+if savefig_energyphys1D == True:
+
+	#For each detected simulation folder
+	for l in range(0,len(Dir)):
+
+		#Extract normalisation factors for current simulation folder
+		Variables,Values,Units = ReadMEGANormalisations(Dir[l])
+		print Variables[1],Values[1],Units[1]
+		print ''
+
+		#Extract Energy_Phys outputs and header for plotting
+		#energy_phys: [folder][variable][timestep]
+		Energy_Phys,Header_Phys = ExtractMEGAEnergy(Dir[l],'energy_phys')
 
 
 
 
+#endif
+
+#==========##==========##==========#
+#==========##==========##==========#
 
 
-l=0
-print Dir[l]
+if savefig_energyharm1D == True:
 
-Variables,Values,Units = ReadMEGANormalisations(Dir[l])
-print Variables[1],Values[1],Units[1]
-print ''
+	#For each detected simulation folder
+	for l in range(0,len(Dir)):
 
-Data_EnergyN = 
-#energy_n: [folder][variable][timestep]
-Energy_n,Header_n = ExtractMEGAEnergy(Dir[l],'energy_n')
-#energy_phys: [folder][variable][timestep]
-Energy_Phys,Header_Phys = ExtractMEGAEnergy(Dir[l],'energy_phys')
+		#Extract normalisation factors for current simulation folder
+		Variables,Values,Units = ReadMEGANormalisations(Dir[l])
+		print Variables[1],Values[1],Units[1]
+		print ''
+
+		#Extract Energy_n outputs and header for plotting
+		#energy_n: [folder][variable][timestep]
+		Energy_n,Header_n = ExtractMEGAEnergy(Dir[l],'energy_n')
+
+
+		
+
+#endif
+
+
 
 plt.plot(Energy_Phys[0],Energy_Phys[3])
 plt.show()
@@ -777,6 +797,14 @@ plt.show()
 
 
 
+if any([savefig_energyphys1D,savefig_energyharm1D]) == True:
+	print '---------------------------'
+	print '1D Energy Analysis Complete'
+	print '---------------------------'
+#endif
+
+#====================================================================#
+#====================================================================#
 
 
 
@@ -797,7 +825,38 @@ plt.show()
 
 
 
-savefig_energyphys1D,savefig_energyharm1D
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
