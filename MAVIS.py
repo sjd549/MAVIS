@@ -149,7 +149,7 @@ TrendLocation = [] 						#Cell location For Trend Analysis [R,Z], ([] = min/max)
 HarmonicRange = [2]						#Harmonics to be plotted [Int]
 
 #Requested diagnostics and plotting routines.
-savefig_energyphys1D = True				#Plot 1D physical trends (energy_phys)
+savefig_energyphys1D = True				#Plot 1D physical trends (Energy_Phys)
 savefig_energyharm1D = True				#plot 1D harmonic trends (energy_n)
 
 #Steady-State diagnostics terminal output toggles.
@@ -243,7 +243,7 @@ cbaroverride = ['NotImplimented']
 
 
 #====================================================================#
-					#FUNDAMENTAL I/O FUNCTIONS#
+						#COMMON I/O FUNCTIONS#
 #====================================================================#
 
 #Takes absolute directory path name as string
@@ -462,7 +462,7 @@ def ReadMEGANormalisations(Dir):
 #=========================#
 
 #Reads and concatenates MEGA energy.txt output files
-#Takes simulation directory (absolute path) and filename (energy_n, energy_phys)
+#Takes simulation directory (absolute path) and filename (energy_n, Energy_Phys)
 #Returns output data and header, data of form: [Variable][Timestamp]
 #Example: OutputData,Header = ExtractMEGAEnergy(Dir[l],Filename)
 def ExtractMEGAEnergy(Dir,Filename='energy_n'):
@@ -494,6 +494,8 @@ def ExtractMEGAEnergy(Dir,Filename='energy_n'):
 	return(OutputData,Header)
 #endif
 
+#=========================#
+
 #Creates a new folder if one does not already exist.
 #Takes destination dir and namestring, returns new directory.
 def CreateNewFolder(Dir,DirString):
@@ -505,6 +507,221 @@ def CreateNewFolder(Dir,DirString):
 	#endtry
 	return(NewFolderDir)
 #enddef
+
+#=========================#
+
+
+
+
+
+#====================================================================#
+					#COMMON PLOTTING FUNCTIONS#
+#====================================================================#
+
+
+#Create figure of desired size and with variable axes.
+#Returns figure and axes seperately.
+#fig,ax = figure(image_aspectratio,1,shareX=False)
+def figure(aspectratio=[],subplots=1,shareX=False):
+	if len(aspectratio) == 2:
+		fig, ax = plt.subplots(subplots, figsize=(aspectratio[0],aspectratio[1]),sharex=shareX)
+	else:
+		fig, ax = plt.subplots(subplots, figsize=(10,10), sharex=shareX)
+	#endif
+	return(fig,ax)
+#enddef
+
+#=========================#
+#=========================#
+
+#Applies plt.options to current figure based on user input.
+#Returns nothing, open figure is required, use figure().
+#For best results call immediately before saving/displaying figure.
+#ImageOptions(plt.gca(),Xlabel,Ylabel,Title,Legend,Crop=False)
+def ImageOptions(fig,ax='NaN',Xlabel='',Ylabel='',Title='',Legend=[],Crop=True,Rotate=True):
+	if ax == 'NaN': ax = plt.gca()
+
+	#Apply user overrides to plots.
+	if len(titleoverride) > 0:
+		Title = titleoverride
+	if len(legendoverride) > 0:
+		Legend = legendoverride
+	if len(xlabeloverride) > 0:
+		Xlabel = xlabeloverride[0]
+	if len(ylabeloverride) > 0:
+		Ylabel = ylabeloverride[0]
+	#endif
+
+	#Set title and legend if one is supplied.
+	if len(Title) > 0:
+		ax.set_title(Title, fontsize=14, y=1.03)
+	if len(Legend) > 0:
+		ax.legend(Legend, loc=1, fontsize=16, frameon=False)
+	#endif
+
+	#Set labels and ticksize.
+	ax.set_xlabel(Xlabel, fontsize=24)
+	ax.set_ylabel(Ylabel, fontsize=24)
+	ax.tick_params(axis='x', labelsize=18)
+	ax.tick_params(axis='y', labelsize=18)
+
+	#Force scientific notation for all axes, accounting for non-scalar x-axes.
+	try: ax.xaxis.get_major_locator().set_params(style='sci',scilimits=(-2,3),axis='both')
+	except: Axes_Contain_Strings = True
+#	try: ax.ticklabel_format(style='sci',scilimits=(-2,3),axis='both')	#Old tickformat.
+#	except: ax.ticklabel_format(style='sci',scilimits=(-2,3),axis='y')	#Old tickformat.
+	#endtry
+
+	#Set grid, default is off.
+	if image_plotgrid == True: ax.grid(True)
+	#endif
+
+	#Plot mesh outline if requested.	### HACKY ###
+	if image_plotmesh == True:
+		mesh_auto_plot = 1 #AUTO PLOT MESH#
+		#NOT IMPLIMENTED!! REQUIRES initmesh.out READER#
+	elif image_plotmesh == 'PRCCP' and Crop == True:	
+		ManualPRCCPMesh(ax)
+	elif image_plotmesh == 'EVgeny' and Crop == True:
+		ManualEVgenyMesh(ax)
+	elif image_plotmesh == 'HyperionI' and Crop == True:
+		ManualHyperionIMesh(ax)
+	elif image_plotmesh == 'HyperionII' and Crop == True:
+		ManualHyperionIIMesh(ax)
+	#endif
+
+	#Crop image dimensions, use provided dimensions or default if not provided.
+	if isinstance(Crop, (list, np.ndarray) ) == True:
+		CropImage(ax,Extent=Crop,Rotate=Rotate)
+	elif any( [len(image_radialcrop),len(image_axialcrop)] ) > 0:
+		if Crop == True:
+			CropImage(ax,Rotate=Rotate)
+		#endif
+	#endif
+
+	#Arrange figure such that labels, legends and titles fit within frame.
+	fig.tight_layout()
+
+	return()
+#enddef
+
+#=========================#
+#=========================#
+
+#Creates and plots a colourbar with given label and binsize.
+#Takes image axis, label string, number of ticks and limits
+#Allows pre-defined colourbar limits in form [min,max].
+#Returns cbar axis if further changes are required.
+#cbar = Colourbar(ax[0],'Label',5,Lim=[0,1])
+def Colourbar(ax='NaN',Label='',Ticks=5,Lim=[]):
+	if ax == 'NaN': ax = plt.gca()
+
+	#Set default font and spacing options and modify if required
+	Rotation,Labelpad = 270,30
+	LabelFontSize,TickFontsize = 24,18
+	if '\n' in Label: Labelpad += 25		#Pad label for multi-line names
+
+	#Create and define colourbar axis
+	divider = make_axes_locatable(ax)
+	cax = divider.append_axes("right", size="2%", pad=0.1)
+	cbar = plt.colorbar(im, cax=cax)
+
+	#Set number of ticks, label location and define scientific notation.
+	cbar.set_label(Label, rotation=Rotation,labelpad=Labelpad,fontsize=LabelFontSize)
+	cbar.formatter.set_powerlimits((-2,3))
+	cbar.locator = ticker.MaxNLocator(nbins=Ticks)
+	cbar.ax.yaxis.offsetText.set(size=TickFontsize)
+	yticks(fontsize=TickFontsize)
+
+	#Apply colourbar limits if specified.  (lim=[min,max])
+	if len(Lim) == 2: im.set_clim(vmin=Lim[0], vmax=Lim[1])
+
+	return(cbar)
+#enddef
+
+#=========================#
+#=========================#
+
+#Creates an invisible colourbar to align subplots without colourbars.
+#Takes image axis, returns colourbar axis if further edits are required
+#cax = InvisibleColourbar(ax[0])
+def InvisibleColourbar(ax='NaN'):
+	if ax == 'NaN': ax = plt.gca()
+
+	#Create colourbar axis, ideally should 'find' values of existing cbar! 
+	divider = make_axes_locatable(ax)
+	cax = divider.append_axes("right", size="2%", pad=0.1)
+
+	#Set new cax to zero size and remove ticks.
+	try: cax.set_facecolor('none')				#matplotlib v2.x.x method
+	except: cax.set_axis_bgcolor('none')		#matplotlib v1.x.x method
+	for axis in ['top','bottom','left','right']:
+		cax.spines[axis].set_linewidth(0)
+	cax.set_xticks([])
+	cax.set_yticks([])
+
+	return(cax)
+#enddef
+
+#=========================#
+#=========================#
+
+
+
+#====================================================================#
+				  #COMMON DATA ANALYSIS FUNCTIONS#
+#====================================================================#
+
+
+#Takes 1D or 2D array and returns array normalized to maximum value.
+#If NormFactor is defined, array will be normalized to this instead.
+#Returns normalized image/profile and the max/min normalization factors.
+#NormProfile,Min,Max = Normalize(profile,NormFactor=0)
+def Normalize(profile,NormFactor=0):
+	NormalizedImage = list()
+
+	#determine dimensionality of profile and select normaliztion method.
+	if isinstance(profile[0], (list, np.ndarray) ) == True:
+
+		#Obtain max and min normalization factors for 2D array.
+		FlatImage = [item for sublist in profile for item in sublist]
+		MaxNormFactor,MinNormFactor = max(FlatImage),min(FlatImage)
+
+		#Fix for division by zero and other infinity related things...
+		if 'inf' in str(MaxNormFactor) or MaxNormFactor == 0.0: MaxNormFactor = 1.0
+		if 'inf' in str(MinNormFactor) or MinNormFactor == 0.0: MinNormFactor = 0.0
+		#endif
+
+		#Normalize 2D array to local maximum.
+		if NormFactor == 0: NormFactor = MaxNormFactor
+		for i in range(0,len(profile)):
+			NormalizedImage.append( [x/NormFactor for x in profile[i]] )
+		#endfor
+		profile = NormalizedImage
+		return(profile,MaxNormFactor,MinNormFactor)
+
+	#Lowest dimention is still list.
+	elif isinstance(profile, (list, np.ndarray) ) == True:
+
+		#Obtain max and min normalization factors for 1D profile.
+		MaxNormFactor,MinNormFactor = max(profile),min(profile)
+
+		#Fix for division by zero and other infinity related things...
+		if 'inf' in str(MaxNormFactor) or MaxNormFactor == 0.0: MaxNormFactor = 1.0
+		if 'inf' in str(MinNormFactor) or MinNormFactor == 0.0: MinNormFactor = 0.0
+
+		#Normalize 1D array to local maximum.
+		if NormFactor == 0: NormFactor = MaxNormFactor
+		for i in range(0,len(profile)):
+			profile[i] = profile[i]/NormFactor
+		#endfor
+	#endif
+
+	return(profile,MinNormFactor,MaxNormFactor)
+#enddef
+
+#=========================#
+#=========================#
 
 #=====================================================================#
 #=====================================================================#
@@ -545,7 +762,7 @@ print ' |  \  /  |    /  ^  \  \   \/   /  |  |    |   (----` '
 print ' |  |\/|  |   /  /_\  \  \      /   |  |     \   \     '
 print ' |  |  |  |  /  _____  \  \    /    |  | .----)   |    '
 print ' |__|  |__| /__/     \__\  \__/     |__| |_______/     '
-print '                                                 v0.0.2'
+print '                                                 v0.0.3'
 print '-------------------------------------------------------'
 print ''
 print 'The following diagnostics were requested:'
@@ -747,55 +964,110 @@ elif NumFolders == 0:
 if savefig_energyphys1D == True:
 
 	#For each detected simulation folder
-	for l in range(0,len(Dir)):
+	for l in tqdm(range(0,len(Dir))):
+		#Create global 1D diagnostics folder.
+		DirEnergy = CreateNewFolder(Dir[l],'1DEnergy_Profiles/')
+
+		#Extract Energy_Phys outputs and header for plotting
+		#Energy_Phys: [folder][variable][timestep]
+		Energy_Phys,Header_Phys = ExtractMEGAEnergy(Dir[l],'energy_phys')
 
 		#Extract normalisation factors for current simulation folder
 		Variables,Values,Units = ReadMEGANormalisations(Dir[l])
-		print Variables[1],Values[1],Units[1]
-		print ''
+#		print Variables[1],Values[1],Units[1]
 
-		#Extract Energy_Phys outputs and header for plotting
-		#energy_phys: [folder][variable][timestep]
-		Energy_Phys,Header_Phys = ExtractMEGAEnergy(Dir[l],'energy_phys')
+		#==========#
 
+		#Create fig of desired size.
+		fig,ax = figure(image_aspectratio,3)
 
+		#Define Title, Legend, Axis Labels etc...
+		Xlabel,Ylabel = 'Time [ms]', 'Magnitude Log10 [Units]'
+		Legendlist = Header_Phys[2::]
 
+		#Plot 1D energy profiles:
+		ax[0].plot(Energy_Phys[0],Energy_Phys[2],'k-',lw=2)
+		ax[0].plot(Energy_Phys[0],Energy_Phys[3],'r-',lw=2)
+		ax[0].plot(Energy_Phys[0],Energy_Phys[4],'b-',lw=2)
+		ax[0].legend(['Kinetic','magnetic','thermal'], fontsize=18, frameon=False)
+		ax[0].tick_params(axis='x', labelsize=18)
+		ax[0].tick_params(axis='y', labelsize=18)
+		ax[0].xaxis.set_major_locator(ticker.MultipleLocator(50000))
+		ax[0].set_ylabel('Units', fontsize=24)
 
+		ax[1].plot(Energy_Phys[0],Energy_Phys[5],'k-',lw=2)
+		ax[1].plot(Energy_Phys[0],Energy_Phys[6],'r-',lw=2)
+		ax[1].plot(Energy_Phys[0],Energy_Phys[7],'b-',lw=2)
+		ax[1].legend(['co','cntr','total'], fontsize=18, frameon=False)
+		ax[1].tick_params(axis='x', labelsize=18)
+		ax[1].tick_params(axis='y', labelsize=18)
+		ax[1].xaxis.set_major_locator(ticker.MultipleLocator(50000))
+		ax[1].set_ylabel('Units', fontsize=24)
+
+		ax[2].plot(Energy_Phys[0],Energy_Phys[8],'k-',lw=2)
+		ax[2].plot(Energy_Phys[0],Energy_Phys[9],'r-',lw=2)
+		ax[2].legend(['transferred','total'], fontsize=18, frameon=False)
+		ax[2].set_xlabel('Kstep', fontsize=24)
+		ax[2].set_ylabel('Units', fontsize=24)
+		ax[2].xaxis.set_major_locator(ticker.MultipleLocator(50000))
+		ax[2].tick_params(axis='x', labelsize=18)
+		ax[2].tick_params(axis='y', labelsize=18)
+
+		#Save and close open figure(s)
+		plt.savefig(DirEnergy+'TotEnergy'+ext)
+#		plt.show()
+		plt.close('all')
+	#endfor
 #endif
 
 #==========##==========##==========#
 #==========##==========##==========#
 
-
 if savefig_energyharm1D == True:
 
 	#For each detected simulation folder
-	for l in range(0,len(Dir)):
-
-		#Extract normalisation factors for current simulation folder
-		Variables,Values,Units = ReadMEGANormalisations(Dir[l])
-		print Variables[1],Values[1],Units[1]
-		print ''
+	for l in tqdm(range(0,len(Dir))):
+		#Create global 1D diagnostics folder.
+		DirEnergy = CreateNewFolder(Dir[l],'1DEnergy_Profiles/')
 
 		#Extract Energy_n outputs and header for plotting
 		#energy_n: [folder][variable][timestep]
 		Energy_n,Header_n = ExtractMEGAEnergy(Dir[l],'energy_n')
 
+		#Extract normalisation factors for current simulation folder
+		Variables,Values,Units = ReadMEGANormalisations(Dir[l])
+#		print Variables[1],Values[1],Units[1]
 
-		
+		#==========#
 
+		#Create fig of desired size.
+		fig,ax = figure(image_aspectratio,1)
+
+		#Define Title, Legend, Axis Labels etc...
+		Xlabel,Ylabel = 'Time [ms]', 'Magnitude Log10 [Units]'
+		Legend = list()
+
+		#Plot 1D energy profiles:
+		for i in range(2,len(Energy_n)):
+			ax.plot(Energy_n[0],np.log10(Energy_n[i]), lw=2)
+			Legend.append( 'n = '+str(i-2) )
+		#endfor
+		ax.legend(Legend, fontsize=18, frameon=False)
+		ax.tick_params(axis='x', labelsize=18)
+		ax.tick_params(axis='y', labelsize=18)
+		ax.xaxis.set_major_locator(ticker.MultipleLocator(50000))
+		ax.set_xlabel('Kstep', fontsize=24)
+		ax.set_ylabel('Units', fontsize=24)
+
+		#Save and close open figure(s)
+		plt.savefig(DirEnergy+'HarmEnergy'+ext)
+#		plt.show()
+		plt.close('all')
+	#endfor
 #endif
 
-
-
-plt.plot(Energy_Phys[0],Energy_Phys[3])
-plt.show()
-
-
-
-
-
-
+#==========##==========##==========#
+#==========##==========##==========#
 
 if any([savefig_energyphys1D,savefig_energyharm1D]) == True:
 	print '---------------------------'
@@ -862,6 +1134,11 @@ if any([savefig_energyphys1D,savefig_energyharm1D]) == True:
 
 
 
+
+
+
+
+
 #====================================================================#
 							# CODE DUMP #
 #====================================================================#
@@ -871,67 +1148,78 @@ if any([savefig_energyphys1D,savefig_energyharm1D]) == True:
 
 
 
+
+
+
+#=====================================================================#
+#=====================================================================#
+
+
+
+
 #====================================================================#
 				 	 #READING DATA INTO MEMORY#
 #====================================================================#
 
-print'-----------------------'
-print'Beginning Data Read-in.'
-print'-----------------------'
+if True == False:
+	print'-----------------------'
+	print'Beginning Data Read-in.'
+	print'-----------------------'
 
-#Extraction and organization of data from .txt files.
-for l in tqdm(range(0,numfolders)):
+	#Extraction and organization of data from .txt files.
+	for l in tqdm(range(0,numfolders)):
 
-	#Extraction and organization of data from .txt files. - NOT CURRENTLY USED
-	if True == False:
- 
-		#energy_n: [folder][variable][timestep]
-		Energy_n,Header_n = ExtractMEGAEnergy(Dir[l],'energy_n')
-		#energy_phys: [folder][variable][timestep]
-		Energy_Phys,Header_Phys = ExtractMEGAEnergy(Dir[l],'energy_phys')
+		#Extraction and organization of data from .txt files. - NOT CURRENTLY USED
+		if True == False:
+	 
+			#energy_n: [folder][variable][timestep]
+			Energy_n,Header_n = ExtractMEGAEnergy(Dir[l],'energy_n')
+			#Energy_Phys: [folder][variable][timestep]
+			Energy_Phys,Header_Phys = ExtractMEGAEnergy(Dir[l],'Energy_Phys')
+		#endif
+
+	#===================##===================#
+	#===================##===================#
+
+		#Extraction and organization of data from .harmonics files. - NOT CURRENTLY USED
+		if True == False:
+
+			#Load data from TECPLOT_KIN file and unpack into 1D array.
+			rawdata, nn_kin = ExtractRawData(Dir,'TECPLOT_KIN.PDT',l)
+			rawdata_kin.append(rawdata)
+		#endif
+
+
+	#===================##===================#
+	#===================##===================#
+
+		#Extraction and organization of data from .moments files. - NOT CURRENTLY USED
+		if True == False:
+
+			#Load data from TECPLOT_KIN file and unpack into 1D array.
+			rawdata, nn_kin = ExtractRawData(Dir,'TECPLOT_KIN.PDT',l)
+			rawdata_kin.append(rawdata)
+		#endif
+
+
+	#===================##===================#
+	#===================##===================#
+
+	#Empty and delete any non-global data lists.
+	HomeDir,DirContents = list(),list()
+	del HomeDir,DirContents
+
+	#Alert user that readin process has ended and continue with selected diagnostics.
+	if any([savefig_energyphys1D,savefig_energyharm1D]) == True:
+		print '----------------------------------------'
+		print 'Data Readin Complete, Starting Analysis:'
+		print '----------------------------------------'
+	else:
+		print '------------------'
+		print 'Analysis Complete.'
+		print '------------------'
+		exit()
 	#endif
-
-#===================##===================#
-#===================##===================#
-
-	#Extraction and organization of data from .harmonics files. - NOT CURRENTLY USED
-	if True == False:
-
-		#Load data from TECPLOT_KIN file and unpack into 1D array.
-		rawdata, nn_kin = ExtractRawData(Dir,'TECPLOT_KIN.PDT',l)
-		rawdata_kin.append(rawdata)
-	#endif
-
-
-#===================##===================#
-#===================##===================#
-
-	#Extraction and organization of data from .moments files. - NOT CURRENTLY USED
-	if True == False:
-
-		#Load data from TECPLOT_KIN file and unpack into 1D array.
-		rawdata, nn_kin = ExtractRawData(Dir,'TECPLOT_KIN.PDT',l)
-		rawdata_kin.append(rawdata)
-	#endif
-
-
-#===================##===================#
-#===================##===================#
-
-#Empty and delete any non-global data lists.
-HomeDir,DirContents = list(),list()
-del HomeDir,DirContents
-
-#Alert user that readin process has ended and continue with selected diagnostics.
-if any([savefig_energyphys1D,savefig_energyharm1D]) == True:
-	print '----------------------------------------'
-	print 'Data Readin Complete, Starting Analysis:'
-	print '----------------------------------------'
-else:
-	print '------------------'
-	print 'Analysis Complete.'
-	print '------------------'
-	exit()
 #endif
 
 #=====================================================================#
