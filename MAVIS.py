@@ -146,11 +146,16 @@ TrendLocation = [] 						#Cell location For Trend Analysis [R,Z], ([] = min/max)
 
 
 #Various Diagnostic Settings.
-HarmonicRange = [2]						#Harmonics to be plotted [Int]
+HarmonicRange = [0,2]					#Harmonic range to be plotted [Min,Max]
 
 #Requested diagnostics and plotting routines.
-savefig_energyphys1D = True				#Plot 1D physical trends (Energy_Phys)
-savefig_energyharm1D = True				#plot 1D harmonic trends (energy_n)
+savefig_energyphys1D = True				#Plot 1D physical trends (xxx.energy_phys)
+savefig_energyharm1D = True				#Plot 1D harmonic trends (xxx.energy_n)
+
+savefig_harmonics2D = True				#Plot 2D harmonic trends (xxx.harmonics)
+
+savefig_equilibrium2D = True			#Plot 2D ...
+
 
 #Steady-State diagnostics terminal output toggles.
 print_generaltrends = False				#Verbose Min/Max Trend Outputs.
@@ -537,8 +542,8 @@ def figure(aspectratio=[],subplots=1,shareX=False):
 #Applies plt.options to current figure based on user input.
 #Returns nothing, open figure is required, use figure().
 #For best results call immediately before saving/displaying figure.
-#ImageOptions(plt.gca(),Xlabel,Ylabel,Title,Legend,Crop=False)
-def ImageOptions(fig,ax='NaN',Xlabel='',Ylabel='',Title='',Legend=[],Crop=True,Rotate=True):
+#ImageOptions(fig,plt.gca(),Xlabel,Ylabel,Title,Legend)
+def ImageOptions(fig,ax='NaN',Xlabel='',Ylabel='',Title='',Legend=[]):
 	if ax == 'NaN': ax = plt.gca()
 
 	#Apply user overrides to plots.
@@ -556,7 +561,7 @@ def ImageOptions(fig,ax='NaN',Xlabel='',Ylabel='',Title='',Legend=[],Crop=True,R
 	if len(Title) > 0:
 		ax.set_title(Title, fontsize=14, y=1.03)
 	if len(Legend) > 0:
-		ax.legend(Legend, loc=1, fontsize=16, frameon=False)
+		ax.legend(Legend, fontsize=16, frameon=False)
 	#endif
 
 	#Set labels and ticksize.
@@ -578,24 +583,18 @@ def ImageOptions(fig,ax='NaN',Xlabel='',Ylabel='',Title='',Legend=[],Crop=True,R
 
 	#Plot mesh outline if requested.	### HACKY ###
 	if image_plotmesh == True:
-		mesh_auto_plot = 1 #AUTO PLOT MESH#
-		#NOT IMPLIMENTED!! REQUIRES initmesh.out READER#
-	elif image_plotmesh == 'PRCCP' and Crop == True:	
-		ManualPRCCPMesh(ax)
-	elif image_plotmesh == 'EVgeny' and Crop == True:
-		ManualEVgenyMesh(ax)
-	elif image_plotmesh == 'HyperionI' and Crop == True:
-		ManualHyperionIMesh(ax)
-	elif image_plotmesh == 'HyperionII' and Crop == True:
-		ManualHyperionIIMesh(ax)
+		mesh_auto_plot = 1 # !!AUTO PLOT MESH NOT IMPLIMENTED!! #
+	elif image_plotmesh == 'ASDEX' and Crop == True:	
+		ManualASDEXMesh(ax)
 	#endif
 
-	#Crop image dimensions, use provided dimensions or default if not provided.
-	if isinstance(Crop, (list, np.ndarray) ) == True:
-		CropImage(ax,Extent=Crop,Rotate=Rotate)
-	elif any( [len(image_radialcrop),len(image_axialcrop)] ) > 0:
-		if Crop == True:
-			CropImage(ax,Rotate=Rotate)
+	#Crop image dimensions, use provided dimensions...
+#	if isinstance(Crop, (list, np.ndarray) ) == True:
+#		CropImage(ax,Extent=Crop,Rotate=Rotate)
+	#... or default dimensions if not directly provided.
+#	elif any( [len(image_radialcrop),len(image_axialcrop)] ) > 0:
+#		if Crop == True:
+#			CropImage(ax,Rotate=Rotate)
 		#endif
 	#endif
 
@@ -965,8 +964,10 @@ if savefig_energyphys1D == True:
 
 	#For each detected simulation folder
 	for l in tqdm(range(0,len(Dir))):
-		#Create global 1D diagnostics folder.
+		#Create global 1D diagnostics folder and extract current simulation name
 		DirEnergy = CreateNewFolder(Dir[l],'1DEnergy_Profiles/')
+		DirString = Dir[l].split('/')[-2]
+		SubString = DirString.split('_')[-1]
 
 		#Extract Energy_Phys outputs and header for plotting
 		#Energy_Phys: [folder][variable][timestep]
@@ -982,39 +983,31 @@ if savefig_energyphys1D == True:
 		fig,ax = figure(image_aspectratio,3)
 
 		#Define Title, Legend, Axis Labels etc...
-		Xlabel,Ylabel = 'Time [ms]', 'Magnitude Log10 [Units]'
-		Legendlist = Header_Phys[2::]
+		Title = 'Spectrally Integrated Energy Evolution for '+DirString
+		Xlabel,Ylabel = 'Time [ms]', 'Energy [-]'
 
-		#Plot 1D energy profiles:
-		ax[0].plot(Energy_Phys[0],Energy_Phys[2],'k-',lw=2)
-		ax[0].plot(Energy_Phys[0],Energy_Phys[3],'r-',lw=2)
-		ax[0].plot(Energy_Phys[0],Energy_Phys[4],'b-',lw=2)
-		ax[0].legend(['Kinetic','magnetic','thermal'], fontsize=18, frameon=False)
-		ax[0].tick_params(axis='x', labelsize=18)
-		ax[0].tick_params(axis='y', labelsize=18)
-		ax[0].xaxis.set_major_locator(ticker.MultipleLocator(50000))
-		ax[0].set_ylabel('Units', fontsize=24)
+		#Plot total thermal, kinetic and magnetic energy over time
+		ax[0].plot(Energy_Phys[1],Energy_Phys[2],'k-',lw=2)		#Kinetic
+		ax[0].plot(Energy_Phys[1],Energy_Phys[3],'r-',lw=2)		#Magnetic
+		ax[0].plot(Energy_Phys[1],Energy_Phys[4],'b-',lw=2)		#Thermal
+		Legend = ['Kinetic','Magnetic','Thermal']		#Header_Phys[2::]
+		ImageOptions(fig,ax[0],'',Ylabel,Title,Legend)
 
-		ax[1].plot(Energy_Phys[0],Energy_Phys[5],'k-',lw=2)
-		ax[1].plot(Energy_Phys[0],Energy_Phys[6],'r-',lw=2)
-		ax[1].plot(Energy_Phys[0],Energy_Phys[7],'b-',lw=2)
-		ax[1].legend(['co','cntr','total'], fontsize=18, frameon=False)
-		ax[1].tick_params(axis='x', labelsize=18)
-		ax[1].tick_params(axis='y', labelsize=18)
-		ax[1].xaxis.set_major_locator(ticker.MultipleLocator(50000))
-		ax[1].set_ylabel('Units', fontsize=24)
+		#Plot ?co?, ?cntr? and ?total? energy over time
+		ax[1].plot(Energy_Phys[1],Energy_Phys[5],'k-',lw=2)		# ?co?
+		ax[1].plot(Energy_Phys[1],Energy_Phys[6],'r-',lw=2)		# ?cntr?
+		ax[1].plot(Energy_Phys[1],Energy_Phys[7],'b-',lw=2)		# ?total?
+		Legend = ['co','cntr','total']			#Header_Phys[2::]
+		ImageOptions(fig,ax[1],'',Ylabel,'',Legend)
 
-		ax[2].plot(Energy_Phys[0],Energy_Phys[8],'k-',lw=2)
-		ax[2].plot(Energy_Phys[0],Energy_Phys[9],'r-',lw=2)
-		ax[2].legend(['transferred','total'], fontsize=18, frameon=False)
-		ax[2].set_xlabel('Kstep', fontsize=24)
-		ax[2].set_ylabel('Units', fontsize=24)
-		ax[2].xaxis.set_major_locator(ticker.MultipleLocator(50000))
-		ax[2].tick_params(axis='x', labelsize=18)
-		ax[2].tick_params(axis='y', labelsize=18)
+		#Plot ?Transferred? and ?Total? energy over time
+		ax[2].plot(Energy_Phys[1],Energy_Phys[8],'k-',lw=2)		#Transferred
+		ax[2].plot(Energy_Phys[1],Energy_Phys[9],'r-',lw=2)		#Total
+		Legend = ['Transferred','Total']		#Header_Phys[2::]
+		ImageOptions(fig,ax[2],Xlabel,Ylabel,'',Legend)
 
 		#Save and close open figure(s)
-		plt.savefig(DirEnergy+'TotEnergy'+ext)
+		plt.savefig(DirEnergy+'TotalEnergy_'+SubString+ext)
 #		plt.show()
 		plt.close('all')
 	#endfor
@@ -1027,8 +1020,10 @@ if savefig_energyharm1D == True:
 
 	#For each detected simulation folder
 	for l in tqdm(range(0,len(Dir))):
-		#Create global 1D diagnostics folder.
+		#Create global 1D diagnostics folder and extract current simulation name
 		DirEnergy = CreateNewFolder(Dir[l],'1DEnergy_Profiles/')
+		DirString = Dir[l].split('/')[-2]
+		SubString = DirString.split('_')[-1]
 
 		#Extract Energy_n outputs and header for plotting
 		#energy_n: [folder][variable][timestep]
@@ -1038,29 +1033,45 @@ if savefig_energyharm1D == True:
 		Variables,Values,Units = ReadMEGANormalisations(Dir[l])
 #		print Variables[1],Values[1],Units[1]
 
+		#Compute rate of change of energy for each harmonic
+		DeltaEnergy_n = list()
+		DeltaEnergy_n.append(Energy_n[0][1::])		#Add kstep array
+		DeltaEnergy_n.append(Energy_n[1][1::])		#Add time array
+		for i in range (2,len(Energy_n)):
+			DeltaEnergy_n.append( list() )			#Add i'th harmonic array
+			for j in range(1,len(Energy_n[i])):
+				DeltaEnergy = (Energy_n[i][j]-Energy_n[i][j-1])
+				DeltaTime = (Energy_n[1][j]-Energy_n[1][j-1])
+				DeltaEnergy_n[i].append( DeltaEnergy/DeltaTime )
+			#endfor
+		#endfor
+
 		#==========#
 
 		#Create fig of desired size.
-		fig,ax = figure(image_aspectratio,1)
+		fig,ax = figure(image_aspectratio,2)
 
 		#Define Title, Legend, Axis Labels etc...
-		Xlabel,Ylabel = 'Time [ms]', 'Magnitude Log10 [Units]'
+		Title = 'Spectrally Resolved Energy Evolution for '+DirString
+		Xlabel,Ylabel = 'Time [ms]', 'Energy (Log$_{10}$) [-]'
 		Legend = list()
 
-		#Plot 1D energy profiles:
+		#Plot total energy of each harmonic component
 		for i in range(2,len(Energy_n)):
-			ax.plot(Energy_n[0],np.log10(Energy_n[i]), lw=2)
+			ax[0].plot(Energy_n[1],np.log10(Energy_n[i]), lw=2)
 			Legend.append( 'n = '+str(i-2) )
 		#endfor
-		ax.legend(Legend, fontsize=18, frameon=False)
-		ax.tick_params(axis='x', labelsize=18)
-		ax.tick_params(axis='y', labelsize=18)
-		ax.xaxis.set_major_locator(ticker.MultipleLocator(50000))
-		ax.set_xlabel('Kstep', fontsize=24)
-		ax.set_ylabel('Units', fontsize=24)
+		ImageOptions(fig,ax[0],'',Ylabel,Title,Legend)
+
+		#Plot rate of change of energy of each harmonic component
+		for i in range(2,len(Energy_n)):
+			ax[1].plot(DeltaEnergy_n[1],np.log10(DeltaEnergy_n[i]), lw=2)
+			Legend.append( 'n = '+str(i-2) )
+		#endfor
+		ImageOptions(fig,ax[1],Xlabel,'Delta '+Ylabel,'',Legend)
 
 		#Save and close open figure(s)
-		plt.savefig(DirEnergy+'HarmEnergy'+ext)
+		plt.savefig(DirEnergy+'SpectralEnergy_'+SubString+ext)
 #		plt.show()
 		plt.close('all')
 	#endfor
