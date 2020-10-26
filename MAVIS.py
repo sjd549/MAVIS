@@ -138,7 +138,7 @@ Phys = ['vrad','vtheta','vphi','brad','btheta','bphi','erad','etheta','ephi','pr
 #====================================================================#
 
 #Requested Variables and Plotting Locations.
-variables = []#Phys						#Requested variables to plot
+variables = Phys						#Requested variables to plot
 
 radialprofiles = []						#1D Radial Profiles to be plotted (fixed Z,Phi) --
 azimuthalprofiles = []					#1D Azimuthal Profiles to be plotted (fixed R,phi) |
@@ -154,8 +154,8 @@ savefig_1Dtotalenergy = False			#Plot 1D physical trends (xxx.energy_phys)		-Jav
 savefig_1Dspectralenergy = False		#Plot 1D harmonic trends (xxx.energy_n)			-Javi Diagnostic
 
 savefig_2Dequilibria = False			#Plot 2D ... UNDER CONSTRUCTION
-savefig_2Dharmonics = False				#Plot 2D harmonic trends 	(xxx.harmonics)
-savefig_2Dfourier = True				#Plot 2D fourier analysis	(xxx.harmonics)		-Javi Diagnostic
+savefig_2Dharmonics = True				#Plot 2D harmonic trends 	(xxx.harmonics)
+savefig_2Dfourier = False				#Plot 2D fourier analysis	(xxx.harmonics)		-Javi Diagnostic
 
 
 #Steady-State diagnostics terminal output toggles.
@@ -537,7 +537,7 @@ def Extract_MEGAHarmonics(Variable,ntor,DataDir):
 
 		#Define FORTRANFile save data format
 		#KStep (kst) is an undefined length 1D integer array		[-]
-		#t (SI Time) is an undefined length 1D float array 			[ms]
+		#t (SI Time) is an undefined length 1D float array 			[IonGyroFreq*ms]
 		#r_psi, gpsi_nrm, q_psi are (lpsi) length 1D float arrays 	[various]
 		#All other variables are (n_elem) length 1D float arrays 	[various]
 		n_elem = (mpol+1)*(2*ntor+1)*lpsi*2
@@ -578,7 +578,7 @@ def Extract_MEGAHarmonics(Variable,ntor,DataDir):
 		#Initiate output data object and set appropriate internal structures
 		Data = lambda:0
 		Data.kst = np.array(([]),int)									#1D KStep Array 	[-]
-		Data.time = np.array(([]),float)								#1D Time Array 		[ms]
+		Data.time = np.array(([]),float)								#1D Time Array 		[IonGyroFreq*ms]
 		Data.data = np.empty(([0,mpol+1,2*ntor+1,lpsi,2]),np.float64)	#1D-3D Data Arrays	[various]
 
 		#Read each .harmonics FORTRANFile in sequence for the current simulation folder
@@ -597,7 +597,7 @@ def Extract_MEGAHarmonics(Variable,ntor,DataDir):
 			#endif
 			#Extract 1D kstep and time arrays
 			Data.kst  = np.append(Data.kst,  RawData['kst'][0])				#[-]
-			Data.time = np.append(Data.time, RawData['t'][0])#*1e3/wa		#[ms]
+			Data.time = np.append(Data.time, RawData['t'][0])				#[IonGyroFreq*ms]
 
 			#Extract all other data and reshape from 1D array into 3D array 
 			#Data object for input variable [Variable] is of shape Data[kstep][mpol][ntor][lpsi][???]
@@ -1120,7 +1120,7 @@ print(' |  \  /  |    /  ^  \  \   \/   /  |  |    |   (----` ')
 print(' |  |\/|  |   /  /_\  \  \      /   |  |     \   \     ')
 print(' |  |  |  |  /  _____  \  \    /    |  | .----)   |    ')
 print(' |__|  |__| /__/     \__\  \__/     |__| |_______/     ')
-print('                                                 v0.0.4')
+print('                                                 v0.0.5')
 print('-------------------------------------------------------')
 print('')
 print('The following diagnostics were requested:')
@@ -1502,10 +1502,10 @@ if savefig_2Dequilibria == True:
 		Energy_n,Header_n = ExtractMEGA_Energy(Dir[l],'energy_n')
 		NumHarmonics = len(Energy_n)-3		#Ignore kstep, time, n=0
 
-		#Extract Harmonics outputs for plotting :: It contains:
+		#Extract Harmonics outputs for plotting, it contains:
 		#HarmonicsData.rho_pol [1D array] :: HarmonicsData.q_psi [1D array]
-		#HarmonicsData.kst [1D array] :: HarmonicsData.time [1D array]
-		#HarmonicsData.data: [4D Array] = [kmax][mpol][ntor][lpsi]
+		#HarmonicsData.kst [1D array]     :: HarmonicsData.time [1D array]    
+		#HarmonicsData.data: [4D Array] of shape [kstep][mpol][ntor][lpsi] for variables[i]
 		HarmonicsData = Extract_MEGAHarmonics('bphi',NumHarmonics,Dir[l]+'data/')
 		## ??? PROBABLY NEED .moments DATA FOR EQUILIBRIA PLOTS ??? ##
 
@@ -1557,11 +1557,11 @@ if savefig_2Dequilibria == True:
 
 
 #====================================================================#
-				  #GENERAL SPECTRAL HARMONIC ANALYSIS#
+				  #GENERAL SPECTRAL & HARMONIC ANALYSIS#
 #====================================================================#
 
 #====================================================================#
-				 	      #2D SPECTRAL PLOTS#
+				 	      #2D HARMONIC PLOTS#
 #====================================================================#
 
 if savefig_2Dharmonics == True:
@@ -1571,8 +1571,8 @@ if savefig_2Dharmonics == True:
 
 		print Dir[l]
 
-		#Create global 1D diagnostics folder and extract current simulation name
-		DirHarmonics = CreateNewFolder(Dir[l],'2DHarmonic_Profiles/')
+		#Create global 2D diagnostics folder and extract current simulation name
+		DirHarmonics = CreateNewFolder(Dir[l],'2DHarmonic_Images/')
 		DirString = Dir[l].split('/')[-2]
 		SubString = DirString.split('_')[-1]
 
@@ -1580,12 +1580,6 @@ if savefig_2Dharmonics == True:
 		#energy_n: [folder][variable][timestep]
 		Energy_n,Header_n = ExtractMEGA_Energy(Dir[l],'energy_n')
 		NumHarmonics = len(Energy_n)-3		#Ignore kstep, time, n=0
-
-		#Extract Harmonics outputs for plotting :: It contains:
-		#HarmonicsData.rho_pol [1D array] :: HarmonicsData.q_psi [1D array]
-		#HarmonicsData.kst [1D array] :: HarmonicsData.time [1D array]    
-		#HarmonicsData.Data: [4D Array] = [kmax][mpol][ntor][lpsi]  
-		HarmonicsData = Extract_MEGAHarmonics('bphi',NumHarmonics,Dir[l]+'data/')
 
 		#Extract relevant normalisation factors for current simulation folder
 		Variables,Values,Units = ExtractMEGA_Normalisations(Dir[l])
@@ -1596,7 +1590,82 @@ if savefig_2Dharmonics == True:
 		R0 = Values[Variables.index('raxis')]
 		m_D = 3.34e-27
 		eps = 0.5/R0
+
+
+
+		#TESTING - REMOVE ME!!!
+		variables = ['bphi']
+		set_harmonicrange = [0,4]
+		#TESTING - REMOVE ME!!!
+
+
+
+		#For each requested variable
+		for i in range(0,len(variables)):
+
+			#Create new folder for each variable
+			DirVariable = CreateNewFolder(DirHarmonics,variables[i])
+
+			#Extract Harmonics outputs for plotting, it contains:
+			#HarmonicsData.rho_pol [1D array] :: HarmonicsData.q_psi [1D array]
+			#HarmonicsData.kst [1D array]     :: HarmonicsData.time [1D array]    
+			#HarmonicsData.data: [4D Array] of shape [kstep][mpol][ntor][lpsi] for variables[i]
+			HarmonicsData = Extract_MEGAHarmonics(variables[i],NumHarmonics,Dir[l]+'data/')
+
+			#HarmonicsData.data is of shape [kstep][mpol][ntor][lpsi][???]
+			HarmonicsData.data = HarmonicsData.data[:,:,:,:,0]		#Final index is unusual, should fix this
+
+			#Extract Variablelabel				
+			VariableLabel = variables[i]							#Needs a seperate function to label vars
+
+			#Set TimeIndex and employ to extract KStep and Time
+			TimeIndex = 600											#!!! Hard-coded to final entry for now !!!
+			KStep = HarmonicsData.kst[TimeIndex]					#Need a method of altering these
+			Time = (HarmonicsData.time[TimeIndex]/IonGyroFreq)*1e3	#Need a method of altering these
+
+			#Extract normalised axes and set image extent
+			## !!! MAKE THESE A FUNCTION extent = ImageExtent() !!! ##		
+			rho_pol = HarmonicsData.rho_pol							#Normalised poloidal angle
+			phi_tor = range(1,shape(HarmonicsData.data)[1]+1)		#Array of toroidal cells
+			phi_tor = [x/float(len(phi_tor)) for x in phi_tor]		#Normalised toroidal angle
+			extent = [rho_pol[0],rho_pol[-1], phi_tor[0],phi_tor[-1]]
+
+			#Plot images of variables[i] for all ntor
+			for j in range(set_harmonicrange[0],set_harmonicrange[1]):
+
+				#Extract image from HarmonicsData
+				ntor = j											#ntor is symmetrical, needs fixing
+				Image = HarmonicsData.data[TimeIndex,:,ntor,:]
+				print shape(HarmonicsData.data)
+
+				#Create figure and define Title, Legend, Axis Labels etc...
+				fig,ax = figure(image_aspectratio,1)
+				Title = VariableLabel+' for ntor='+str(ntor)+' at KStep='+str(KStep)+' \n Simulation: '+DirString
+				Xlabel,Ylabel = 'Poloidal Extent $\\rho_{pol}$ [-]', 'Toroidal Extent $\phi_{tor}$ [-]'
+#				Xlabel,Ylabel = 'Poloidal Resolution $m_{\\theta}$ [cells]', 'Toroidal Resolution $l_{\phi}$ [cells]'
+				Legend = list()
+
+				#Plot example data for debugging purposes
+				im = ax.imshow(Image, extent=extent, aspect='auto', origin='bottom')
+				cbar = Colourbar(ax,im,VariableLabel+' [-]',5)
+				ImageOptions(fig,ax,Xlabel,Ylabel,Title,Legend)
+
+				#Save 2D harmonics figure for current simulation
+				plt.savefig(DirVariable+VariableLabel+'_n'+str(ntor)+ext)
+#				plt.show()
+				plt.close('all')
+			#endfor
+		#endfor
+	#endfor
+
+	if any([savefig_2Dharmonics]) == True:
+		print '--------------------------'
+		print '2D Harmonic Plots Complete'
+		print '--------------------------'
+	#endif
 #endif
+
+
 
 
 
@@ -1618,8 +1687,8 @@ if savefig_2Dfourier == True:
 
 		print Dir[l]
 
-		#Create global 1D diagnostics folder and extract current simulation name
-		DirHarmonics = CreateNewFolder(Dir[l],'2DHarmonic_Profiles/')
+		#Create global 2D diagnostics folder and extract current simulation name
+		DirHarmonics = CreateNewFolder(Dir[l],'2DHarmonic_Images/')
 		DirString = Dir[l].split('/')[-2]
 		SubString = DirString.split('_')[-1]
 
@@ -1628,10 +1697,10 @@ if savefig_2Dfourier == True:
 		Energy_n,Header_n = ExtractMEGA_Energy(Dir[l],'energy_n')
 		NumHarmonics = len(Energy_n)-3		#Ignore kstep, time, n=0
 
-		#Extract Harmonics outputs for plotting :: It contains:
+		#Extract Harmonics outputs for plotting, it contains:
 		#HarmonicsData.rho_pol [1D array] :: HarmonicsData.q_psi [1D array]
-		#HarmonicsData.kst [1D array] :: HarmonicsData.time [1D array]    
-		#HarmonicsData.Data: [4D Array] = [kmax][mpol][ntor][lpsi]  
+		#HarmonicsData.kst [1D array]     :: HarmonicsData.time [1D array]    
+		#HarmonicsData.data: [4D Array] of shape [kstep][mpol][ntor][lpsi] for variables[i]
 		HarmonicsData = Extract_MEGAHarmonics('bphi',NumHarmonics,Dir[l]+'data/')
 
 		#Extract relevant normalisation factors for current simulation folder
@@ -1724,7 +1793,7 @@ if savefig_2Dfourier == True:
 		#endfor
 
 		#Save 2D harmonics figure for current simulation
-		plt.savefig(DirHarmonics+'Harmonics_'+SubString+ext)
+		plt.savefig(DirHarmonics+'FourierAnalysis_'+SubString+ext)
 		plt.show()
 		plt.close('all')
 	#endfor
