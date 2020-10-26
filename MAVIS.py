@@ -81,7 +81,7 @@ from pylab import *
 #====================================================================#
 
 #Various debug and streamlining options.
-DebugMode = False					#Produces debug outputs for relevent diagnostics.
+DebugMode = True						#Produces debug outputs for relevent diagnostics.
 
 #Warning suppressions
 np.seterr(divide='ignore', invalid='ignore')		#Suppresses divide by zero errors
@@ -150,10 +150,11 @@ set_harmonicrange = [0,2]				#Harmonic range to be plotted [Min,Max]
 
 #Requested diagnostics and plotting routines.
 savefig_1Dtotalenergy = False			#Plot 1D physical trends (xxx.energy_phys)
-savefig_1Dspectralenergy = False		#Plot 1D harmonic trends (xxx.energy_n)
+savefig_1Dspectralenergy = False			#Plot 1D harmonic trends (xxx.energy_n)
 
+savefig_2Dequilibria = False				#Plot 2D ... UNDER CONSTRUCTION
 savefig_2Dharmonics = True				#Plot 2D harmonic trends (xxx.harmonics)
-savefig_2Dequilibrium = True			#Plot 2D ... UNDER CONSTRUCTION
+
 
 
 #Steady-State diagnostics terminal output toggles.
@@ -173,7 +174,6 @@ image_cbarlimit = []					#[min,max] colourbar limits
 
 image_plotsymmetry = True				#Toggle radial symmetry
 image_contourplot = True				#Toggle contour Lines in images
-image_1Doverlay = False					#Overlay location(s) of radialineouts/heightlineouts
 image_plotgrid = False					#Plot major/minor gridlines on profiles
 image_plotmesh = False					#Plot material mesh outlines
 image_rotate = True						#Rotate image 90 degrees to the right.
@@ -515,9 +515,9 @@ def ExtractMEGA_Energy(Dir,Filename='energy_n'):
 			#endfor
 		#endif
 
-		#Print debugger outputs to terminal if requested
+		#Debug outputs: Print datafile name and data shape
 		if DebugMode == True:
-			print Files[i].split('/')[-1]
+			print Files[l].split('/')[-1]
 			print len(OutputData), len(OutputData[0])
 		#endif
 	#endfor
@@ -530,115 +530,115 @@ def ExtractMEGA_Energy(Dir,Filename='energy_n'):
 
 #Details on the FORTRAN file format can be found below:
 #https://docs.scipy.org/doc/scipy/reference/generated/scipy.io.FortranFile.read_record.html
-def ExtractMEGA_Harmonics(variable,ntor,dir1):
+def Extract_MEGAHarmonics(variable,ntor,dir1):
 
-  def load_harmonics(lpsi,mpol,ntor,afile,variable):
-    data = lambda:0
-    n_elem = (mpol+1)*(2*ntor+1)*lpsi*2
-    dtype = np.dtype([\
-    ('kst',np.int32,1),\
-    ('t',np.float64,1),\
-    ('r_psi',np.float64,lpsi),\
-    ('gpsi_nrm',np.float64,lpsi),\
-    ('q_psi',np.float64,lpsi),\
-    ('vrad',np.float64,n_elem),\
-    ('vtheta',np.float64,n_elem),\
-    ('vphi',np.float64,n_elem),\
-    ('brad',np.float64,n_elem),\
-    ('btheta',np.float64,n_elem),\
-    ('bphi',np.float64,n_elem),\
-    ('erad',np.float64,n_elem),\
-    ('etheta',np.float64,n_elem),\
-    ('ephi',np.float64,n_elem),\
-    ('prs',np.float64,n_elem),\
-    ('rho',np.float64,n_elem),\
-    ('dns_a',np.float64,n_elem),\
-    ('mom_a',np.float64,n_elem),\
-    ('ppara_a',np.float64,n_elem),\
-    ('pperp_a',np.float64,n_elem),\
-    ('qpara_a',np.float64,n_elem),\
-    ('qperp_a',np.float64,n_elem),\
-    ])
-    data.kst = np.array(([]),int)
-    data.time = np.array(([]),float)
-    data.data = np.empty(([0,mpol+1,2*ntor+1,lpsi,2]),np.float64)
-    f = ff(afile,'r')
-    ii = 0
-    a = f.read_record(dtype)
+	def Read_MEGAHarmonics(lpsi,mpol,ntor,afile,variable):
+		data = lambda:0
+		n_elem = (mpol+1)*(2*ntor+1)*lpsi*2
+		dtype = np.dtype([\
+		('kst',np.int32,1),\
+		('t',np.float64,1),\
+		('r_psi',np.float64,lpsi),\
+		('gpsi_nrm',np.float64,lpsi),\
+		('q_psi',np.float64,lpsi),\
+		('vrad',np.float64,n_elem),\
+		('vtheta',np.float64,n_elem),\
+		('vphi',np.float64,n_elem),\
+		('brad',np.float64,n_elem),\
+		('btheta',np.float64,n_elem),\
+		('bphi',np.float64,n_elem),\
+		('erad',np.float64,n_elem),\
+		('etheta',np.float64,n_elem),\
+		('ephi',np.float64,n_elem),\
+		('prs',np.float64,n_elem),\
+		('rho',np.float64,n_elem),\
+		('dns_a',np.float64,n_elem),\
+		('mom_a',np.float64,n_elem),\
+		('ppara_a',np.float64,n_elem),\
+		('pperp_a',np.float64,n_elem),\
+		('qpara_a',np.float64,n_elem),\
+		('qperp_a',np.float64,n_elem),\
+		])
+		data.kst = np.array(([]),int)
+		data.time = np.array(([]),float)
+		data.data = np.empty(([0,mpol+1,2*ntor+1,lpsi,2]),np.float64)
+		f = ff(afile,'r')
+		a = f.read_record(dtype)
 
-    while(True):
-      #Read i'th entry from FORTRAN file format
-      try: a = f.read_record(dtype)
-      except: f.close(); break
-      #Assign 1D kstep and time arrays  all other data into the data object
-      data.kst  = np.append(data.kst,a['kst'][0])
-      data.time = np.append(data.time,a['t'][0])#*1e3/wa
-      #Assign all other data into arrays [1,pol,tor,psi,2] ????
-      data.data = np.concatenate((data.data, np.reshape(a[variable], (1,mpol+1,2*ntor+1,lpsi,2),order='F')))
-      if ii == 0:
-        data.rho_pol = np.sqrt(abs(a['gpsi_nrm'][0]))
-        data.q_psi   = a['q_psi'][0]
-      #endif
-      del a
-      ii = ii+1
-    #endwhile
+		i = 0
+		while(True):
+			#Read i'th entry from FORTRAN file format
+			try: a = f.read_record(dtype)
+			except: f.close(); break
+			#Assign 1D kstep and time arrays  all other data into the data object
+			data.kst  = np.append(data.kst,a['kst'][0])
+			data.time = np.append(data.time,a['t'][0])#*1e3/wa
+			#Assign all other data into arrays [1,pol,tor,psi,2] ????
+			data.data = np.concatenate((data.data, np.reshape(a[variable], (1,mpol+1,2*ntor+1,lpsi,2),order='F')))
+      		if i == 0:
+				data.rho_pol = np.sqrt(abs(a['gpsi_nrm'][0]))
+				data.q_psi   = a['q_psi'][0]
+      		#endif
+      		del a
+      		i = i+1
+    	#endwhile
 
-      #Print diagnostic outputs to terminal if requested
-      if DebugMode == True:
-         print files[i].split('/')[-1], str(ii)+'-'+str(data.kst[ii])
-      #endif
+		#### TESTING AREA ####
+		#Diagnostic outputs: Plot 2D data
+		if DebugMode == True:
 
-    #Testing area
-    TESTING=False
-    if TESTING==True:
-        from matplotlib import pyplot as plt
+			print files[l].split('/')[-1], 'Data idx:', str(i)+'-'+str(data.kst[i-1])
 
-#        print('2')
-#        a = f.read_record(dtype)
-#        print(len(a[0][4]))
-#        print(' ')
+	#		from matplotlib import pyplot as plt
 
-	    #Plot q_psi (safety factor?) in 1D
-#        plt.plot(a[0][4])
-#        plt.show()
-	    #Read, reshape and plot image from array [a]
-        #Shape = [mpol,ntor,lpsi]?
-        print(mpol, ntor, lpsi)
-        image = a[0][8].reshape((mpol+1),(2*ntor+1),lpsi*2)
-        plt.imshow(image[0], aspect='auto')
-        plt.yticks([0,1,2,3,4],[-2,-1,0,1,2])
-        plt.xlabel('mpol')
-        plt.ylabel('ntor')
-        plt.show()
+	#		print('4')
+	#		a = f.read_record(dtype)
+	#		print(len(a[0][4]))
+	#		print(' ')
 
-        exit()
-    #endif
+			#Plot q_psi (safety factor?) in 1D
+	#		plt.plot(a[0][4])
+	#		plt.show()
 
-    return(data)
-  #enddef
+			#Read, reshape and plot image from array [a]
+			#Shape = [mpol,ntor,lpsi]?
+	#		print(mpol, ntor, lpsi)
+	#		image = a[0][8].reshape((mpol+1),(2*ntor+1),lpsi*2)
+	#		plt.imshow(image[0], aspect='auto')
+	#		plt.yticks([0,1,2,3,4],[-2,-1,0,1,2])
+	#		plt.xlabel('mpol')
+	#		plt.ylabel('ntor')
+	#		plt.show()
+
+	#		exit()
+		#endif
+		#### TESTING AREA ####
+
+		return(data)
+	#enddef
   
+	#=====#=====#
 
+	#Actual function
+	files = sorted(glob.glob(dir1+"/*harm*"))
+	lpsi,mpol = 201, 64
+	HarmonicData = list()
+	#Extract HarmonicData from each SEQ:  HarmonicData [kmax][mpol][ntor][lpsi] 
+	for i in tqdm(range(0,len(files))):
+		HarmonicData.append(Read_MEGAHarmonics(lpsi,mpol,ntor,files[i],variable))
+	#endfor
 
-  #Actual function
-  files = sorted(glob.glob(dir1+"/*harm*"))
-  lpsi,mpol = 201, 64
-  HarmonicData = list()
-  #Extract HarmonicData from each SEQ:  HarmonicData [kmax][mpol][ntor][lpsi] 
-  for i in tqdm(range(0,len(files))):
-    HarmonicData.append(load_harmonics(lpsi,mpol,ntor,files[i],variable))
-  #endfor
+	#Concatenate kstep, time and data axes from each SEQ together
+	for i in range(0,len(HarmonicData)-1):
+		aux = HarmonicData.pop(1)
+		HarmonicData[0].kst  = np.append(HarmonicData[0].kst,aux.kst)
+		HarmonicData[0].time = np.append(HarmonicData[0].time,aux.time)
+		HarmonicData[0].data = np.concatenate((HarmonicData[0].data, aux.data))
+		del aux
+	#endfor
+	HarmonicData = HarmonicData[0]
 
-  #Concatenate kstep, time and data axes from each SEQ together
-  for i in range(0,len(HarmonicData)-1):
-    aux = HarmonicData.pop(1)
-    HarmonicData[0].kst  = np.append(HarmonicData[0].kst,aux.kst)
-    HarmonicData[0].time = np.append(HarmonicData[0].time,aux.time)
-    HarmonicData[0].data = np.concatenate((HarmonicData[0].data, aux.data))
-    del aux
-  #endfor
-  HarmonicData = HarmonicData[0]
-
-  return(HarmonicData)
+	return(HarmonicData)
 #enddef
 
 #=========================#
@@ -746,7 +746,6 @@ def read_harmonics_all(ntor,dir1,kstep,seq):
 
 #=========================#
 #=========================#
-
 
 
 
@@ -904,8 +903,6 @@ def InvisibleColourbar(ax='NaN'):
 
 
 
-
-
 #====================================================================#
 				  #COMMON DATA ANALYSIS FUNCTIONS#
 #====================================================================#
@@ -1005,9 +1002,6 @@ def Normalize(profile,NormFactor=0):
 	return(profile,MinNormFactor,MaxNormFactor)
 #enddef
 
-#=========================#
-#=========================#
-
 #=====================================================================#
 #=====================================================================#
 
@@ -1039,25 +1033,27 @@ def Normalize(profile,NormFactor=0):
 					#WELCOME TEXT AND INFORMATION#
 #====================================================================#
 
-print ''
-print '-------------------------------------------------------'
-print ' .___  ___.      ___   ____    ____  __       _______. '
-print ' |   \/   |     /   \  \   \  /   / |  |     /       | '
-print ' |  \  /  |    /  ^  \  \   \/   /  |  |    |   (----` '
-print ' |  |\/|  |   /  /_\  \  \      /   |  |     \   \     '
-print ' |  |  |  |  /  _____  \  \    /    |  | .----)   |    '
-print ' |__|  |__| /__/     \__\  \__/     |__| |_______/     '
-print '                                                 v0.0.4'
-print '-------------------------------------------------------'
-print ''
-print 'The following diagnostics were requested:'
-print '-----------------------------------------'
+print(']')
+print('-------------------------------------------------------')
+print(' .___  ___.      ___   ____    ____  __       _______. ')
+print(' |   \/   |     /   \  \   \  /   / |  |     /       | ')
+print(' |  \  /  |    /  ^  \  \   \/   /  |  |    |   (----` ')
+print(' |  |\/|  |   /  /_\  \  \      /   |  |     \   \     ')
+print(' |  |  |  |  /  _____  \  \    /    |  | .----)   |    ')
+print(' |__|  |__| /__/     \__\  \__/     |__| |_______/     ')
+print('                                                 v0.0.4')
+print('-------------------------------------------------------')
+print('')
+print('The following diagnostics were requested:')
+print('-----------------------------------------')
 if True in [savefig_1Dtotalenergy,savefig_1Dspectralenergy]:
-	print'# 1D Energy Analysis'
+	print('# 1D Energy Analysis')
+if True in [savefig_2Dequilibria]:
+	print('# 2D Equilibria Plots#')
 if True in [savefig_2Dharmonics]:
-	print'# 2D Spectral Analysis'
-print '-----------------------------------------'
-print ''
+	print('# 2D Spectral Analysis')
+print('-----------------------------------------')
+print('')
 
 #=====================================================================#
 #=====================================================================#
@@ -1158,29 +1154,29 @@ mem_bytes = os.sysconf('SC_PAGE_SIZE') * os.sysconf('SC_PHYS_PAGES')
 mem_gib = mem_bytes/(1024.**3)
 ext = image_extension
 
-#Obtain home directory and contents
+#Obtain home directory (location of MAVIS) and contents of said directory
 Root = os.path.abspath(".")
 HomeDirFolders,HomeDirContents = DirectoryContents(Root)
 
 #For each sub-directory in HomeDirFolders:
 for l in range(0,len(HomeDirFolders)):
 
-	#Obtain sub-directory contents (Simulation folder level)
+	#Obtain sub-directory names and contents (Simulation folder names and contents)
 	SubDirFolders,SubDirContents = DirectoryContents(Root+HomeDirFolders[l])
 
-	#Determine folders containing '/data/' folder - i.e. MEGA simulation folders
+	#Determine which sub-direcotires contain a '/data/' folder (i.e. MEGA simulation folders)
 	if '/data/' in SubDirFolders:
 		#Add folder to global simulation list
 		Dir.append(Root+HomeDirFolders[l])
 		DirFiles.append(list())
 		NumFolders += 1
 
-		#Extract contents from current simulation folder and /data/ subfolder
+		#Extract contents from 'l'th simulation folder and /data/ subfolder
 		DataDir = Root+HomeDirFolders[l]+'/data/'
 		DataDirContents = DirectoryContents(DataDir)[1]		#Data Folder level
 		SimDirContents = SubDirContents						#Simulation Folder Level
 
-		#Save content files from simulation folder that fit requested file extensions
+		#Save content files from simulation folder that fit requested data output file extensions
 		for j in range(0,len(SimDirContents)):
 			Filename = SimDirContents[j]
 			if any([x in Filename for x in FileExtensions]):
@@ -1190,7 +1186,7 @@ for l in range(0,len(HomeDirFolders)):
 			#endif
 		#endfor
 
-		#Save content files from /data/ subfolder that fit requested file extensions
+		#Save content files from /data/ subfolder that fit requested data output file extensions
 		for j in range(0,len(DataDirContents)):
 			Filename = DataDirContents[j]
 			if any([x in Filename for x in FileExtensions]):
@@ -1207,7 +1203,7 @@ for l in range(0,len(HomeDirFolders)):
 	#endif
 #endfor
 
-#If no folders detected, end analysis script.
+#If no folders detected end analysis script; else continue to analysis.
 if NumFolders > 0:
 	print '----------------------------------------'
 	print 'Data Readin Complete, Starting Analysis:'
@@ -1271,7 +1267,7 @@ if savefig_1Dtotalenergy == True:
 		#==========##==========#
 
 		#Create fig of desired size.
-		fig,ax = figure(image_aspectratio,[1,3])
+		fig,ax = figure(image_aspectratio,[3,1])
 
 		#Define Title, Legend, Axis Labels etc...
 		Title = 'Spectrally Integrated Energy Evolution for '+DirString
@@ -1340,7 +1336,7 @@ if savefig_1Dspectralenergy == True:
 		#==========##==========#
 
 		#Create fig of desired size.
-		fig,ax = figure(image_aspectratio,[1,2])
+		fig,ax = figure(image_aspectratio,[2,1])
 
 		#Define Title, Legend, Axis Labels etc...
 		Title = 'Spectrally Resolved Energy Evolution for '+DirString
@@ -1400,14 +1396,23 @@ if any([savefig_1Dtotalenergy,savefig_1Dspectralenergy]) == True:
 
 
 
+
+
+
+
+
+
 #====================================================================#
-				 	    #2D SPECTRAL DIAGNOSTICS#
+				 	    #2D EQUILIBRIA DIAGNOSTICS#
 #====================================================================#
 
-if savefig_2Dharmonics == True:
+if savefig_2Dequilibria == True:
 
 	#For each detected simulation folder
 	for l in range(0,len(Dir)):
+
+		print Dir[l]
+
 		#Create global 1D diagnostics folder and extract current simulation name
 		DirHarmonics = CreateNewFolder(Dir[l],'2DHarmonic_Profiles/')
 		DirString = Dir[l].split('/')[-2]
@@ -1422,7 +1427,81 @@ if savefig_2Dharmonics == True:
 		#HarmonicsData.rho_pol [1D array] :: HarmonicsData.q_psi [1D array]
 		#HarmonicsData.kst [1D array] :: HarmonicsData.time [1D array]    
 		#HarmonicsData.data: [4D Array] = [kmax][mpol][ntor][lpsi]  
-		HarmonicsData = ExtractMEGA_Harmonics('bphi',NumHarmonics,Dir[l]+'data/')
+		HarmonicsData = Extract_MEGAHarmonics('bphi',NumHarmonics,Dir[l]+'data/')
+
+		#Extract relevant normalisation factors for current simulation folder
+		Variables,Values,Units = ExtractMEGA_Normalisations(Dir[l])
+		AlfvenVelocity = Values[Variables.index('Alfven velocity')] #B0/np.sqrt(4e-7*np.pi*IonDensity*m_D)
+		IonGyroFreq = Values[Variables.index('D gyro frequency')]
+		IonDensity = Values[Variables.index('Bulk density')]
+		B0 = Values[Variables.index('Mag.fld. at axis')]
+		R0 = Values[Variables.index('raxis')]
+		m_D = 3.34e-27
+		eps = 0.5/R0
+
+
+#endif
+
+#====================================================================#
+#====================================================================#
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#====================================================================#
+				 	    #2D SPECTRAL DIAGNOSTICS#
+#====================================================================#
+
+if savefig_2Dharmonics == True:
+
+	#For each detected simulation folder
+	for l in range(0,len(Dir)):
+
+		print Dir[l]
+
+		#Create global 1D diagnostics folder and extract current simulation name
+		DirHarmonics = CreateNewFolder(Dir[l],'2DHarmonic_Profiles/')
+		DirString = Dir[l].split('/')[-2]
+		SubString = DirString.split('_')[-1]
+
+		#Extract Energy_n outputs and header, used to determine harmonic range
+		#energy_n: [folder][variable][timestep]
+		Energy_n,Header_n = ExtractMEGA_Energy(Dir[l],'energy_n')
+		NumHarmonics = len(Energy_n)-3		#Ignore kstep, time, n=0
+
+		#Extract Harmonics outputs for plotting :: It contains:
+		#HarmonicsData.rho_pol [1D array] :: HarmonicsData.q_psi [1D array]
+		#HarmonicsData.kst [1D array] :: HarmonicsData.time [1D array]    
+		#HarmonicsData.data: [4D Array] = [kmax][mpol][ntor][lpsi]  
+		HarmonicsData = Extract_MEGAHarmonics('bphi',NumHarmonics,Dir[l]+'data/')
 
 		#Extract relevant normalisation factors for current simulation folder
 		Variables,Values,Units = ExtractMEGA_Normalisations(Dir[l])
@@ -1474,16 +1553,17 @@ if savefig_2Dharmonics == True:
 
 		#==========##==========#
 
-		#Create fig of desired size.
-		fig,ax = figure(image_aspectratio,[2,ntor2])
+		#Create fig of desired size - increasing Xlim with the number of harmonics
+		Xlim,Ylim = 10*(NumHarmonics/2), 10
+		fig,ax = figure([Xlim,Ylim],[2,ntor2])
 
 		#For each toroidal harmonic:
 		for i in range(0,ntor2):
 
 			#Temporal evolution plotted on the top row (row 0)
 			if ntor2 == 1: subfig = ax[0]
-			elif ntor2 > 2: subfig = ax[0,i]
-			Harmonic = -ntor2+i									#?????
+			elif ntor2 > 1: subfig = ax[0,i]
+			Harmonic = -ntor2+i									#Why is it reversed?
 			#Construct meshgrid
 			Xaxis = HarmonicsData.rho_pol						#[???]
 			Yaxis = (HarmonicsData.time/IonGyroFreq)*1e3		#[ms]
@@ -1497,14 +1577,14 @@ if savefig_2Dharmonics == True:
 
 			#Fourier analysis plotted on the bottom row (row 1)
 			if ntor2 == 1: subfig = ax[1]
-			elif ntor2 > 2: subfig = ax[1,i]
+			elif ntor2 > 1: subfig = ax[1,i]
 			#Construct meshgrid
 			Xaxis = HarmonicsData.rho_pol						#[???]
 			Yaxis = np.linspace(0,0.5/dt,vcos_len[i])			#[kHz]
 			X,Y = np.meshgrid(Xaxis,Yaxis)
 			#Plot fourier amplitude spectrum
 			subfig.contourf(X,Y,vcos_fft[i], cmap='plasma')
-			if i == 0: ImageOptions(fig,subfig,'','Frequency [kHz]','','')
+			if i == 0: ImageOptions(fig,subfig,'Poloidal Angle $\\rho_{pol}$','Frequency [kHz]','','')
 			if i > 0: ImageOptions(fig,subfig,'Poloidal Angle $\\rho_{pol}$','','','')
 			subfig.set_ylim([0,200])
 
@@ -1514,7 +1594,7 @@ if savefig_2Dharmonics == True:
 
 		#Save 2D harmonics figure for current simulation
 		plt.savefig(DirHarmonics+'Harmonics_'+SubString+ext)
-#		plt.show()
+		plt.show()
 		plt.close('all')
 	#endfor
 #endif
