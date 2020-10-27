@@ -154,8 +154,8 @@ savefig_1Dtotalenergy = False			#Plot 1D physical trends (xxx.energy_phys)		-Jav
 savefig_1Dspectralenergy = False		#Plot 1D harmonic trends (xxx.energy_n)			-Javi Diagnostic
 
 savefig_2Dequilibria = False			#Plot 2D ... UNDER CONSTRUCTION
-savefig_2Dharmonics = True				#Plot 2D harmonic trends 	(xxx.harmonics)
-savefig_2Dfourier = False				#Plot 2D fourier analysis	(xxx.harmonics)		-Javi Diagnostic
+savefig_2Dharmonics = False				#Plot 2D harmonic trends 	(xxx.harmonics)
+savefig_2Dfourier = True				#Plot 2D fourier analysis	(xxx.harmonics)		-Javi Diagnostic
 
 
 #Steady-State diagnostics terminal output toggles.
@@ -807,7 +807,7 @@ def Matplotlib_GlobalOptions():
 
 	#Line and Colour options
 #	from cycler import cycler								#See below
-#	mpl.rcParams['axes.prop_cycle']=cycler(color='bgrcmyk')	#Set default colour names
+#	mpl.rcParams['axes.prop_cycle']=cycler(color='krbgcym')	#Set Default colour rotation
 	mpl.rcParams['lines.linewidth'] = 1.0					#Set Default linewidth
 
 	#Maths and Font options
@@ -879,11 +879,9 @@ def ImageOptions(fig,ax='NaN',Xlabel='',Ylabel='',Title='',Legend=[]):
 	ax.tick_params(axis='x', labelsize=18)
 	ax.tick_params(axis='y', labelsize=18)
 
-	#Force scientific notation for all axes, accounting for non-scalar x-axes.
+	#Force scientific notation for all axes.
 	try: ax.xaxis.get_major_locator().set_params(style='sci',scilimits=(-2,3),axis='both')
-	except: Axes_Contain_Strings = True
-#	try: ax.ticklabel_format(style='sci',scilimits=(-2,3),axis='both')	#Old tickformat.
-#	except: ax.ticklabel_format(style='sci',scilimits=(-2,3),axis='y')	#Old tickformat.
+	except: Fails_If_Axes_Contain_Strings = True
 	#endtry
 
 	#Set grid, default is off.
@@ -908,7 +906,8 @@ def ImageOptions(fig,ax='NaN',Xlabel='',Ylabel='',Title='',Legend=[]):
 	#endif
 
 	#Arrange figure such that labels, legends and titles fit within frame.
-	fig.tight_layout()
+	try: fig.tight_layout()
+	except: Fails_For_Incorrect_Padding = True
 
 	return()
 #enddef
@@ -934,15 +933,17 @@ def Colourbar(ax='NaN',image='NaN',Label='',Ticks=5,Lim=[]):
 
 	#Create and define colourbar axis
 	divider = make_axes_locatable(ax)
-	cax = divider.append_axes("right", size="2%", pad=0.1)
+	cax = divider.append_axes("right", size="5%", pad=0.1)
 	cbar = plt.colorbar(image, cax=cax)
 
 	#Set number of ticks, label location and define scientific notation.
 	cbar.set_label(Label, rotation=Rotation,labelpad=Labelpad,fontsize=LabelFontSize)
+	cbar.formatter.set_scientific(True)
 	cbar.formatter.set_powerlimits((-2,3))
 	cbar.locator = ticker.MaxNLocator(nbins=Ticks)
 	cbar.ax.yaxis.offsetText.set(size=TickFontsize)
 	yticks(fontsize=TickFontsize)
+	cbar.update_ticks()  
 
 	#Apply colourbar limits if specified.  (lim=[min,max])
 	if len(Lim) == 2: im.set_clim(vmin=Lim[0], vmax=Lim[1])
@@ -961,15 +962,16 @@ def InvisibleColourbar(ax='NaN'):
 
 	#Create colourbar axis, ideally should 'find' values of existing cbar! 
 	divider = make_axes_locatable(ax)
-	cax = divider.append_axes("right", size="2%", pad=0.1)
+	cax = divider.append_axes("right", size="5%", pad=0.1)
 
 	#Set new cax to zero size and remove ticks.
 	try: cax.set_facecolor('none')				#matplotlib v2.x.x method
 	except: cax.set_axis_bgcolor('none')		#matplotlib v1.x.x method
 	for axis in ['top','bottom','left','right']:
 		cax.spines[axis].set_linewidth(0)
-	cax.set_xticks([])
-	cax.set_yticks([])
+		cax.set_xticks([])
+		cax.set_yticks([])
+	#endfor
 
 	return(cax)
 #enddef
@@ -1002,7 +1004,7 @@ def TAEThresholds(HarmonicData,Harmonic,eps,AlfvenVelocity,ax='NaN'):
 	UpperThresholds = list()
 	LowerThresholds = np.zeros([lpsi,mpol-1])
 
-	#Extract safety factor (???) array and initiate threshold arrays
+	#Extract rho_pol and safety factor arrays, and initiate empty threshold arrays
 	rho_pol = HarmonicsData.rho_pol
 	q = abs(HarmonicsData.q_psi)
 	K = np.zeros([lpsi,mpol])
@@ -1026,6 +1028,8 @@ def TAEThresholds(HarmonicData,Harmonic,eps,AlfvenVelocity,ax='NaN'):
 		#endfor
 		Yaxis = np.amin(LowerThresholds,axis=1)*AlfvenVelocity/(2*np.pi)/1000
 		subfig.plot(rho_pol,Yaxis, 'w--', lw=1.5)
+	else:
+		print('Image Axis Not Supplied - TAE Thresholds Not Plotted')
 	#endif
 
 	return(UpperThresholds,LowerThresholds)
@@ -1619,7 +1623,7 @@ if savefig_2Dharmonics == True:
 			VariableLabel = variables[i]							#Needs a seperate function to label vars
 
 			#Set TimeIndex and employ to extract KStep and Time
-			TimeIndex = 600											#!!! Hard-coded to final entry for now !!!
+			TimeIndex = 399											#!!! Hard-coded to final entry for now !!!
 			KStep = HarmonicsData.kst[TimeIndex]					#Need a method of altering these
 			Time = (HarmonicsData.time[TimeIndex]/IonGyroFreq)*1e3	#Need a method of altering these
 
@@ -1657,23 +1661,10 @@ if savefig_2Dharmonics == True:
 			#endfor
 		#endfor
 	#endfor
-
-	if any([savefig_2Dharmonics]) == True:
-		print '--------------------------'
-		print '2D Harmonic Plots Complete'
-		print '--------------------------'
-	#endif
 #endif
 
-
-
-
-
-
-
-
-
-
+#====================================================================#
+#====================================================================#
 
 
 #====================================================================#
@@ -1697,12 +1688,6 @@ if savefig_2Dfourier == True:
 		Energy_n,Header_n = ExtractMEGA_Energy(Dir[l],'energy_n')
 		NumHarmonics = len(Energy_n)-3		#Ignore kstep, time, n=0
 
-		#Extract Harmonics outputs for plotting, it contains:
-		#HarmonicsData.rho_pol [1D array] :: HarmonicsData.q_psi [1D array]
-		#HarmonicsData.kst [1D array]     :: HarmonicsData.time [1D array]    
-		#HarmonicsData.data: [4D Array] of shape [kstep][mpol][ntor][lpsi] for variables[i]
-		HarmonicsData = Extract_MEGAHarmonics('bphi',NumHarmonics,Dir[l]+'data/')
-
 		#Extract relevant normalisation factors for current simulation folder
 		Variables,Values,Units = ExtractMEGA_Normalisations(Dir[l])
 		AlfvenVelocity = Values[Variables.index('Alfven velocity')] #B0/np.sqrt(4e-7*np.pi*IonDensity*m_D)
@@ -1713,6 +1698,14 @@ if savefig_2Dfourier == True:
 		m_D = 3.34e-27
 		eps = 0.5/R0
 
+		#Extract Harmonics outputs for plotting, it contains:
+		#HarmonicsData.rho_pol [1D array] :: HarmonicsData.q_psi [1D array]
+		#HarmonicsData.kst [1D array]     :: HarmonicsData.time [1D array]    
+		#HarmonicsData.data: [4D Array] of shape [kstep][mpol][ntor][lpsi] for variables[i]
+		HarmonicsData = Extract_MEGAHarmonics('bphi',NumHarmonics,Dir[l]+'data/')
+
+		#Extract Variablelabel
+		VariableLabel = 'BField Perturbation $\delta B_{\phi}$ [T]'	#Needs a seperate function
 
 
 		#TO STILL BE TRANSLATED 
@@ -1731,8 +1724,8 @@ if savefig_2Dfourier == True:
 
 
 
+		#Create Vcos list and add zeros equal to the toroidal resolution (Why tho?)
 		vcos = list()
-		#Create Vcos list and add zeros equal to the toroidal resolution?
 		for n in range(0,ntor2):
 			vcos.append( np.zeros([]) )
 			#Extract Bpol data for each respective toroidal (n) and poloidal (m) cells (adding vcos zeros?)
@@ -1745,16 +1738,16 @@ if savefig_2Dfourier == True:
 		vcos_fft,vcos_len = list(),list()
 		#Extract fourier components from vcos
 		for n in range(0,ntor2):
-			vcos_fft.append( np.fft.fft(vcos[n],axis=0) )	# 											???
-		  	vcos_fft[n][0,:] = vcos_fft[n][0,:]*0.0			#Discard imaginary components 				???
-			vcos_len.append( int(len(vcos_fft[n])/2)-1 )	#Determine lowpass filter threshold 		???
+			vcos_fft.append( np.fft.fft(vcos[n],axis=0) )	# 												???
+		  	vcos_fft[n][0,:] = vcos_fft[n][0,:]*0.0			#Discard imaginary components 					???
+			vcos_len.append( int(len(vcos_fft[n])/2)-1 )	#Determine lowpass filter frequency threshold 	???
 			vcos_fft[n] = vcos_fft[n][0:vcos_len[n],:]		#Discard upper frequencies (lowpass filter)
 		#endfor
 
 		#==========##==========#
 
 		#Create fig of desired size - increasing Xlim with the number of harmonics
-		Xlim,Ylim = 10*(NumHarmonics/2), 10
+		Xlim,Ylim = int(10*(float(NumHarmonics)/1.80)), 12
 		fig,ax = figure([Xlim,Ylim],[2,ntor2])
 
 		#For each toroidal harmonic:
@@ -1763,29 +1756,65 @@ if savefig_2Dfourier == True:
 			#Temporal evolution plotted on the top row (row 0)
 			if ntor2 == 1: subfig = ax[0]
 			elif ntor2 > 1: subfig = ax[0,i]
-			Harmonic = -ntor2+i									#Why is it reversed?
-			#Construct meshgrid
+			Harmonic = -ntor2+i									# Why is ntor reversed?
+			#Construct figure axes and meshgrid (not used)
 			Xaxis = HarmonicsData.rho_pol						#[-]
 			Yaxis = (HarmonicsData.time/IonGyroFreq)*1e3		#[ms]
-			X,Y = np.meshgrid(Xaxis,Yaxis)
+			extent = [Xaxis[0],Xaxis[-1], Yaxis[0],Yaxis[-1]]
+			X,Y = np.meshgrid(Xaxis,Yaxis)						#im = subfig.contourf(X,Y,vcos[i])
+
 			#Plot harmonic temporal evolution
-			subfig.contourf(X,Y,vcos[i], cmap='plasma')
-			if i == 0: ImageOptions(fig,subfig,'','Time [ms]','n='+str(Harmonic),'')
-			if i > 0: ImageOptions(fig,subfig,'','','n='+str(Harmonic),'')
+			im = subfig.imshow(vcos[i][::-1], extent=extent, aspect='auto')
+			co = subfig.contour(vcos[i], extent=extent, levels=10)
+			
+			#Add colourbar and beautify plot - taking account of panel location
+			if i == 0 and ntor2 > 1: 					#If first panel with more panels to right
+				ImageOptions(fig,subfig,'','Time [ms]','n='+str(Harmonic),'')
+ 				im.axes.get_xaxis().set_visible(False)
+			elif i == 0 and ntor2 == 1:					#If first panel with no panels to right
+				cbar = Colourbar(subfig,im,VariableLabel,5)
+				ImageOptions(fig,subfig,'','Time [ms]','n='+str(Harmonic),'')
+ 				im.axes.get_xaxis().set_visible(False)
+			elif i > 0 and i < ntor2-1: 				#If middle panel with more panels to right
+				ImageOptions(fig,subfig,'','','n='+str(Harmonic),'')
+ 				im.axes.get_xaxis().set_visible(False)
+ 				im.axes.get_yaxis().set_visible(False)
+			elif i == ntor2-1 and ntor2 > 1:			#If last panel with more panels to left
+				cbar = Colourbar(subfig,im,VariableLabel,5)
+				ImageOptions(fig,subfig,'','','n='+str(Harmonic),'')
+ 				im.axes.get_xaxis().set_visible(False)
+ 				im.axes.get_yaxis().set_visible(False)
+			#endif
 
 			#==========#
 
 			#Fourier analysis plotted on the bottom row (row 1)
 			if ntor2 == 1: subfig = ax[1]
 			elif ntor2 > 1: subfig = ax[1,i]
-			#Construct meshgrid
+			#Construct figure axes and meshgrid (not used)
 			Xaxis = HarmonicsData.rho_pol						#[-]
 			Yaxis = np.linspace(0,0.5/dt,vcos_len[i])			#[kHz]
-			X,Y = np.meshgrid(Xaxis,Yaxis)
+			extent = [Xaxis[0],Xaxis[-1], Yaxis[0],Yaxis[-1]]
+			X,Y = np.meshgrid(Xaxis,Yaxis)						#im = subfig.contourf(X,Y,vcos_fft[i])
+
 			#Plot fourier amplitude spectrum
-			subfig.contourf(X,Y,vcos_fft[i], cmap='plasma')
-			if i == 0: ImageOptions(fig,subfig,'Poloidal Angle $\\rho_{pol}$','Frequency [kHz]','','')
-			if i > 0: ImageOptions(fig,subfig,'Poloidal Angle $\\rho_{pol}$','','','')
+			im = subfig.imshow(real(vcos_fft[i])[::-1], extent=extent, aspect='auto')
+			co = subfig.contour(real(vcos_fft[i]), extent=extent, levels=10)
+
+			#Add colourbar and beautify plot - taking account of panel location
+			if i == 0 and ntor2 > 1: 					#If first panel with more panels to right
+				ImageOptions(fig,subfig,'Poloidal Extent $\\rho_{pol}$','Frequency [kHz]','','')
+			elif i == 0 and ntor2 == 1:					#If first panel with no panels to right
+				cbar = Colourbar(subfig,im,VariableLabel,5)
+				ImageOptions(fig,subfig,'Poloidal Extent $\\rho_{pol}$','Frequency [kHz]','','')
+			elif i > 0 and i < ntor2-1:   				#If middle panel with more panels to right
+				ImageOptions(fig,subfig,'Poloidal Extent $\\rho_{pol}$','','','')
+ 				im.axes.get_yaxis().set_visible(False)
+			elif i == ntor2-1 and ntor2 > 1:			#If last panel with more panels to left
+				cbar = Colourbar(subfig,im,VariableLabel,5)
+				ImageOptions(fig,subfig,'Poloidal Extent $\\rho_{pol}$','','','')
+ 				im.axes.get_yaxis().set_visible(False)
+			#endif
 			subfig.set_ylim([0,200])
 
 			#Compute and plot TAE thresholds
@@ -1802,7 +1831,7 @@ if savefig_2Dfourier == True:
 #==========##==========##==========#
 #==========##==========##==========#
 
-if any([savefig_2Dharmonics]) == True:
+if any([savefig_2Dharmonics,savefig_2Dfourier]) == True:
 	print '-----------------------------'
 	print '2D Spectral Analysis Complete'
 	print '-----------------------------'
@@ -1810,6 +1839,13 @@ if any([savefig_2Dharmonics]) == True:
 
 #====================================================================#
 #====================================================================#
+
+
+
+
+
+
+
 
 
 
