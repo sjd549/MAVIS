@@ -147,19 +147,21 @@ trendlocation = [] 						#Cell location For Trend Analysis [R,Z], ([] = min/max)
 
 
 #Various Diagnostic Settings.
-set_harmonicrange = [0,2]				#Harmonic range to be plotted [Min,Max]
+setting_ntor = [-1,1]					#ntor range to plot 		- [Min,Max], [] to plot all
+setting_kstep = [399]					#kstep index range to plot 	- [Min,Max], [Single], [] to plot all
+
 
 #Requested diagnostics and plotting routines.
-savefig_1Dtotalenergy = False			#Plot 1D physical trends (xxx.energy_phys)		-Javi Diagnostic
-savefig_1Dspectralenergy = False		#Plot 1D harmonic trends (xxx.energy_n)			-Javi Diagnostic
+savefig_2Dequilibria = False			#Plot 2D equilibria	figures							- Development
+savefig_2Dharmonics = True				#Plot 2D harmonic perturbations 	(xxx.harmonics)	- Development
+savefig_2Dfourier = False				#Plot 2D harmonic fourier analysis	(xxx.harmonics)	- Working
 
-savefig_2Dequilibria = False			#Plot 2D ... UNDER CONSTRUCTION
-savefig_2Dharmonics = False				#Plot 2D harmonic trends 	(xxx.harmonics)
-savefig_2Dfourier = True				#Plot 2D fourier analysis	(xxx.harmonics)		-Javi Diagnostic
+savefig_1Dtotalenergy = False			#Plot 1D total energy trends 	(xxx.energy_phys)	- Working
+savefig_1Dspectralenergy = False		#Plot 1D spectral energy trends (xxx.energy_n)		- Working
 
 
 #Steady-State diagnostics terminal output toggles.
-print_generaltrends = False				#Verbose Min/Max Trend Outputs.
+print_generaltrends = False				#Verbose Min/Max Trend Outputs						- Development
 
 
 #Write processed data to ASCII files.
@@ -188,7 +190,7 @@ legendoverride = []
 xaxisoverride = []
 xlabeloverride = []
 ylabeloverride = []
-cbaroverride = ['NotImplimented']
+cbaroverride = []
 
 #=====================================================================#
 #=====================================================================#
@@ -423,6 +425,8 @@ def ReadDataFromFile(Filename,HeaderIdx=0,Dimension='2D',Orientation='CSV'):
 		#endif
 	#endif
 
+	#=====#
+
 	#Orientation doesn't matter if 0D (scalar data).
 	elif Dimension == '0D':
 		#Read in 0D data from ASCII formatted file.
@@ -529,140 +533,107 @@ def ExtractMEGA_Energy(Dir,Filename='energy_n'):
 #=========================#
 #=========================#
 
-#Details on the FORTRAN file format can be found below:
-#https://docs.scipy.org/doc/scipy/reference/generated/scipy.io.FortranFile.read_record.html
-def Extract_MEGAHarmonics(Variable,ntor,DataDir):
+#ntor = total number of toroidal harmonics including positive, negative and n=0
+def Read_MEGAHarmonics(lpsi,mpol,ntor,Filename,Variable):
 
-	def Read_MEGAHarmonics(lpsi,mpol,ntor,Filename,Variable):
+	#Define FORTRANFile save data format
+	#KStep (kst) is an undefined length 1D integer array		[-]
+	#t (SI Time) is an undefined length 1D float array 			[IonGyroFreq*ms]
+	#r_psi, gpsi_nrm, q_psi are (lpsi) length 1D float arrays 	[various]
+	#All other variables are (n_elem) length 1D float arrays 	[various]
+	n_elem = (mpol+1)*ntor*lpsi*2
+	DataFormat = np.dtype([\
+	('kst',np.int32,1),\
+	('t',np.float64,1),\
+	('r_psi',np.float64,lpsi),\
+	('gpsi_nrm',np.float64,lpsi),\
+	('q_psi',np.float64,lpsi),\
+	('vrad',np.float64,n_elem),\
+	('vtheta',np.float64,n_elem),\
+	('vphi',np.float64,n_elem),\
+	('brad',np.float64,n_elem),\
+	('btheta',np.float64,n_elem),\
+	('bphi',np.float64,n_elem),\
+	('erad',np.float64,n_elem),\
+	('etheta',np.float64,n_elem),\
+	('ephi',np.float64,n_elem),\
+	('prs',np.float64,n_elem),\
+	('rho',np.float64,n_elem),\
+	('dns_a',np.float64,n_elem),\
+	('mom_a',np.float64,n_elem),\
+	('ppara_a',np.float64,n_elem),\
+	('pperp_a',np.float64,n_elem),\
+	('qpara_a',np.float64,n_elem),\
+	('qperp_a',np.float64,n_elem),\
+	])
 
-		#Define FORTRANFile save data format
-		#KStep (kst) is an undefined length 1D integer array		[-]
-		#t (SI Time) is an undefined length 1D float array 			[IonGyroFreq*ms]
-		#r_psi, gpsi_nrm, q_psi are (lpsi) length 1D float arrays 	[various]
-		#All other variables are (n_elem) length 1D float arrays 	[various]
-		n_elem = (mpol+1)*(2*ntor+1)*lpsi*2
-		DataFormat = np.dtype([\
-		('kst',np.int32,1),\
-		('t',np.float64,1),\
-		('r_psi',np.float64,lpsi),\
-		('gpsi_nrm',np.float64,lpsi),\
-		('q_psi',np.float64,lpsi),\
-		('vrad',np.float64,n_elem),\
-		('vtheta',np.float64,n_elem),\
-		('vphi',np.float64,n_elem),\
-		('brad',np.float64,n_elem),\
-		('btheta',np.float64,n_elem),\
-		('bphi',np.float64,n_elem),\
-		('erad',np.float64,n_elem),\
-		('etheta',np.float64,n_elem),\
-		('ephi',np.float64,n_elem),\
-		('prs',np.float64,n_elem),\
-		('rho',np.float64,n_elem),\
-		('dns_a',np.float64,n_elem),\
-		('mom_a',np.float64,n_elem),\
-		('ppara_a',np.float64,n_elem),\
-		('pperp_a',np.float64,n_elem),\
-		('qpara_a',np.float64,n_elem),\
-		('qperp_a',np.float64,n_elem),\
-		])
+	#Test reading a single 001 file to ensure data exists
+	try:
+		FORTRANFile = ff(Filename,'r')							#Name FORTRAN format file
+		RawData = FORTRANFile.read_record(DataFormat)			#Extract RawData from file in Format
+	except:
+		print('\n \n  Data file "'+Filename+'" not found or formatted incorrectly - check FORTRAN dtype. \n')
+		FORTRANFile.close(); exit()
+	#endtry
 
-		#Test reading a single 001 file to ensure data exists
-		try:
-			FORTRANFile = ff(Filename,'r')							#Name FORTRAN format file
-			RawData = FORTRANFile.read_record(DataFormat)			#Extract RawData from file in Format
-		except:
-			print('Error: output data file ',Filename,' not found.')
-			FORTRANFile.close(); exit()
-		#endtry
+	#Initiate output data object and set appropriate internal structures
+	Data = lambda:0
+	Data.kst = np.array(([]),int)									#1D KStep Array 	[-]
+	Data.time = np.array(([]),float)								#1D Time Array 		[IonGyroFreq*ms]
+	Data.data = np.empty(([0,mpol+1,ntor,lpsi,2]),np.float64)		#1D-3D Data Arrays	[various]
 
-		#Initiate output data object and set appropriate internal structures
-		Data = lambda:0
-		Data.kst = np.array(([]),int)									#1D KStep Array 	[-]
-		Data.time = np.array(([]),float)								#1D Time Array 		[IonGyroFreq*ms]
-		Data.data = np.empty(([0,mpol+1,2*ntor+1,lpsi,2]),np.float64)	#1D-3D Data Arrays	[various]
+	#Read each .harmonics FORTRANFile in sequence for the current simulation folder
+	SEQ = 1
+	while(True):
+		#Attempt to read the i'th sequence (SEQ) .harmonics FORTRANFile using the defined DataFormat
+		#Read attempts automatically choose the next FORTRANFile in sequence (SEQ) until none remain
+		#RawData for SEQ00i is of shape RawData[Variable][datapoint] where all variables are flattened to 1D
+		try: RawData = FORTRANFile.read_record(DataFormat)
+		except: FORTRANFile.close(); break
 
-		#Read each .harmonics FORTRANFile in sequence for the current simulation folder
-		SEQ = 1
-		while(True):
-			#Attempt to read the i'th sequence (SEQ) .harmonics FORTRANFile using the defined DataFormat
-			#Read attempts automatically choose the next FORTRANFile in sequence (SEQ) until none remain
-			#RawData for SEQ00i is of shape RawData[Variable][datapoint] where all variables are flattened to 1D
-			try: RawData = FORTRANFile.read_record(DataFormat)
-			except: FORTRANFile.close(); break
-
-			#For first SEQ=001, extract rho_pol and q_psi
-			if SEQ == 1:
-				Data.rho_pol = np.sqrt(abs(RawData['gpsi_nrm'][0]))			#[-]
-				Data.q_psi   = RawData['q_psi'][0]							#[-]
-			#endif
-			#Extract 1D kstep and time arrays
-			Data.kst  = np.append(Data.kst,  RawData['kst'][0])				#[-]
-			Data.time = np.append(Data.time, RawData['t'][0])				#[IonGyroFreq*ms]
-
-			#Extract all other data and reshape from 1D array into 3D array 
-			#Data object for input variable [Variable] is of shape Data[kstep][mpol][ntor][lpsi][???]
-			Data.data=np.concatenate((Data.data, np.reshape(RawData[Variable],(1,mpol+1,2*ntor+1,lpsi,2),order='F')))
-
-			#Delete RawData for FORTRANFile SEQ00i and increment SEQ counter
-      		del RawData
-      		SEQ = SEQ+1
-    	#endwhile
-
-		#Debug outputs: 
-		if DebugMode == True:
-			#Print filename, KStep Range and Data Shape 
-			print( '\n  '+Filename.split('/')[-1]+' Data KStep: '+str(i)+'-'+str(Data.kst[i-1]) )
-			print( '  3D image shape [mpol,ntor,lpsi]: '+str(shape(Data.data[0,:,:,:,0]))      )
-
-			#Extract 2D and 3D images for the requested input variable (Variable)
-			image3D = Data.data[0,:,:,:,0]		#image3D[mpol,ntor,lpsi] for :: SEQ00i, Kstep[0]
-			image2D = image3D[:,0,:]			#image2D[mpol,0,lphi] for    :: SEQ00i, Kstep[0], ntor[0]
-
-			#Create figure and define Title, Legend, Axis Labels etc...
-			fig,ax = figure(image_aspectratio,1)
-			Title = 'Harmonic plot of '+Variable+' at Kstep=0 for simulation \n'+str(Filename.split('/')[-3])
-			Xlabel,Ylabel = 'Poloidal Resolution $m_{\\theta}$ [cells]', 'Toroidal Resolution $l_{\phi}$ [cells]'
-			Legend = list()
-
-			#Plot example data for debugging purposes
-			im = ax.imshow(image2D, aspect='auto', origin='bottom')
-			cbar = Colourbar(ax,im,Variable+' [-]',5)
-			ImageOptions(fig,ax,Xlabel,Ylabel,Title,Legend)
-			plt.show()
-			plt.close('all')
+		#For first SEQ=001, extract rho_pol and q_psi
+		if SEQ == 1:
+			Data.rho_pol = np.sqrt(abs(RawData['gpsi_nrm'][0]))			#[-]
+			Data.q_psi   = RawData['q_psi'][0]							#[-]
 		#endif
+		#Extract 1D kstep and time arrays
+		Data.kst  = np.append(Data.kst,  RawData['kst'][0])				#[-]
+		Data.time = np.append(Data.time, RawData['t'][0])				#[IonGyroFreq*ms]
 
-		return(Data)
-	#enddef
-  
-	#==========#==========#
-	#==========#==========#
+		#Extract all other data and reshape from 1D array into 3D array 
+		#Data object for input variable [Variable] is of shape Data[kstep][mpol][ntor][lpsi][???]
+		Data.data=np.concatenate((Data.data, np.reshape(RawData[Variable],(1,mpol+1,ntor,lpsi,2),order='F')))
 
+		#Delete RawData for FORTRANFile SEQ00i and increment SEQ counter
+  		del RawData
+  		SEQ = SEQ+1
+	#endwhile
 
-	#Extract harmonic output files for all SEQ in requested directory
-	DataFiles = sorted(glob.glob(DataDir+"/*harm*"))
+	#Debug outputs: 
+	if DebugMode == True:
+		#Print filename, KStep Range and Data Shape 
+		print( '\n  '+Filename.split('/')[-1]+' Data KStep: '+str(0)+'-'+str(Data.kst[::-1]) )
+		print( '  3D image shape [mpol,ntor,lpsi]: '+str(shape(Data.data[0,:,:,:,0]))      )
 
-	#Extract data poloidal and toroidal resolutions 		
-	lpsi,mpol = 201, 64														#!!! HARD-CODED FOR NOW !!!
+		#Extract 2D and 3D images for the requested input variable (Variable)
+		image3D = Data.data[0,:,:,:,0]		#image3D[mpol,ntor,lpsi] for :: SEQ00i, Kstep[0]
+		image2D = image3D[:,0,:]			#image2D[mpol,0,lphi] for    :: SEQ00i, Kstep[0], ntor[0]
 
-	#Extract HarmonicData from each SEQ:  HarmonicData [kmax][mpol][ntor][lpsi] 
-	HarmonicData = list()
-	for i in tqdm(range(0,len(DataFiles))):
-		HarmonicData.append(Read_MEGAHarmonics(lpsi,mpol,ntor,DataFiles[i],Variable))
-	#endfor
+		#Create figure and define Title, Legend, Axis Labels etc...
+		fig,ax = figure(image_aspectratio,1)
+		Title = 'Harmonic plot of '+Variable+' at Kstep=0 for simulation \n'+str(Filename.split('/')[-3])
+		Xlabel,Ylabel = 'Poloidal Resolution $m_{\\theta}$ [cells]', 'Toroidal Resolution $l_{\phi}$ [cells]'
+		Legend = list()
 
-	#Flatten each SEQ entry in HarmonicData, i.e. remove any sub-lists between successive SEQs.
-	#LEGACY CODE - NOT SURE IF NEEDED BUT SHOULDN'T CAUSE ANY ISSUES IF DATA IS ALREADY 'FLAT'
-	for i in range(0,len(HarmonicData)-1):
-		aux = HarmonicData.pop(1)											#Grabs and removes 1st sub-list
-		HarmonicData[0].kst  = np.append(HarmonicData[0].kst, aux.kst)		#Appends to zero'th list
-		HarmonicData[0].time = np.append(HarmonicData[0].time, aux.time)
-		HarmonicData[0].data = np.concatenate((HarmonicData[0].data, aux.data))
-		del aux																#Refresh and grab 2nd (now 1st) sub-list
-	#endfor
-	HarmonicData = HarmonicData[0]			#Replace with fully appended (i.e. flattened) zero'th list
+		#Plot example data for debugging purposes
+		im = ax.imshow(image2D, aspect='auto', origin='bottom')
+		cbar = Colourbar(ax,im,Variable+' [-]',5)
+		ImageOptions(fig,ax,Xlabel,Ylabel,Title,Legend)
+		plt.show()
+		plt.close('all')
+	#endif
 
-	return(HarmonicData)
+	return(Data)
 #enddef
 
 #=========================#
@@ -670,7 +641,7 @@ def Extract_MEGAHarmonics(Variable,ntor,DataDir):
 
 #Details on the FORTRAN file format can be found below:
 #https://docs.scipy.org/doc/scipy/reference/generated/scipy.io.FortranFile.read_record.html
-def read_harmonics_all(ntor,dir1,kstep,seq):
+def Read_AllMEGAHarmonics(ntor,dir1,kstep,seq):
 
   def load_harmonics_all(lpsi,mpol,ntor,afile,kstep):
     data = lambda:0
@@ -769,6 +740,76 @@ def read_harmonics_all(ntor,dir1,kstep,seq):
 
 #=========================#
 #=========================#
+
+#Details on the FORTRAN file format can be found below:
+#https://docs.scipy.org/doc/scipy/reference/generated/scipy.io.FortranFile.read_record.html
+def Extract_MEGAHarmonics(Variable,ntor,DataDir):
+
+	#Extract harmonic output files for all SEQ in requested directory
+	DataFiles = sorted(glob.glob(DataDir+"/*harm*"))
+
+	#Extract data poloidal and toroidal resolutions 		
+	lpsi,mpol = 201, 64														#!!! HARD-CODED FOR NOW !!!
+
+	#Extract HarmonicData from each SEQ:  HarmonicData [kmax][mpol][ntor][lpsi] 
+	HarmonicData = list()
+	for i in tqdm(range(0,len(DataFiles))):
+		HarmonicData.append(Read_MEGAHarmonics(lpsi,mpol,ntor,DataFiles[i],Variable))
+	#endfor
+
+	#Flatten each SEQ entry in HarmonicData, i.e. remove any sub-lists between successive SEQs.
+	#LEGACY CODE - NOT SURE IF NEEDED BUT SHOULDN'T CAUSE ANY ISSUES IF DATA IS ALREADY 'FLAT'
+	for i in range(0,len(HarmonicData)-1):
+		aux = HarmonicData.pop(1)											#Grabs and removes 1st sub-list
+		HarmonicData[0].kst  = np.append(HarmonicData[0].kst, aux.kst)		#Appends to zero'th list
+		HarmonicData[0].time = np.append(HarmonicData[0].time, aux.time)
+		HarmonicData[0].data = np.concatenate((HarmonicData[0].data, aux.data))
+		del aux																#Refresh and grab 2nd (now 1st) sub-list
+	#endfor
+	HarmonicData = HarmonicData[0]			#Replace with fully appended (i.e. flattened) zero'th list
+
+	return(HarmonicData)
+#enddef
+
+#=========================#
+#=========================#
+
+#Details on the FORTRAN file format can be found below:
+#https://docs.scipy.org/doc/scipy/reference/generated/scipy.io.FortranFile.read_record.html
+def Extract_MEGAMoments(Variable,ntor,DataDir):
+
+	#### FUNCTION DOES NOTHING ####
+
+	#Extract harmonic output files for all SEQ in requested directory
+	DataFiles = sorted(glob.glob(DataDir+"/*mom*"))							#### FUNCTION DOES NOTHING ####
+
+	#Extract data poloidal and toroidal resolutions 		
+	lpsi,mpol = 201, 64														#!!! HARD-CODED FOR NOW !!!
+
+	#Extract MomentsData from each SEQ:  MomentsData [kmax][mpol][ntor][lpsi] 
+	MomentsData = list()
+	for i in tqdm(range(0,len(DataFiles))):
+		MomentsData.append(Read_MEGAHarmonics(lpsi,mpol,ntor,DataFiles[i],Variable))
+	#endfor
+
+	#Flatten each SEQ entry in MomentsData, i.e. remove any sub-lists between successive SEQs.
+	#LEGACY CODE - NOT SURE IF NEEDED BUT SHOULDN'T CAUSE ANY ISSUES IF DATA IS ALREADY 'FLAT'
+	for i in range(0,len(MomentsData)-1):
+		aux = MomentsData.pop(1)											#Grabs and removes 1st sub-list
+		MomentsData[0].kst  = np.append(MomentsData[0].kst, aux.kst)		#Appends to zero'th list
+		MomentsData[0].time = np.append(MomentsData[0].time, aux.time)
+		MomentsData[0].data = np.concatenate((MomentsData[0].data, aux.data))
+		del aux																#Refresh and grab 2nd (now 1st) sub-list
+	#endfor
+	MomentsData = MomentsData[0]			#Replace with fully appended (i.e. flattened) zero'th list
+
+	#### FUNCTION DOES NOTHING ####
+
+	return(MomentsData)
+#enddef
+
+#====================================================================#
+#====================================================================#
 
 
 
@@ -926,10 +967,13 @@ def Colourbar(ax='NaN',image='NaN',Label='',Ticks=5,Lim=[]):
 	if image == 'NaN': print('Colourbar Image Not Supplied')
 	if ax == 'NaN': ax = plt.gca()
 
+	#Apply label override if supplied
+	if len(cbaroverride) > 0: Label = str(cbaroverride)
+	
 	#Set default font and spacing options and modify if required
 	Rotation,Labelpad = 270,30
 	LabelFontSize,TickFontsize = 24,18
-	if '\n' in Label: Labelpad += 25		#Pad label for multi-line names
+	if '\n' in [Label]: Labelpad += 25		#Pad label for multi-line names
 
 	#Create and define colourbar axis
 	divider = make_axes_locatable(ax)
@@ -976,8 +1020,8 @@ def InvisibleColourbar(ax='NaN'):
 	return(cax)
 #enddef
 
-#=========================#
-#=========================#
+#====================================================================#
+#====================================================================#
 
 
 
@@ -1038,12 +1082,39 @@ def TAEThresholds(HarmonicData,Harmonic,eps,AlfvenVelocity,ax='NaN'):
 #=========================#
 #=========================#
 
-#Takes 1D or 2D array and returns array normalized to maximum value.
-#If NormFactor is defined, array will be normalized to this instead.
-#Returns normalized image/profile and the max/min normalization factors.
-#NormProfile,Min,Max = Normalize(profile,NormFactor=0)
-def Normalize(profile,NormFactor=0):
-	NormalizedImage = list()
+#Determines which cells of the equilibrium are within the LCFS and which are outside
+#Those inside are unchanged, while values outside are replaced with np.nan()
+#Inputs are 2D equilibrium array and LCFS phi threshold (default 0.0)
+#Returns 2D EquilibriumLCFS array containing $\Phi(R,Z)$ shaped as: Equilibrium[Row][Column]
+def ComputeEquilLCFS(Equilibrium,Threshold=0.0):
+
+	#Initiate required lists
+	LCFSEquil = list()
+
+	#By definition LCFS occours where flux surface equals zero
+	for i in range(0,len(Equilibrium)):
+		LCFSEquil.append(list())
+		for j in range(0,len(Equilibrium[i])):
+			if Equilibrium[i][j] >= Threshold:
+				LCFSEquil[i].append(Equilibrium[i][j])
+			else:
+				LCFSEquil[i].append(np.nan)
+			#endif
+		#endfor
+	#endfor
+
+	return(LCFSEquil)
+#enddef
+
+#=========================#
+#=========================#
+
+#Takes 1D or 2D array and returns array normalised to maximum value.
+#If NormFactor is defined, array will be normalised to this instead.
+#Returns normalised image/profile and the max/min normalisation factors.
+#NormProfile,Min,Max = Normalise(profile,NormFactor=0)
+def Normalise(profile,NormFactor=0):
+	NormalisedImage = list()
 
 	#determine dimensionality of profile and select normaliztion method.
 	if isinstance(profile[0], (list, np.ndarray) ) == True:
@@ -1060,9 +1131,9 @@ def Normalize(profile,NormFactor=0):
 		#Normalize 2D array to local maximum.
 		if NormFactor == 0: NormFactor = MaxNormFactor
 		for i in range(0,len(profile)):
-			NormalizedImage.append( [x/NormFactor for x in profile[i]] )
+			NormalisedImage.append( [x/NormFactor for x in profile[i]] )
 		#endfor
-		profile = NormalizedImage
+		profile = NormalisedImage
 		return(profile,MaxNormFactor,MinNormFactor)
 
 	#Lowest dimention is still list.
@@ -1085,8 +1156,8 @@ def Normalize(profile,NormFactor=0):
 	return(profile,MinNormFactor,MaxNormFactor)
 #enddef
 
-#=====================================================================#
-#=====================================================================#
+#====================================================================#
+#====================================================================#
 
 
 
@@ -1159,7 +1230,7 @@ Dir = list()			#List of simulation folders 					struc:[folder]
 DirFiles = list()		#List of data files in each simulation folder 	struc:[folder][filenames]
 NumFolders = 0			#Number of simulation folders
 
-#Create mesh_size lists and SI conversion
+#Mesh sizes and axes
 Raxis = list()				#raxis		[m]
 Zaxis = list()				#zaxis		[m]
 PhiMode = list()			#phimax		[Rad]
@@ -1178,43 +1249,16 @@ dr = list()
 dz = list()
 dphi = list()
 
-#Lists for icp.nam variables
-VRFM,VRFM2 = list(),list()
-FREQM,FREQM2 = list(),list()
-FREQC        = list()
-FREQGLOB,IRFPOW = list(),list()
-MAXFREQ,MINFREQ = list(),list()
-PRESOUT = list()
-IETRODEM = list()
-IMOVIE_FRAMES = list()
+#Lists to store normalisation factors
+Variables = list()				#[1D Array] of normalisation factor variable names	- Strings
+Values = list()					#[1D Array] of normalisation factor variable values - Floats
+Units = list()					#[1D Array] of normalisation factor variable units - Strings
 
-#Lists for icp.dat variables
-header_icpdat = list()			#[SpeciesName, Charge, MolecularWeight, StickingCoeff,
-								# Transport, ReturnFrac, ReturnName]
-AtomicSpecies = list()			#All species contained within chemistry set
-FluidSpecies  = list() 			#All 'bulk' fluid species (for fluid dynamics analysis)
-NeutSpecies	= list()			#All neutral and metastable species
-PosSpecies = list()				#All positive ion species
-NegSpecies = list()				#All negative ion species
-
-#Lists to store raw data
-rawdata_2D = list()
-rawdata_kin = list()
-rawdata_phasemovie = list()
-rawdata_itermovie = list()
-rawdata_IEDF = list()
-rawdata_mcs = list()
-
-Data = list()					#Data[folder][Variable][Datapoint]
-DataIEDF = list()				#Data[folder][Variable][Datapoint]
-DataEEDF = list()				#Data[folder][Variable][Datapoint]
-IterMovieData = list()			#ITERMovieData[folder][timestep][variable][datapoints]
-PhaseMovieData = list()			#PhaseMovieData[folder][timestep][variable][datapoints]
-
-header_itermovie = list()
-header_phasemovie = list()
-header_IEDFlist = list()
-header_2Dlist = list()
+#Lists to store extracted data
+HarmonicsData = list()			#[4D Array] of shape Data[kstep][mpol][ntor][lpsi][???] for each variable
+MomentsData = list()			#[4D Array] of shape Data[kstep][mpol][ntor][lpsi][???] for each variable
+EnergyData_phys = list()		#[3D Array] of shape Data[folder][variable][Kstep] for energy_phys.txt
+EnergyData_n = list()			#[3D Array] of shape Data[folder][variable][Kstep] for energy_n.txt
 
 #=====================================================================#
 #=====================================================================#
@@ -1229,7 +1273,7 @@ header_2Dlist = list()
 
 
 #====================================================================#
-					#OBTAINING FILE DIRECTORIES#
+						#OBTAIN FILE DIRECTORIES#
 #====================================================================#
 
 #Obtain system RAM. (and rename enviroment variable)
@@ -1324,10 +1368,12 @@ elif NumFolders == 0:
 
 
 
-
+#====================================================================#
+					   #GENERAL ENERGY ANALYSIS#
+#====================================================================#
 
 #====================================================================#
-				 	    #1D ENERGY DIAGNOSTICS#
+				 	    #TOTAL ENERGY DIAGNOSTIC#
 #====================================================================#
 
 if savefig_1Dtotalenergy == True:
@@ -1383,8 +1429,9 @@ if savefig_1Dtotalenergy == True:
 	#endfor
 #endif
 
-#==========##==========##==========#
-#==========##==========##==========#
+#====================================================================#
+				 	 #SPECTRAL ENERGY DIAGNOSTIC#
+#====================================================================#
 
 if savefig_1Dspectralenergy == True:
 
@@ -1482,11 +1529,12 @@ if any([savefig_1Dtotalenergy,savefig_1Dspectralenergy]) == True:
 
 
 
-
-
+#====================================================================#
+					 #GENERAL EQUILIBRIUM ANALYSIS#
+#====================================================================#
 
 #====================================================================#
-				 	    #2D EQUILIBRIA DIAGNOSTICS#
+				 	    #2D EQUILIBRIUM PLOTS#
 #====================================================================#
 
 if savefig_2Dequilibria == True:
@@ -1496,22 +1544,26 @@ if savefig_2Dequilibria == True:
 
 		print Dir[l]
 
-		#Create global 1D diagnostics folder and extract current simulation name
-		DirHarmonics = CreateNewFolder(Dir[l],'2DHarmonic_Profiles/')
+		#Create global 2D diagnostics folder and extract current simulation name
+		DirHarmonics = CreateNewFolder(Dir[l],'2DEquil_Plots/')
 		DirString = Dir[l].split('/')[-2]
 		SubString = DirString.split('_')[-1]
 
 		#Extract Energy_n outputs and header, used to determine harmonic range
 		#energy_n: [folder][variable][timestep]
 		Energy_n,Header_n = ExtractMEGA_Energy(Dir[l],'energy_n')
-		NumHarmonics = len(Energy_n)-3		#Ignore kstep, time, n=0
+		ntor_tot = ((len(Energy_n)-3)*2)+1		#Number of positive and negative modes (Including n=0)
+		ntor_pos = int(float(ntor_tot-1)/2.0)	#Number of positive modes (Ignoring n=0)
 
-		#Extract Harmonics outputs for plotting, it contains:
-		#HarmonicsData.rho_pol [1D array] :: HarmonicsData.q_psi [1D array]
-		#HarmonicsData.kst [1D array]     :: HarmonicsData.time [1D array]    
-		#HarmonicsData.data: [4D Array] of shape [kstep][mpol][ntor][lpsi] for variables[i]
-		HarmonicsData = Extract_MEGAHarmonics('bphi',NumHarmonics,Dir[l]+'data/')
-		## ??? PROBABLY NEED .moments DATA FOR EQUILIBRIA PLOTS ??? ##
+		#Create 2D array containing [ntor,ntor_index] for referencing data to be extracted
+		ntor_indices = list()
+		for i in range(0,ntor_tot):
+			if i-ntor_pos >= setting_ntor[0] and i-ntor_pos <= setting_ntor[1]:
+				#ntor_indices contains the following [ntor, ntor_index], for positive, negative and n=0 modes
+				ntor_indices.append( [i-ntor_pos,i] )
+			#endif
+		#endfor
+#		print ntor_indices
 
 		#Extract relevant normalisation factors for current simulation folder
 		Variables,Values,Units = ExtractMEGA_Normalisations(Dir[l])
@@ -1522,16 +1574,84 @@ if savefig_2Dequilibria == True:
 		R0 = Values[Variables.index('raxis')]
 		m_D = 3.34e-27
 		eps = 0.5/R0
-	#endfor
 
+		#For each requested variable
+		for i in range(0,len(variables)):
+
+			#Create new folder for each variable
+			DirVariable = CreateNewFolder(DirHarmonics,variables[i])
+
+			#Extract Harmonics outputs for plotting, it contains:
+			#HarmonicsData.rho_pol [1D array] :: HarmonicsData.q_psi [1D array]
+			#HarmonicsData.kst [1D array]     :: HarmonicsData.time [1D array]    
+			#HarmonicsData.data: [4D Array] of shape [kstep][mpol][ntor][lpsi] for variables[i]
+			HarmonicsData = Extract_MEGAHarmonics(variables[i],ntor_tot,Dir[l]+'data/')
+
+			#Extract Moments outputs for plotting, it contains:
+#			MomentsData = Extract_MEGAMoments('bphi',ntor_tot,Dir[l]+'data/')
+			## ??? PROBABLY NEED .moments DATA FOR EQUILIBRIA PLOTS ??? ##
+
+			#HarmonicsData.data is of shape [kstep][mpol][ntor][lpsi][???]
+			HarmonicsData.data = HarmonicsData.data[:,:,:,:,0]		#Final index is unusual, should fix this
+			print shape(HarmonicsData.data)
+
+			#Extract Variablelabel				
+			VariableLabel = variables[i]							#Needs a seperate function to label vars
+
+			#Set TimeIndex and employ to extract KStep and Time
+			#Need a function to determine this!
+			TimeIndex = setting_kstep[0]								
+			KStep = HarmonicsData.kst[TimeIndex]					#Need a method of altering these
+			Time = (HarmonicsData.time[TimeIndex]/IonGyroFreq)*1e3	#Need a method of altering these
+
+			#Extract normalised axes and set image extent
+			## !!! MAKE THESE A FUNCTION extent = ImageExtent() !!! ##		
+			rho_pol = HarmonicsData.rho_pol							#Normalised poloidal angle
+			phi_tor = range(1,shape(HarmonicsData.data)[1]+1)		#Array of toroidal cells
+			phi_tor = [x/float(len(phi_tor)) for x in phi_tor]		#Normalised toroidal angle
+			extent = [rho_pol[0],rho_pol[-1], phi_tor[0],phi_tor[-1]]
+			
+			#Plot images of variables[i] for all requested ntor
+			#ntor range set by ntor_indices[ntor, ntor_index], for pos, neg & n=0 modes
+			for j in range(0,ntor_indices[-1][1]):
+
+				#Extract image from HarmonicsData
+				ntor = ntor_indices[j][0]						#ntor mode number
+				ntor_idx = ntor_indices[j][1]					#index referring to ntor mode number
+				Image = HarmonicsData.data[TimeIndex,:,ntor_idx,:]
+
+				#Create figure and define Title, Legend, Axis Labels etc...
+				fig,ax = figure(image_aspectratio,1)
+				Title = VariableLabel+' for ntor='+str(ntor)+' at KStep='+str(KStep)+' \n Simulation: '+DirString
+				Xlabel,Ylabel = 'Poloidal Extent $\\rho_{pol}$ [-]', 'Toroidal Extent $\phi_{tor}$ [-]'
+#				Xlabel,Ylabel = 'Poloidal Resolution $m_{\\theta}$ [cells]', 'Toroidal Resolution $l_{\phi}$ [cells]'
+				Legend = list()
+
+				#Plot 2D harmonics figure and beautify
+				im = ax.imshow(Image, extent=extent, aspect='auto', origin='bottom')
+				cbar = Colourbar(ax,im,VariableLabel+' [-]',5)
+				ImageOptions(fig,ax,Xlabel,Ylabel,Title,Legend)
+
+				#Save 2D harmonics figure for current simulation
+				plt.savefig(DirVariable+VariableLabel+'_n'+str(ntor)+ext)
+#				plt.show()
+				plt.close('all')
+			#endfor
+		#endfor
+	#endfor
+#endif
+
+#==========##==========##==========#
+#==========##==========##==========#
+
+if any([savefig_2Dequilibria]) == True:
+	print '--------------------------------'
+	print '2D Equilibrium Analysis Complete'
+	print '--------------------------------'
 #endif
 
 #====================================================================#
 #====================================================================#
-
-
-
-
 
 
 
@@ -1576,33 +1696,28 @@ if savefig_2Dharmonics == True:
 		print Dir[l]
 
 		#Create global 2D diagnostics folder and extract current simulation name
-		DirHarmonics = CreateNewFolder(Dir[l],'2DHarmonic_Images/')
+		DirHarmonics = CreateNewFolder(Dir[l],'2DHarmonic_Plots/')
 		DirString = Dir[l].split('/')[-2]
 		SubString = DirString.split('_')[-1]
 
 		#Extract Energy_n outputs and header, used to determine harmonic range
 		#energy_n: [folder][variable][timestep]
 		Energy_n,Header_n = ExtractMEGA_Energy(Dir[l],'energy_n')
-		NumHarmonics = len(Energy_n)-3		#Ignore kstep, time, n=0
+		ntor_tot = ((len(Energy_n)-3)*2)+1		#Number of positive and negative modes (Including n=0)
+		ntor_pos = int(float(ntor_tot-1)/2.0)	#Number of positive modes (Ignoring n=0)
+
+		#Create 2D array containing [ntor,ntor_index] for referencing data to be extracted
+		ntor_indices = list()
+		for i in range(0,ntor_tot):
+			if i-ntor_pos >= setting_ntor[0] and i-ntor_pos <= setting_ntor[1]:
+				#ntor_indices contains the following [ntor, ntor_index], for positive, negative and n=0 modes
+				ntor_indices.append( [i-ntor_pos,i] )
+			#endif
+		#endfor
+#		print ntor_indices
 
 		#Extract relevant normalisation factors for current simulation folder
 		Variables,Values,Units = ExtractMEGA_Normalisations(Dir[l])
-		AlfvenVelocity = Values[Variables.index('Alfven velocity')] #B0/np.sqrt(4e-7*np.pi*IonDensity*m_D)
-		IonGyroFreq = Values[Variables.index('D gyro frequency')]
-		IonDensity = Values[Variables.index('Bulk density')]
-		B0 = Values[Variables.index('Mag.fld. at axis')]
-		R0 = Values[Variables.index('raxis')]
-		m_D = 3.34e-27
-		eps = 0.5/R0
-
-
-
-		#TESTING - REMOVE ME!!!
-		variables = ['bphi']
-		set_harmonicrange = [0,4]
-		#TESTING - REMOVE ME!!!
-
-
 
 		#For each requested variable
 		for i in range(0,len(variables)):
@@ -1614,16 +1729,18 @@ if savefig_2Dharmonics == True:
 			#HarmonicsData.rho_pol [1D array] :: HarmonicsData.q_psi [1D array]
 			#HarmonicsData.kst [1D array]     :: HarmonicsData.time [1D array]    
 			#HarmonicsData.data: [4D Array] of shape [kstep][mpol][ntor][lpsi] for variables[i]
-			HarmonicsData = Extract_MEGAHarmonics(variables[i],NumHarmonics,Dir[l]+'data/')
+			HarmonicsData = Extract_MEGAHarmonics(variables[i],ntor_tot,Dir[l]+'data/')
 
 			#HarmonicsData.data is of shape [kstep][mpol][ntor][lpsi][???]
 			HarmonicsData.data = HarmonicsData.data[:,:,:,:,0]		#Final index is unusual, should fix this
+			print shape(HarmonicsData.data)
 
 			#Extract Variablelabel				
 			VariableLabel = variables[i]							#Needs a seperate function to label vars
 
 			#Set TimeIndex and employ to extract KStep and Time
-			TimeIndex = 399											#!!! Hard-coded to final entry for now !!!
+			#Need a function to determine this!
+			TimeIndex = setting_kstep[0]								
 			KStep = HarmonicsData.kst[TimeIndex]					#Need a method of altering these
 			Time = (HarmonicsData.time[TimeIndex]/IonGyroFreq)*1e3	#Need a method of altering these
 
@@ -1633,14 +1750,15 @@ if savefig_2Dharmonics == True:
 			phi_tor = range(1,shape(HarmonicsData.data)[1]+1)		#Array of toroidal cells
 			phi_tor = [x/float(len(phi_tor)) for x in phi_tor]		#Normalised toroidal angle
 			extent = [rho_pol[0],rho_pol[-1], phi_tor[0],phi_tor[-1]]
-
-			#Plot images of variables[i] for all ntor
-			for j in range(set_harmonicrange[0],set_harmonicrange[1]):
+			
+			#Plot images of variables[i] for all requested ntor
+			#ntor range set by ntor_indices[ntor, ntor_index], for pos, neg & n=0 modes
+			for j in range(0,ntor_indices[-1][1]):
 
 				#Extract image from HarmonicsData
-				ntor = j											#ntor is symmetrical, needs fixing
-				Image = HarmonicsData.data[TimeIndex,:,ntor,:]
-				print shape(HarmonicsData.data)
+				ntor = ntor_indices[j][0]						#ntor mode number
+				ntor_idx = ntor_indices[j][1]					#index referring to ntor mode number
+				Image = HarmonicsData.data[TimeIndex,:,ntor_idx,:]
 
 				#Create figure and define Title, Legend, Axis Labels etc...
 				fig,ax = figure(image_aspectratio,1)
@@ -1649,7 +1767,7 @@ if savefig_2Dharmonics == True:
 #				Xlabel,Ylabel = 'Poloidal Resolution $m_{\\theta}$ [cells]', 'Toroidal Resolution $l_{\phi}$ [cells]'
 				Legend = list()
 
-				#Plot example data for debugging purposes
+				#Plot 2D harmonics figure and beautify
 				im = ax.imshow(Image, extent=extent, aspect='auto', origin='bottom')
 				cbar = Colourbar(ax,im,VariableLabel+' [-]',5)
 				ImageOptions(fig,ax,Xlabel,Ylabel,Title,Legend)
@@ -1664,10 +1782,6 @@ if savefig_2Dharmonics == True:
 #endif
 
 #====================================================================#
-#====================================================================#
-
-
-#====================================================================#
 				 	    #2D FOURIER ANALYSIS#
 #====================================================================#
 
@@ -1679,14 +1793,25 @@ if savefig_2Dfourier == True:
 		print Dir[l]
 
 		#Create global 2D diagnostics folder and extract current simulation name
-		DirHarmonics = CreateNewFolder(Dir[l],'2DHarmonic_Images/')
+		DirHarmonics = CreateNewFolder(Dir[l],'2DHarmonic_Plots/')
 		DirString = Dir[l].split('/')[-2]
 		SubString = DirString.split('_')[-1]
 
 		#Extract Energy_n outputs and header, used to determine harmonic range
 		#energy_n: [folder][variable][timestep]
 		Energy_n,Header_n = ExtractMEGA_Energy(Dir[l],'energy_n')
-		NumHarmonics = len(Energy_n)-3		#Ignore kstep, time, n=0
+		ntor_tot = ((len(Energy_n)-3)*2)+1		#Number of positive and negative modes (Including n=0)
+		ntor_pos = int(float(ntor_tot-1)/2.0)	#Number of positive modes (Ignoring n=0)
+
+		#Create 2D array containing [ntor,ntor_index] for referencing data to be extracted
+		ntor_indices = list()
+		for i in range(0,ntor_tot):
+			if i-ntor_pos >= setting_ntor[0] and i-ntor_pos <= setting_ntor[1]:
+				#ntor_indices contains the following [ntor, ntor_index], for positive, negative and n=0 modes
+				ntor_indices.append( [i-ntor_pos,i] )
+			#endif
+		#endfor
+#		print ntor_indices
 
 		#Extract relevant normalisation factors for current simulation folder
 		Variables,Values,Units = ExtractMEGA_Normalisations(Dir[l])
@@ -1702,7 +1827,7 @@ if savefig_2Dfourier == True:
 		#HarmonicsData.rho_pol [1D array] :: HarmonicsData.q_psi [1D array]
 		#HarmonicsData.kst [1D array]     :: HarmonicsData.time [1D array]    
 		#HarmonicsData.data: [4D Array] of shape [kstep][mpol][ntor][lpsi] for variables[i]
-		HarmonicsData = Extract_MEGAHarmonics('bphi',NumHarmonics,Dir[l]+'data/')
+		HarmonicsData = Extract_MEGAHarmonics('bphi',ntor_tot,Dir[l]+'data/')
 
 		#Extract Variablelabel
 		VariableLabel = 'BField Perturbation $\delta B_{\phi}$ [T]'	#Needs a seperate function
@@ -1747,7 +1872,7 @@ if savefig_2Dfourier == True:
 		#==========##==========#
 
 		#Create fig of desired size - increasing Xlim with the number of harmonics
-		Xlim,Ylim = int(10*(float(NumHarmonics)/1.80)), 12
+		Xlim,Ylim = int(10*(float(ntor_pos)/1.75)), 12
 		fig,ax = figure([Xlim,Ylim],[2,ntor2])
 
 		#For each toroidal harmonic:
