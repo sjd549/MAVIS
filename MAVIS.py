@@ -550,8 +550,8 @@ def ExtractMEGA_Energy(Dir,Filename='energy_n'):
 #Inputs: Toroidal mesh resolution [lpsi], poloidal mesh resolution [mpol], 
 #Inputs: Total number of toroidal harmonics [ntor] including positive, negative and n=0
 #Returns: Data object for requested variable with structure: Data[kstep][mpol][ntor][lpsi][Real,Complex]
-#Example: HarmonicsData = Read_MEGAHarmonics(201,64,5,'FolderName/data/001.harmonics','bphi']
-def Read_MEGAHarmonics(Filename,Variable,lpsi,mpol,ntor,Kstep=np.nan):
+#Example: HarmonicsData = Read_MEGAHarmonics('FolderName/data/001.harmonics','bphi',201,64,5]
+def Read_MEGAHarmonics(Filename,Variable,lpsi,mpol,ntor,kstep=np.nan):
 
 	#Compute flattened 3D data array length based upon mesh resolution
 	n_elem = (mpol+1)*ntor*lpsi*2
@@ -587,13 +587,13 @@ def Read_MEGAHarmonics(Filename,Variable,lpsi,mpol,ntor,Kstep=np.nan):
 	])
 
 	#Initiate data object to store SEQ.harmonic data
-	if np.isnan(Kstep) == True:
+	if np.isnan(kstep) == True:
 		#Initiate output data object and set appropriate internal structures
 		Data = lambda:0
 		Data.kst = np.array(([]),int)									#1D KStep Array 	[-]
 		Data.time = np.array(([]),float)								#1D Time Array 		[IonGyroFreq*ms]
 		Data.data = np.empty(([0,mpol+1,ntor,lpsi,2]),np.float64)		#1D-3D Data Arrays	[various]
-	elif np.isnan(Kstep) == False:
+	elif np.isnan(kstep) == False:
 		Data.kst = np.array(([]),int)									#1D KStep Array 	[-]
 		Data.time = np.array(([]),float)								#1D Time Array 		[IonGyroFreq*ms]
 		Data.vrad    = np.empty(([0,mpol+1,ntor,lpsi,2]),np.float64)	#3D Radial   Velocity Array	[-]
@@ -627,8 +627,8 @@ def Read_MEGAHarmonics(Filename,Variable,lpsi,mpol,ntor,Kstep=np.nan):
 	#=====#=====#
 
 	#Read data from each KStep for the supplied SEQ.harmonics output folder
-	if np.isnan(Kstep) == True:
-		Kstep = 0
+	if np.isnan(kstep) == True:
+		kstep = 0
 		while(True):
 			#FORTRANFile.read_record automatically steps through all KSteps in the supplied SEQ.harmonics file.
 			#RawData for KStep[i] is of shape RawData[Variable][datapoint] where all variables are flattened to 1D
@@ -637,7 +637,7 @@ def Read_MEGAHarmonics(Filename,Variable,lpsi,mpol,ntor,Kstep=np.nan):
 			#endtry
 
 			#Only extract rho_pol and q_psi on first Kstep
-			if Kstep == 0:
+			if kstep == 0:
 				Data.rho_pol = np.sqrt(abs(RawData['gpsi_nrm'][0]))			#[-]
 				Data.q_psi   = RawData['q_psi'][0]							#[-]
 			#endif
@@ -653,13 +653,13 @@ def Read_MEGAHarmonics(Filename,Variable,lpsi,mpol,ntor,Kstep=np.nan):
 			Data.data=np.concatenate((Data.data, np.reshape(RawData[Variable],(1,mpol+1,ntor,lpsi,2),order='F')))
 
 			#Delete RawData for current KStep and increment KStep counter
-	  		del RawData; Kstep += 1
+	  		del RawData; kstep += 1
 		#endwhile
 
 	#=====#=====#
 
 	#Read data from each KStep for the supplied SEQ.harmonics output folder
-	elif np.isnan(Kstep) == False:
+	elif np.isnan(kstep) == False:
 		index = 0
 		while(index <= kstep):
 			#FORTRANFile.read_record automatically steps through all KSteps in the supplied SEQ.harmonics file.
@@ -673,7 +673,7 @@ def Read_MEGAHarmonics(Filename,Variable,lpsi,mpol,ntor,Kstep=np.nan):
 				data.rho_pol = np.sqrt(abs(RawData['gpsi_nrm'][0]))
 				data.q_psi   = RawData['q_psi'][0]
 			#Always extract Kstep and Time arrays, until the requested Kstep
-			elif Kstep >= 0:
+			elif kstep >= 0:
 				Data.kst     = np.append(data.kst,  RawData['kst'][0])
 				Data.time    = np.append(data.time, RawData['t'][0])#*1e3/wa
 				#Print kstep for debug purposes if requested
@@ -714,8 +714,9 @@ def Read_MEGAHarmonics(Filename,Variable,lpsi,mpol,ntor,Kstep=np.nan):
 		print( '  3D image shape [mpol,ntor,lpsi]: '+str(shape(Data.data[0,:,:,:,0]))      )
 
 		#Extract 2D and 3D images for the requested input variable (Variable)
-		image3D = Data.data[0,:,:,:,0]		#image3D[mpol,ntor,lpsi] for :: SEQ00i, Kstep[0]
-		image2D = image3D[:,0,:]			#image2D[mpol,0,lphi] for    :: SEQ00i, Kstep[0], ntor[0]
+		try: 	image3D = Data.data[0,:,:,:,0]		#image3D[mpol,ntor,lpsi] for :: SEQ, kstep[0] - One variable 
+		except: image3D = Data.data[:,:,:,0]		#image3D[mpol,ntor,lpsi] for :: SEQ, kstep[0] - All variables
+		image2D = image3D[:,0,:]					#image2D[mpol,0,lphi] for    :: SEQ, kstep[0], ntor[0]
 
 		#Create figure and define Title, Legend, Axis Labels etc...
 		fig,ax = figure(image_aspectratio,1)
@@ -742,7 +743,7 @@ def Read_MEGAHarmonics(Filename,Variable,lpsi,mpol,ntor,Kstep=np.nan):
 
 #Details on the FORTRAN file format can be found below:
 #https://docs.scipy.org/doc/scipy/reference/generated/scipy.io.FortranFile.read_record.html
-def Extract_MEGAHarmonics(DataDir,Variable,ntor,Kstep=np.nan,SEQ=np.nan):
+def Extract_MEGAHarmonics(DataDir,Variable,ntor,kstep=np.nan,SEQ=np.nan):
 
 	#Extract harmonic output files for all SEQ in requested directory
 	DataFiles = sorted(glob.glob(DataDir+"/*harm*"))
@@ -752,9 +753,9 @@ def Extract_MEGAHarmonics(DataDir,Variable,ntor,Kstep=np.nan,SEQ=np.nan):
 
 	#=====#=====#
 
-	if np.isnan(Kstep) == True or np.isnan(SEQ) == True:
-		print 'Extract_Fine'
-		#Extract HarmonicData for all KStep from each SEQ:  HarmonicData [kmax][mpol][ntor][lpsi] 
+	#HarmonicsData contains single variable for all Kstep and all SEQ
+	if np.isnan(kstep) == True or np.isnan(SEQ) == True:
+		#Object Shape: HarmonicData [kstep][mpol][ntor][lpsi][Real,Imaginary]
 		HarmonicData = list()
 		for i in tqdm(range(0,len(DataFiles))):
 			HarmonicData.append(Read_MEGAHarmonics(DataFiles[i],Variable,lpsi,mpol,ntor))
@@ -772,8 +773,10 @@ def Extract_MEGAHarmonics(DataDir,Variable,ntor,Kstep=np.nan,SEQ=np.nan):
 
 	#=====#=====#
 
+	#HarmonicsData contains all variables at a single kstep and single SEQ
 	elif isinstance(Kstep, int) and isinstance(SEQ, int):
-		HarmonicData = Read_MEGAHarmonics(DataFiles[SEQ],Variable,lpsi,mpol,ntor,Kstep)
+		#Object Shape: HarmonicsData[mpol][ntor][lpsi][Real,Imaginary]
+		HarmonicData = Read_MEGAHarmonics(DataFiles[SEQ],Variable,lpsi,mpol,ntor,kstep)
 	#endif
 
 	#=====#=====#
