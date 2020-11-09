@@ -91,6 +91,9 @@ np.seterr(divide='ignore', invalid='ignore')		#Suppresses divide by zero errors
 #List of recognized data extensions for file readin
 FileExtensions = ['.hamonics','moments','.txt','.in','.nam','.dat','.out']
 
+#Default mesh repository location (local or root)
+DirRepository = os.path.abspath(".")+'/Repository'
+
 #Numerical Calculation Methods:
 GlobSheathMethod = 'AbsDensity'			#Set Global Sheath Calculation Method.
 #Choices: ('AbsDensity','IntDensity')
@@ -152,8 +155,9 @@ setting_kstep = [399]					#kstep index range to plot 	- [Min,Max], [Single], [] 
 
 
 #Requested diagnostics and plotting routines.
-savefig_2Dequilibria = True				#Plot 2D equilibrium figures						- Development
-savefig_2Dharmonics = False				#Plot 2D harmonic perturbations 	(xxx.harmonics)	- Development
+savefig_2Dequilibrium = False			#Plot 2D equilibrium figures						- Working
+savefig_2Dtemporal = False				#Plot 2D equilibrium movies							- Working
+savefig_2Dharmonics = False				#Plot 2D harmonic perturbations 	(xxx.harmonics)	- Development ?Useless?
 savefig_2Dfourier = False				#Plot 2D harmonic fourier analysis	(xxx.harmonics)	- Working
 
 savefig_1Dtotalenergy = False			#Plot 1D total energy trends 	(xxx.energy_phys)	- Working
@@ -204,8 +208,12 @@ cbaroverride = []
 #        ####TODO####        #
 #============================#
 
-#Enable choice of normalised or non-normalised units in the 1D and 2D plotting routines
-#Increase user flexibility for plotting routines e.g: [min,max] harmonics, etc...
+#Write a 1D midplane profile diagnostic (or just generally a profile diagnostic...)
+#Include multi-var capability
+#
+#Write a poloidal plasma response diagnostic with mpol vs lphi (also name this...)
+#
+#
 #
 #Update Read_Harmonics functions to accept 'all' as a variable input
 #This will read-in all variables and save sequentally [0,1,2,3,4] like HELENA
@@ -214,8 +222,10 @@ cbaroverride = []
 #
 #Maybe also multiply everything by its normalisation factor when reading in by default?
 #Make an option in the switchboard (or deep options) but this would make things much simpler...
+#Tie this function to the variable label maker function (use next to eachother)
 #
-#Create a variable label function like HELENA - include units (tie to above option)
+#Enable choice of normalised or non-normalised units in the 1D and 2D plotting routines
+#Clean up the usage and definition of the unit normalisations as read-in from the MEGA file
 #
 #Introduce a method of selecting which time index to use for plotting
 #Allow for time index, KStep or SI time (will need a function to determine this)
@@ -225,22 +235,30 @@ cbaroverride = []
 #
 #Create an ImageExtent function to create normalised axes from data size
 #
-#
-#
-# The currently employed Read_MEGAHarmonics function reads a single variable over all KStep
-# This is useful for performing temporally resolved diagnostics such as the Fourier Analysis
-# Need to impliment the other read-in function which takes all variables at a single time-step
-#
-# savefig_2Dequilibria - Will Plot Requested Variables In An [R,Z] Poloidal Plane Between Requested Timesteps
-#					   - Will Use The New Read-in Function
-#
-# savefig_2Dharmonics - Will Plot What?
-#					  - Will Use The New Read-in Function
-#
 
 
+# DIAGNOSTICS TO DO
+#	 	- savefig_equil 			PLOT THE REQUESTED ntor RANGE IN SINGLE FIGURE
+#		- savefig_temporal 			PLOT MOVIES FOR SINGLE ntor OVER REQUESTED kstep RANGE
+#		- savefig_temporal 			HOMOGONISE THE COLOURBAR FOR MOVIE PLOTS (MAKE USER OPTION)
+#		- savefig_equil/temporal 	PLOT DIFFERENT TOROIDAL ANGLES?
+#		- savefig_equil				CALCULATE FLUX SURFACE FUNCTION AND PLOT
+#		- COMPUTE EQUILIBRIUM AND SHAPING PARAMETERS, PLOT ON LINE GRAPH OVER TIME
+#		- DECIDE WHAT TO DO WITH HARMONIC DATA - KEEP 2D TEMPORALLY RESOLVED STUFF OR NOT?
 
 
+#USEFUL INFORMATION:
+#
+#lrad? = radial spatial resolution 				[cells]
+#ltheta = poloidal angle spatial resolution		[cells]
+#lpsi = toroidal angle spatial resolution		[cells]
+#
+#mpol = number of poloidal harmonics considered [int]	- low-pass filter limited?
+#ntor = number of toroidal harmonics considered [int]	- low-pass filter limited?
+#
+#PoloidalAngle = 2*np.pi*(float(ltheta)/float(ltheta_res)) 	#Poloidal angle [Rad]
+#ToroidalAngle = 2*np.pi*(float(??????)/float(??????????))	#Toroidal angle [Rad]
+#
 
 
 
@@ -341,8 +359,8 @@ def ExtractRawData(Dirlist,NameString,ListIndex):
 
 #Takes a 1D or 2D array and writes to a datafile in ASCII format.
 #Imputs: Data, Filename, 'w'rite or 'a'ppend, and orientation (CSV or RSV).
-#Example: WriteDataToFile(Image, "Filename", 'H', 'w')
-def WriteDataToFile(data,filename,structure='w',Orientation='CSV'):
+#Example: WriteFile_ASCII(Image, "Filename", 'H', 'w')
+def WriteFile_ASCII(data,filename,structure='w',Orientation='CSV'):
 
 	#Determine dimensionality of profile.
 	if isinstance(data[0], (list, np.ndarray) ) == True:
@@ -375,8 +393,8 @@ def WriteDataToFile(data,filename,structure='w',Orientation='CSV'):
 
 #Reads 1D or 2D data from textfile in ASCII format, returns data and header.
 #Input filename, header length, data dimension and orientation (CSV or RSV).
-#Example: OutputData,Header = ReadDataFromFile('/Data.txt', 1, '2D', CSV)
-def ReadDataFromFile(Filename,HeaderIdx=0,Dimension='2D',Orientation='CSV'):
+#Example: OutputData,Header = ReadFile_ASCII('/Data.txt', 1, '2D', CSV)
+def ReadFile_ASCII(Filename,HeaderIdx=0,Dimension='2D',Orientation='CSV'):
 	OutputData,Header = list(),list()
 
 	#If data is saved 'Row-wise', use default readin routine.
@@ -458,6 +476,46 @@ def ReadDataFromFile(Filename,HeaderIdx=0,Dimension='2D',Orientation='CSV'):
 #=========================#
 #=========================#
 
+#Extracts data resolution from HarmonicsData and poloidal axes from repository .dat files
+#Inputs: HarmonicsData of shape [mpol][ntor][lpsi][Real,Imaginary], Repository directory
+#Returns: GridResolutions of shape [mpol,ntor,lpsi,ltheta] and crdr, crdz poloidal axes
+#Example: GridRes,crdr,crdz = ExtractMEGA_PoloidalGrid(HarmonicsData,'Repository'):
+def ExtractMEGA_PoloidalGrid(HarmonicsData3D,Dir):
+	#ltheta = poloidal angle spatial resolution		[cells]
+	#lpsi = toroidal angle spatial resolution		[cells]
+	#mpol = number of poloidal harmonics considered [int]	- low-pass filter limited?
+	#ntor = number of toroidal harmonics considered [int]	- low-pass filter limited?
+	
+	#Extract data array sizes
+	mpol_res = HarmonicsData3D.vrad.shape[0]		#mpol resolution
+	ntor_res = HarmonicsData3D.vrad.shape[1]		#ntor resolution
+	lpsi_res = HarmonicsData3D.vrad.shape[2]		#lpsi resolution
+	ltheta_res = 256								#ltheta resolution 	#!!!!!!!
+
+	#Load poloidal mesh grid from repository
+	rho_a = np.loadtxt(Dir+'/rho_a.dat')
+	crdr = np.loadtxt(Dir+'/crdmagr.dat').reshape((lpsi_res,ltheta_res),order='F')*rho_a
+	crdz = np.loadtxt(Dir+'/crdmagz.dat').reshape((lpsi_res,ltheta_res),order='F')*rho_a
+	crdr = np.concatenate((crdr,crdr[:,0:1]),axis=1)
+	crdz = np.concatenate((crdz,crdz[:,0:1]),axis=1)
+
+	#GridResolutions contains data resolution of form: [mpol,ntor,lpsi,ltheta]
+	GridResolutions = [mpol_res,ntor_res,lpsi_res,ltheta_res]
+
+	#Debug outputs: print data resolutions to terminal
+	if DebugMode == True:
+		print( 'mpol:',mpol_res )
+		print( 'ntor:',ntor_res )
+		print( 'lpsi:',lpsi_res )
+		print( 'ltheta:',ltheta_res )
+	#endif
+
+	return(GridResolutions,crdr,crdz)
+#enddef
+
+#=========================#
+#=========================#
+
 #Takes simulation folder directory (absolute path) and returns Sim128 normalisation constants
 #Example: Variables,Values,Units = ReadNormConstants(Dir[l])
 def ExtractMEGA_Normalisations(Dir):
@@ -521,11 +579,11 @@ def ExtractMEGA_Energy(Dir,Filename='energy_n'):
 	for SEQ in range(0,len(Files)):
 		#Extract header and output data for first SEQ
 		if SEQ == 0:
-			Header = ReadDataFromFile(Files[SEQ],1,'2D','CSV')[1]
-			OutputData = ReadDataFromFile(Files[SEQ],1,'2D','CSV')[0]
+			Header = ReadFile_ASCII(Files[SEQ],1,'2D','CSV')[1]
+			OutputData = ReadFile_ASCII(Files[SEQ],1,'2D','CSV')[0]
 		#Extract output data for subsequent SEQ's and append to each variable
 		elif SEQ > 0:
-			TempData = ReadDataFromFile(Files[SEQ],1,'2D','CSV')[0]
+			TempData = ReadFile_ASCII(Files[SEQ],1,'2D','CSV')[0]
 			for j in range(0,len(TempData)):
 				OutputData[j] = np.concatenate( (OutputData[j],TempData[j]) )
 			#endfor
@@ -550,8 +608,8 @@ def ExtractMEGA_Energy(Dir,Filename='energy_n'):
 #Inputs: Toroidal mesh resolution [lpsi], poloidal mesh resolution [mpol], 
 #Inputs: Total number of toroidal harmonics [ntor] including positive, negative and n=0
 #Returns: Data object for requested variable with structure: Data[kstep][mpol][ntor][lpsi][Real,Complex]
-#Example: HarmonicsData = Read_MEGAHarmonics('FolderName/data/001.harmonics','bphi',201,64,5]
-def Read_MEGAHarmonics(Filename,Variable,lpsi,mpol,ntor,kstep=np.nan):
+#Example: HarmonicsData = Read_MEGAHarmonics('FolderName/data/001.harmonics','bphi',64,5,201]
+def Read_MEGAHarmonics(Filename,Variable,mpol,ntor,lpsi,kstep=np.nan):
 
 	#Compute flattened 3D data array length based upon mesh resolution
 	n_elem = (mpol+1)*ntor*lpsi*2
@@ -706,8 +764,6 @@ def Read_MEGAHarmonics(Filename,Variable,lpsi,mpol,ntor,kstep=np.nan):
 		#endwhile
 	#endif
 
-	print shape(Data.vrad)
-
 	#=====#=====#
 	#=====#=====#
 
@@ -746,9 +802,59 @@ def Read_MEGAHarmonics(Filename,Variable,lpsi,mpol,ntor,kstep=np.nan):
 #=========================#
 #=========================#
 
+def Read_MEGAMoments(DataDir,Variable,ntor,kstep=np.nan,SEQ=0):
+
+#	legenda = {'br','bz','bphi','vr','vz','vphi','er','ez','ephi','epara','rho','prs','a '};
+
+	nr = 512; nz = 512;
+#	rmin = 1.02; rmax = 2.35; zmin = -1.26; zmax = 1.15; 		%jesus
+	rmin = 1.04; rmax = 2.205; zmin = -1.224; zmax = 1.05;
+#	[R,Z] = meshgrid(linspace(rmin,rmax,nr),linspace(zmin,zmax,nz));
+
+#	wci = 1.14749E+08; %rad/s
+#	wa = 5.80036E+06/(2*pi*1.71863E+00); % 1/s
+
+#	filepath = '/tokp/scratch/javgomar/MEGA_marconi/n4/2/off/';
+#	filepath = '/tokp/scratch/javgomar/MEGA_marconi/n4/pr/512/rot_m/';
+#	filepath = '/tokp/scratch/javgomar/MEGA_marconi/plasma_response/aug2020/vtor/2/'
+#	filepath = '/tokp/scratch/javgomar/mega_interactive/marsf/0/data/'
+#	fid = fopen([filepath '001.moments'],'rb');
+#	for i in range(0,1):
+#		head = fread(fid,1,'int32'); 								# needed by matlab but put in python
+#		data(i).kst = fread(fid,1,'int32');
+#		data(i).time= fread(fid,1,'float64');
+#		aux = fread(fid,nr*nz*16,'float64');
+#		data(i).br =  reshape(aux(0*nr*nz+1:1*nr*nz),[nr,nz]);
+#		data(i).bz =  reshape(aux(1*nr*nz+1:2*nr*nz),[nr,nz]);
+#		data(i).bp =  reshape(aux(2*nr*nz+1:3*nr*nz),[nr,nz]);
+#		data(i).vr =  reshape(aux(3*nr*nz+1:4*nr*nz),[nr,nz]);
+#		data(i).vz =  reshape(aux(4*nr*nz+1:5*nr*nz),[nr,nz]);
+#		data(i).vp =  reshape(aux(5*nr*nz+1:6*nr*nz),[nr,nz]);
+#		data(i).er =  reshape(aux(6*nr*nz+1:7*nr*nz),[nr,nz]);
+#		data(i).ez =  reshape(aux(7*nr*nz+1:8*nr*nz),[nr,nz]);
+#		data(i).ep =  reshape(aux(8*nr*nz+1:9*nr*nz),[nr,nz]);
+#		data(i).epara =  reshape(aux(9*nr*nz+1:10*nr*nz),[nr,nz]);
+#		data(i).rho =  reshape(aux(10*nr*nz+1:11*nr*nz),[nr,nz]);
+#		data(i).prs =  reshape(aux(11*nr*nz+1:12*nr*nz),[nr,nz]);
+#		data(i).ppara_i =  reshape(aux(12*nr*nz+1:13*nr*nz),[nr,nz]);
+#		data(i).pperp_i =  reshape(aux(13*nr*nz+1:14*nr*nz),[nr,nz]);
+#		data(i).ppara_a =  reshape(aux(14*nr*nz+1:15*nr*nz),[nr,nz]);
+#		data(i).pperp_a =  reshape(aux(15*nr*nz+1:16*nr*nz),[nr,nz]);
+#	    data(i).vac =  reshape(aux(16*nr*nz+1:17*nr*nz),[nr,nz]);
+#	    data(i).jr =  reshape(aux(17*nr*nz+1:18*nr*nz),[nr,nz]);
+#	    data(i).jz =  reshape(aux(18*nr*nz+1:19*nr*nz),[nr,nz]);
+#	    data(i).jp =  reshape(aux(19*nr*nz+1:20*nr*nz),[nr,nz]);
+#		head = fread(fid,1,'int32'); 								# needed by matlab but put in python
+#	    data(ii).kst
+#	   [num2str(i) ' - ' num2str(data(i).time)]
+#enddef
+
+#=========================#
+#=========================#
+
 #Details on the FORTRAN file format can be found below:
 #https://docs.scipy.org/doc/scipy/reference/generated/scipy.io.FortranFile.read_record.html
-def Extract_MEGAHarmonics(DataDir,Variable,ntor,kstep=np.nan,SEQ=0):
+def ExtractMEGA_Harmonics(DataDir,Variable,ntor,kstep=np.nan,SEQ=0):
 
 	#Extract harmonic output files for all SEQ in requested directory
 	DataFiles = sorted(glob.glob(DataDir+"/*harm*"))
@@ -763,7 +869,7 @@ def Extract_MEGAHarmonics(DataDir,Variable,ntor,kstep=np.nan,SEQ=0):
 		#Object Shape: HarmonicData [kstep][mpol][ntor][lpsi][Real,Imaginary]
 		HarmonicData = list()
 		for i in tqdm(range(0,len(DataFiles))):
-			HarmonicData.append(Read_MEGAHarmonics(DataFiles[i],Variable,lpsi,mpol,ntor))
+			HarmonicData.append(Read_MEGAHarmonics(DataFiles[i],Variable,mpol,ntor,lpsi))
 		#endfor
 
 		#Concatenate data from all SEQs into one continuous array for each variable within HarmonicData object
@@ -781,7 +887,7 @@ def Extract_MEGAHarmonics(DataDir,Variable,ntor,kstep=np.nan,SEQ=0):
 	#HarmonicsData contains all variables at a single kstep and single SEQ
 	elif isinstance(kstep, int) and isinstance(SEQ, int):							#if Variable == 'All'
 		#Object Shape: HarmonicsData[mpol][ntor][lpsi][Real,Imaginary]
-		HarmonicData = Read_MEGAHarmonics(DataFiles[SEQ],Variable,lpsi,mpol,ntor,kstep)
+		HarmonicData = Read_MEGAHarmonics(DataFiles[SEQ],Variable,mpol,ntor,lpsi,kstep)
 	#endif
 
 	#=====#=====#
@@ -792,17 +898,15 @@ def Extract_MEGAHarmonics(DataDir,Variable,ntor,kstep=np.nan,SEQ=0):
 #=========================#
 #=========================#
 
-#Reduces 4D HarmonicsData [mpol,ntor,lpsi,Real] into a 2D poloidal image [mpol,ltheta]
-#Reduces 4D HarmonicsData by extracting only 1 ntor and averaging over mpol
+#Reduces 3D HarmonicsData [mpol][ntor][lpsi][Real,Imaginary] into 2D poloidal image [mpol,ltheta]
+#Reduces 3D HarmonicsData by extracting only 1 ntor and averaging over mpol
 #Also merges the real and imaginary components of HarmonicsData
-#Inputs: HarmonicsData4D[mpol,ntor,lpsi,Real], ntor (Index, not mode number itself)
+#Inputs: HarmonicsData3D[mpol,ntor,lpsi,Real], ntor (Index, not mode number itself)
 #Inputs: mpol_res (poloidal spectral res), lpsi_res (toroidal spatial res), ltheta_res (poloidal spatial res)
 #Outputs: PoloidalData2D of shape[lpsi,ltheta]
-def merge(HarmonicsData4D,mpol_res,lpsi_res,ltheta_res,ntor):
-	#lrad? = radial spatial resolution 				[cells]
+def merge(HarmonicsData3D,ntor,mpol_res,lpsi_res,ltheta_res):
 	#ltheta = poloidal angle spatial resolution		[cells]
 	#lpsi = toroidal angle spatial resolution		[cells]
-	#
 	#mpol = number of poloidal harmonics considered [int]	- low-pass filter limited?
 	#ntor = number of toroidal harmonics considered [int]	- low-pass filter limited?
 
@@ -820,16 +924,16 @@ def merge(HarmonicsData4D,mpol_res,lpsi_res,ltheta_res,ntor):
 
 		#For each poloidal mode number, extract harmonics data for the requested ntor
 		for mpol in range (0,mpol_res,1):
-#      			    	HarmonicsData[mpol]   [ntor]  [lpsi]  [Real/Imaginary?]
-			aux = aux + HarmonicsData4D[mpol,   ntor,   :,      0]*np.cos(PoloidalAngle*mpol)
-			aux = aux + HarmonicsData4D[mpol,   ntor,   :,      1]*np.sin(PoloidalAngle*mpol)
+#      			    	HarmonicsData3D[mpol]   [ntor]  [lpsi]  [Real/Imaginary?]
+			aux = aux + HarmonicsData3D[mpol,   ntor,   :,      0]*np.cos(PoloidalAngle*mpol)
+			aux = aux + HarmonicsData3D[mpol,   ntor,   :,      1]*np.sin(PoloidalAngle*mpol)
 			#Append summed toroial (lpsi) data for current poloidal (ltheta) angle to Data
 			PoloidalData2D[:,ltheta] = aux
 		#endfor
 	#endfor
 
 	#Add an angle of zero degrees to the data by appending the final datapoint (cyclic data)
-	#PoloidalData2D has shape: [lpsi,ltheta]
+	#PoloidalData2D has shape: [lpsi,ltheta] - data extracted for a single ntor
 	PoloidalData2D = np.concatenate((PoloidalData2D, PoloidalData2D[:,0:1]),axis=1)
 
 	return(PoloidalData2D)
@@ -1047,6 +1151,125 @@ def InvisibleColourbar(ax='NaN'):
 	return(cax)
 #enddef
 
+#=========================#
+#=========================#
+
+#Makeshift way of creating units for each legend entry.
+#Example: VariableLegends = VariableLabelMaker(variables)
+def VariableLabelMaker(variables):
+
+	#!!! NEED TO CHECK IF LIST FIRST !!!
+	#if list then do the normal procedure,
+	#else make into single element list and perform procedure
+	#!!!! NEED TO CHECK IF LIST FIRST !!!
+
+	VariableLegends = list()
+	for i in range(0,len(variables)):
+		#Explicit Control Parameters
+		if variables[i] == 'kst':
+			Variable = 'kstep'
+			VariableUnit = '[iter]'
+		elif variables[i] == 't':
+			Variable = 'time'
+			VariableUnit = '[ms]'
+		
+		#Explicit Axes
+		elif variables[i] == 'r_psi':
+			Variable = '$r_{\psi}$'					# UNKNOWN VARIABLE
+			VariableUnit = '[-]'
+		elif variables[i] == 'gpsi_nrm':
+			Variable = '$g_{psi}$ norm'				# UNKNOWN VARIABLE
+			VariableUnit = '[-]'
+		elif variables[i] == 'q_psi':
+			Variable = 'Safety Factor $q_{\psi}$'
+			VariableUnit = '[-]'
+
+		#Explicit Densities
+		elif variables[i] == 'rho':
+			Variable = 'Plasma Density $n_{e}$'
+			VariableUnit = '[m$^{-3}$]'
+
+		#Explicit Velocity, Flux and Momentum
+		elif variables[i] == 'vrad':
+			Variable = 'Radial Velocity'
+			VariableUnit = '[m s$^{-1}$]'
+		elif variables[i] == 'vtheta':
+			Variable = 'Poloidal Velocity'
+			VariableUnit = '[m s$^{-1}$]'
+		elif variables[i] == 'vpsi':
+			Variable = 'Toroidal Velocity'
+			VariableUnit = '[m s$^{-1}$]'
+		elif variables[i] == 'mom_a':
+			Variable = 'Fast Ion Momentum P$_{kin}$'
+			VariableUnit = '[kg m s$^{-1}$]'
+		elif variables[i] == 'dns_a':
+			Variable = 'dns$_{a}$'					# UNKNOWN VARIABLE - KINETICS, FAST IONS?
+			VariableUnit = '[-]'
+		elif variables[i] == 'dns_a':
+			Variable = 'dns$_{a}$'					# UNKNOWN VARIABLE - KINETICS, FAST IONS?
+			VariableUnit = '[-]'
+		elif variables[i] == 'ppara_a':
+			Variable = 'ppara$_{a}$'				# UNKNOWN VARIABLE - KINETICS, FAST IONS?
+			VariableUnit = '[-]'
+		elif variables[i] == 'pperp_a':
+			Variable = 'pperp$_{a}$'				# UNKNOWN VARIABLE - KINETICS, FAST IONS?
+			VariableUnit = '[-]'
+		elif variables[i] == 'qpara_a':
+			Variable = 'qpara$_{a}$'				# UNKNOWN VARIABLE - KINETICS, FAST IONS?
+			VariableUnit = '[-]'
+		elif variables[i] == 'qperp_a':
+			Variable = 'qperp$_{a}$'				# UNKNOWN VARIABLE - KINETICS, FAST IONS?
+			VariableUnit = '[-]'
+
+		#Explicit Electrodynamic Properties
+		elif variables[i] == 'brad':
+			Variable = 'Radial B-field'
+			VariableUnit = '[T]'
+		elif variables[i] == 'btheta':
+			Variable = 'Poloidal B-field'
+			VariableUnit = '[T]'
+		elif variables[i] == 'bphi':
+			Variable = 'Toroidal B-field'
+			VariableUnit = '[T]'
+		elif variables[i] == 'erad':
+			Variable = 'Radial E-field'
+			VariableUnit = '[V m^{-1}$]'
+		elif variables[i] == 'etheta':
+			Variable = 'Poloidal E-field'
+			VariableUnit = '[V m^{-1}$]'
+		elif variables[i] == 'ephi':
+			Variable = 'Toroidal E-field'
+			VariableUnit = '[V m^{-1}$]'
+		#endif
+
+		#Default if no fitting variable found.
+		else:
+			Variable = 'Variable'
+			VariableUnit = '[Unit]'
+		#endif
+		VariableLegends.append(Variable+' '+VariableUnit)
+	#endfor
+
+	#Reduce list to string if it only contains one element
+	if len(VariableLegends) == 1:
+		VariableLegends = VariableLegends[0]
+	#endif
+
+	#=====#=====#
+	#=====#=====#
+
+	#DebugMode: Print VariableLegends
+	if DebugMode == 'True':
+		print('')
+		print(variables)
+		print(VariableLegends)
+	#endif
+	
+	#=====#=====#
+
+	return(VariableLegends)
+#enddef
+
 #====================================================================#
 #====================================================================#
 
@@ -1222,15 +1445,15 @@ print(' |  \  /  |    /  ^  \  \   \/   /  |  |    |   (----` ')
 print(' |  |\/|  |   /  /_\  \  \      /   |  |     \   \     ')
 print(' |  |  |  |  /  _____  \  \    /    |  | .----)   |    ')
 print(' |__|  |__| /__/     \__\  \__/     |__| |_______/     ')
-print('                                                 v0.0.6')
+print('                                                 v0.0.7')
 print('-------------------------------------------------------')
 print('')
 print('The following diagnostics were requested:')
 print('-----------------------------------------')
 if True in [savefig_1Dtotalenergy,savefig_1Dspectralenergy]:
 	print('# 1D Energy Analysis')
-if True in [savefig_2Dequilibria]:
-	print('# 2D Equilibria Plots')
+if True in [savefig_2Dequilibrium,savefig_2Dtemporal]:
+	print('# 2D Equilibrium Analysis')
 if True in [savefig_2Dharmonics,savefig_2Dfourier]:
 	print('# 2D Spectral Analysis')
 print('-----------------------------------------')
@@ -1562,15 +1785,16 @@ if any([savefig_1Dtotalenergy,savefig_1Dspectralenergy]) == True:
 
 
 
+
 #====================================================================#
 					 #GENERAL EQUILIBRIUM ANALYSIS#
 #====================================================================#
 
 #====================================================================#
-				 	    #2D EQUILIBRIUM PLOTS#
+				 	      #2D POLOIDAL PLOTS#
 #====================================================================#
 
-if savefig_2Dequilibria == True:
+if savefig_2Dequilibrium == True:
 
 	#For each detected simulation folder
 	for l in range(0,len(Dir)):
@@ -1578,7 +1802,7 @@ if savefig_2Dequilibria == True:
 		print Dir[l]
 
 		#Create global 2D diagnostics folder and extract current simulation name
-		DirSpatial = CreateNewFolder(Dir[l],'2DSpatial_Plots/')
+		DirEquil = CreateNewFolder(Dir[l],'2DPoloidal_Plots/')
 		DirString = Dir[l].split('/')[-2]
 		SubString = DirString.split('_')[-1]
 
@@ -1594,15 +1818,17 @@ if savefig_2Dequilibria == True:
 		#Create 2D array containing [ntor,ntor_index] for referencing data to be extracted
 		ntor_indices = list()
 		for i in range(0,ntor_tot):
+			#ntor_indices contains the following [ntor, ntor_index], for positive, negative and n=0 modes
 			if i-ntor_pos >= setting_ntor[0] and i-ntor_pos <= setting_ntor[1]:
-				#ntor_indices contains the following [ntor, ntor_index], for positive, negative and n=0 modes
 				ntor_indices.append( [i-ntor_pos,i] )
+			else:
+				ntor_indices.append( [i-ntor_pos,np.nan] )
 			#endif
 		#endfor
 #		print ntor_indices
 
 		#ntor range set by ntor_indices[ntor, ntor_index], for pos, neg & n=0 modes
-		ntor = 1													#requested ntor mode number
+		ntor = 0													#requested ntor mode number
 		ntor_idx = [item[0] for item in ntor_indices].index(ntor)	#index referring to ntor mode number
 		#### - CAN BE A FUNCTION
 
@@ -1618,87 +1844,162 @@ if savefig_2Dequilibria == True:
 
 		#Set TimeIndex and employ to extract KStep and Time
 		seq = 0													#Need a method of setting this in switchboard
-		TimeIndex = setting_kstep[0]
-		KStep = KStep_array[TimeIndex]							#Need a method of altering these
-		Time = (Time_Array[TimeIndex]/IonGyroFreq)*1e3			#Need a method of altering these
+		KstepIndex = setting_kstep[0]
+		Kstep = KStep_array[KstepIndex]							#Need a method of altering these
+		Time = (Time_Array[KstepIndex]/IonGyroFreq)*1e8			#Need a method of altering these
 
 		#Extract Harmonics outputs for plotting, it contains:
 		#HarmonicsData.rho_pol [1D array] :: HarmonicsData.q_psi [1D array]
 		#HarmonicsData.kst [1D array]     :: HarmonicsData.time [1D array]    
-		#HarmonicsData.data: [4D Array] of shape [mpol][ntor][lpsi][???] for all variables
-		HarmonicsData = Extract_MEGAHarmonics(Dir[l]+'data/','All',ntor_tot,TimeIndex,seq)
+		#HarmonicsData.data: [4D Array] of shape [mpol][ntor][lpsi][Real,Imaginary] for all variables
+		HarmonicsData = ExtractMEGA_Harmonics(Dir[l]+'data/','All',ntor_tot,KstepIndex,seq)
 
+		#Extract data resolution and poloidal axes from repository .dat files
+		#Gridres contains data resolution of form: [mpol,ntor,lpsi,ltheta]
+		GridRes,crdr,crdz = ExtractMEGA_PoloidalGrid(HarmonicsData,DirRepository)
+
+		#Extract Variablelabels
+		VariableLabels = VariableLabelMaker(variables)
 
 		#For each requested variable
 		for i in tqdm(range(0,len(variables))):
 
-			#TO DO 	- PLOT THE REQUESTED ntor RANGE IN SINGLE FIGURE 
-			#		- PLOT MOVIES FOR SINGLE ntor OVER REQUESTED kstep RANGE
-			#		- PLOT DIFFERENT TOROIDAL ANGLES?
-			#		- CALCULATE FLUX SURFACE FUNCTION AND PLOT SPECIFIC EQUILIBRIUM FIGURES
-			#		- COMPUTE EQUILIBRIUM AND SHAPING PARAMETERS, PLOT ON LINE GRAPH OVER TIME
-
-			#		- DECIDE WHAT TO DO WITH HARMONIC DATA - KEEP TEMPORALLY RESOLVED.
-
-
-			#### - CAN BE A FUNCTION
-			#lrad? = radial spatial resolution 				[cells]
-			#ltheta = poloidal angle spatial resolution		[cells]
-			#lpsi = toroidal angle spatial resolution		[cells]
-			#
-			#mpol = number of poloidal harmonics considered [int]	- low-pass filter limited?
-			#ntor = number of toroidal harmonics considered [int]	- low-pass filter limited?
-			#
-			#PoloidalAngle = 2*np.pi*(float(ltheta)/float(ltheta_res)) 	#Poloidal angle [Rad]
-			#ToroidalAngle = 2*np.pi*(float(??????)/float(??????????))	#Toroidal angle [Rad]
-			#
-
-			#Extract mesh grid sizes for merging
-			mpol_res = HarmonicsData.vrad.shape[0]			#mpol, grid resolution
-			ntor_res = HarmonicsData.vrad.shape[1]			#ntor, grid resolution
-			lpsi_res = HarmonicsData.vrad.shape[2]			#lpsi, grid resolution
-			ltheta_res = 256								#ltheta, grid resolution 		-Should be extracted
-
-			#Load ASDEX poloidal mesh grid
-			rho_a = np.loadtxt('Repository/rho_a.dat')
-			crdr = np.loadtxt('Repository/crdmagr.dat').reshape((lpsi_res,ltheta_res),order='F')*rho_a
-			crdz = np.loadtxt('Repository/crdmagz.dat').reshape((lpsi_res,ltheta_res),order='F')*rho_a
-			crdr = np.concatenate((crdr,crdr[:,0:1]),axis=1)
-			crdz = np.concatenate((crdz,crdz[:,0:1]),axis=1)
+			#Extract data resolution and poloidal axes from repository .dat files
+			#Gridres contains data resolution of form: [mpol,ntor,lpsi,ltheta]
+			GridRes,crdr,crdz = ExtractMEGA_PoloidalGrid(HarmonicsData,DirRepository)
 
 			#Select variable and merge real and imaginary parts for plotting
 			Data = getattr(HarmonicsData, variables[i])					#Extract data from SEQ.harmonic object
-			Image = merge(Data,mpol_res,lpsi_res,ltheta_res,ntor)		#Merge 4D Data into 2D poloidal geometry
-			#### - CAN BE A FUNCTION
-
-			#Extract Variablelabel - VariableLabel = VariableLabelMaker()
-			VariableLabel = variables[i]							#Needs a seperate function to label vars
-
+			Image = merge(Data,ntor_idx,GridRes[0],GridRes[2],GridRes[3])	#Merge 3D Data into 2D poloidal slice
 
 			#Create figure and define Title, Legend, Axis Labels etc...
 			fig,ax = figure(image_aspectratio,1)
-			Title = VariableLabel+' for ntor='+str(ntor)+' at KStep='+str(KStep)+' \n Simulation: '+DirString
+			Title = VariableLabels[i]+', n='+str(ntor)+', t='+str(round(Time,3))+' ms \n Simulation: '+DirString
 			Xlabel,Ylabel = 'Radius $R$ [m]', 'Height $Z$ [m]'
 			Legend = list()
 
 			#Plot 2D harmonics figure and beautify
 			im = ax.contourf(crdr, crdz, Image, 100); plt.axis('scaled')
-			cbar = Colourbar(ax,im,variables[i]+' [-]',5)
+			cbar = Colourbar(ax,im,VariableLabels[i],5)
 			ImageOptions(fig,ax,Xlabel,Ylabel,Title,Legend)
 
 			#Save 2D harmonics figure for current simulation
-			plt.savefig(DirSpatial+VariableLabel+'_n'+str(ntor)+'_kstep'+str(TimeIndex*500)+ext)
+			plt.savefig(DirEquil+variables[i]+'_n'+str(ntor)+'_kstep'+str(Kstep)+ext)
 #			plt.show()
 			plt.close('all')
+		#endfor
+	#endfor
+#endif
+
+#====================================================================#
+				 	      #2D POLOIDAL MOVIES#
+#====================================================================#
+
+if savefig_2Dtemporal == True:
+
+	#For each detected simulation folder
+	for l in range(0,len(Dir)):
+
+		print Dir[l]
+
+		#Create global 2D diagnostics folder and extract current simulation name
+		DirEquil = CreateNewFolder(Dir[l],'2DPoloidal_Plots/')
+		DirString = Dir[l].split('/')[-2]
+		SubString = DirString.split('_')[-1]
+
+		#Extract Energy_n outputs and header, used to determine harmonic range
+		#energy_n: [folder][variable][timestep]
+		Energy_n,Header_n = ExtractMEGA_Energy(Dir[l],'energy_n')
+		KStep_array = Energy_n[0]				#KStep Array	[-]
+		Time_array = Energy_n[1]				#Time Array		[IonGyroFreq*ms]
+		ntor_tot = ((len(Energy_n)-3)*2)+1		#Number of positive and negative modes (Including n=0)
+		ntor_pos = int(float(ntor_tot-1)/2.0)	#Number of positive modes (Ignoring n=0)
+
+		#### - CAN BE A FUNCTION
+		#Create 2D array containing [ntor,ntor_index] for referencing data to be extracted
+		ntor_indices = list()
+		for i in range(0,ntor_tot):
+			#ntor_indices contains the following [ntor, ntor_index], for positive, negative and n=0 modes
+			if i-ntor_pos >= setting_ntor[0] and i-ntor_pos <= setting_ntor[1]:
+				ntor_indices.append( [i-ntor_pos,i] )
+			else:
+				ntor_indices.append( [i-ntor_pos,np.nan] )
+			#endif
+		#endfor
+#		print ntor_indices
+
+		#ntor range set by ntor_indices[ntor, ntor_index], for pos, neg & n=0 modes
+		ntor = 0													#requested ntor mode number
+		ntor_idx = [item[0] for item in ntor_indices].index(ntor)	#index referring to ntor mode number
+		#### - CAN BE A FUNCTION
+
+		#Extract relevant normalisation factors for current simulation folder
+		Variables,Values,Units = ExtractMEGA_Normalisations(Dir[l])
+		AlfvenVelocity = Values[Variables.index('Alfven velocity')] #B0/np.sqrt(4e-7*np.pi*IonDensity*m_D)
+		IonGyroFreq = Values[Variables.index('D gyro frequency')]
+		IonDensity = Values[Variables.index('Bulk density')]
+		B0 = Values[Variables.index('Mag.fld. at axis')]
+		R0 = Values[Variables.index('raxis')]
+		m_D = 3.34e-27
+		eps = 0.5/R0
+
+		#Extract Variablelabels
+		VariableLabels = VariableLabelMaker(variables)
+
+		#Extract and plot data for each timestep
+		for i in tqdm(range(0,len(KStep_array))):
+
+			#Set TimeIndex and employ to extract KStep and Time
+			seq = 0													#Need a method of setting this in switchboard
+			KstepIndex = i
+			KStep = KStep_array[KstepIndex]							#Need a method of altering these
+			Time = (Time_array[KstepIndex]/IonGyroFreq)*1e8			#Need a method of altering these
+
+			#Extract Harmonics outputs for plotting, it contains:
+			#HarmonicsData.rho_pol [1D array] :: HarmonicsData.q_psi [1D array]
+			#HarmonicsData.kst [1D array]     :: HarmonicsData.time [1D array]    
+			#HarmonicsData.data: [3D Array] of shape [mpol][ntor][lpsi][Real,Imaginary] for all variables
+			HarmonicsData = ExtractMEGA_Harmonics(Dir[l]+'data/','All',ntor_tot,KstepIndex,seq)
+
+			#Extract data resolution and poloidal axes from repository .dat files
+			#Gridres contains data resolution of form: [mpol,ntor,lpsi,ltheta]
+			GridRes,crdr,crdz = ExtractMEGA_PoloidalGrid(HarmonicsData,DirRepository)
+
+			#For each requested variable at the current Kstep
+			for j in range(0,len(variables)):
+
+				#Create global 2D diagnostics folder and extract current simulation name
+				DirMovie = CreateNewFolder(DirEquil,variables[j]+'_n'+str(ntor)+'_Movie/')
+
+				#Select variable and merge real and imaginary parts for plotting
+				Data = getattr(HarmonicsData, variables[j])					#Extract data from SEQ.harmonic object
+				Image = merge(Data,ntor_idx,GridRes[0],GridRes[2],GridRes[3])	#Merge 3D Data into 2D poloidal slice
+
+				#Create figure and define Title, Legend, Axis Labels etc...
+				fig,ax = figure(image_aspectratio,1)
+				Title = VariableLabels[j]+', n='+str(ntor)+', t='+str(round(Time,3))+' ms \n Simulation: '+DirString
+				Xlabel,Ylabel = 'Radius $R$ [m]', 'Height $Z$ [m]'
+				Legend = list()
+
+				#Plot 2D harmonics figure and beautify
+				im = ax.contourf(crdr, crdz, Image, 100); plt.axis('scaled')
+				cbar = Colourbar(ax,im,VariableLabels[j],5)
+				ImageOptions(fig,ax,Xlabel,Ylabel,Title,Legend)
+
+				#Save 2D harmonics figure for current simulation
+				plt.savefig(DirMovie+variables[j]+'_n'+str(ntor)+'_kstep'+str(KStep)+ext)
+#				plt.show()
+				plt.close('all')
 			#endfor
 		#endfor
 	#endfor
 #endif
 
+
 #==========##==========##==========#
 #==========##==========##==========#
 
-if any([savefig_2Dequilibria]) == True:
+if any([savefig_2Dequilibrium,savefig_2Dtemporal]) == True:
 	print '--------------------------------'
 	print '2D Equilibrium Analysis Complete'
 	print '--------------------------------'
@@ -1706,6 +2007,24 @@ if any([savefig_2Dequilibria]) == True:
 
 #====================================================================#
 #====================================================================#
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -1780,6 +2099,9 @@ if savefig_2Dharmonics == True:
 		Variables,Values,Units = ExtractMEGA_Normalisations(Dir[l])
 		IonGyroFreq = Values[Variables.index('D gyro frequency')]
 
+		#Extract Variablelabels
+		VariableLabels = VariableLabelMaker(variables)
+
 
 		#For each requested variable    			-For each requested timestep!?
 		for i in range(0,len(variables)):
@@ -1791,20 +2113,17 @@ if savefig_2Dharmonics == True:
 			#HarmonicsData.rho_pol [1D array] :: HarmonicsData.q_psi [1D array]
 			#HarmonicsData.kst [1D array]     :: HarmonicsData.time [1D array]    
 			#HarmonicsData.data: [4D Array] of shape [kstep][mpol][ntor][lpsi] for variables[i]
-			HarmonicsData = Extract_MEGAHarmonics(Dir[l]+'data/',variables[i],ntor_tot)
+			HarmonicsData = ExtractMEGA_Harmonics(Dir[l]+'data/',variables[i],ntor_tot)
 
-			#HarmonicsData.data is of shape [kstep][mpol][ntor][lpsi][???]
-			HarmonicsData.data = HarmonicsData.data[:,:,:,:,0]		#Final index is unusual, should fix this
-			print shape(HarmonicsData.data)
-
-			#Extract Variablelabel				
-			VariableLabel = variables[i]							#Needs a seperate function to label vars
+			#HarmonicsData.data is of shape [kstep][mpol][ntor][lpsi][Real,Imaginary]
+			HarmonicsData.data = HarmonicsData.data[:,:,:,:,0]
+#			print shape(HarmonicsData.data)
 
 			#Set TimeIndex and employ to extract KStep and Time
 			#Need a function to determine this!
 			TimeIndex = setting_kstep[0]								
 			KStep = HarmonicsData.kst[TimeIndex]					#Need a method of altering these
-			Time = (HarmonicsData.time[TimeIndex]/IonGyroFreq)*1e3	#Need a method of altering these
+			Time = (HarmonicsData.time[TimeIndex]/IonGyroFreq)*1e8	#Need a method of altering these
 
 			#Extract normalised axes and set image extent
 			## !!! MAKE THESE A FUNCTION extent = ImageExtent() !!! ##		
@@ -1824,18 +2143,18 @@ if savefig_2Dharmonics == True:
 
 				#Create figure and define Title, Legend, Axis Labels etc...
 				fig,ax = figure(image_aspectratio,1)
-				Title = VariableLabel+' for ntor='+str(ntor)+' at KStep='+str(KStep)+' \n Simulation: '+DirString
+				Title = VariableLabels[j]+' for ntor='+str(ntor)+' at KStep='+str(KStep)+' \n Simulation: '+DirString
 				Xlabel,Ylabel = 'Poloidal Extent $\\rho_{pol}$ [-]', 'Toroidal Extent $\phi_{tor}$ [-]'
 #				Xlabel,Ylabel = 'Poloidal Resolution $m_{\\theta}$ [cells]', 'Toroidal Resolution $l_{\phi}$ [cells]'
 				Legend = list()
 
 				#Plot 2D harmonics figure and beautify
 				im = ax.imshow(Image, extent=extent, aspect='auto', origin='bottom')
-				cbar = Colourbar(ax,im,VariableLabel+' [-]',5)
+				cbar = Colourbar(ax,im,VariableLabels[j]+' [-]',5)
 				ImageOptions(fig,ax,Xlabel,Ylabel,Title,Legend)
 
 				#Save 2D harmonics figure for current simulation
-				plt.savefig(DirVariable+VariableLabel+'_n'+str(ntor)+ext)
+				plt.savefig(DirVariable+variables[j]+'_n'+str(ntor)+ext)
 #				plt.show()
 				plt.close('all')
 			#endfor
@@ -1889,10 +2208,10 @@ if savefig_2Dfourier == True:
 		#HarmonicsData.rho_pol [1D array] :: HarmonicsData.q_psi [1D array]
 		#HarmonicsData.kst [1D array]     :: HarmonicsData.time [1D array]    
 		#HarmonicsData.data: [4D Array] of shape [kstep][mpol][ntor][lpsi] for variables[i]
-		HarmonicsData = Extract_MEGAHarmonics(Dir[l]+'data/','bphi',ntor_tot)
+		HarmonicsData = ExtractMEGA_Harmonics(Dir[l]+'data/','bphi',ntor_tot)
 
 		#Extract Variablelabel
-		VariableLabel = 'BField Perturbation $\delta B_{\phi}$ [T]'	#Needs a seperate function
+		VariableLabels = 'BField Perturbation $\delta B_{\phi}$ [T]'	#Needs a seperate function
 
 
 		#TO STILL BE TRANSLATED 
