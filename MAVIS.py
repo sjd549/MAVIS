@@ -158,7 +158,7 @@ setting_kstep = [399]					#kstep index range to plot 	- [Min,Max], [Int], [] to 
 #Requested diagnostics and plotting routines.
 savefig_2Dequilibrium = False			#Plot 2D equilibrium figures		(xxx.harmonics)	- Working
 savefig_2Dtemporal = False				#Plot 2D equilibrium movies			(xxx.harmonics)	- Working
-savefig_2Dharmonics = False				#Plot 2D harmonic perturbations 	(xxx.harmonics)	- Development ?Useless?
+savefig_2Dharmonics = False				#Plot 2D harmonic perturbations 	(xxx.harmonics)	- ?Useless?
 savefig_2Dfourier = False				#Plot 2D harmonic fourier analysis	(xxx.harmonics)	- Working
 
 savefig_2Dresponse = True				#Plot 2D plasma response 			(xxx.harmonics)	- Development
@@ -2029,7 +2029,7 @@ if savefig_2Dtemporal == True:
 				ImageOptions(fig,ax,Xlabel,Ylabel,Title,Legend)
 
 				#Save 2D harmonics figure for current simulation
-				plt.savefig(DirMovie+variables[j]+'_n'+str(ntor)+'_kstep'+str(Kstep)+ext)
+				plt.savefig(DirMovie+variables[j]+'_n'+str(ntor)+'_kstep'+str(KStep)+ext)
 #				plt.show()
 				plt.close('all')
 			#endfor
@@ -2089,7 +2089,7 @@ if savefig_2Dresponse == True:
 		ntor = 1							#requested ntor mode number
 
 		#Create global 2D diagnostics folder and extract current simulation name
-		DirHarmonics = CreateNewFolder(Dir[l],'2DHarmonic_Plots/')
+		DirResponse = CreateNewFolder(Dir[l],'2DResponse_Plots/')
 		DirString = Dir[l].split('/')[-2]
 		SubString = DirString.split('_')[-1]
 
@@ -2189,13 +2189,12 @@ if savefig_2Dresponse == True:
 			ax.set_xlim(-16,16)
 
 			#Save 2D harmonics figure for current simulation
-			plt.savefig(DirHarmonics+'PlasmaResponse_n'+str(ntor)+'_kstep='+str(Kstep)+ext)
+			plt.savefig(DirResponse+'PoloidalResponse_n'+str(ntor)+'_kstep='+str(Kstep)+ext)
 			plt.show()
 			plt.close('all')
 		#endfor
 	#endfor
 #endif
-
 
 
 #==========##==========##==========#
