@@ -140,7 +140,7 @@ Phys = ['vrad','vtheta','vphi','brad','btheta','bphi','erad','etheta','ephi','pr
 					#SWITCHBOARD AND DIAGNOSTICS#
 #====================================================================#
 
-#Requested Variables and Plotting Locations.
+#Requested Variables and Plotting Locations:
 variables = Phys						#Requested variables to plot
 
 radialprofiles = []						#1D Radial Profiles to be plotted (fixed Z,Phi) --
@@ -149,33 +149,33 @@ toroidalprofiles = []					#1D Toroidal Profiles to be plotted (fixed R,Z)
 trendlocation = [] 						#Cell location For Trend Analysis [R,Z], ([] = min/max)
 
 
-#Various Diagnostic Settings.
-setting_seq = [-1]						#simulation seq to load		- [Int], [-1] to load last seq
+#Various Diagnostic Settings:
+setting_seq = [0]						#Simulation seq to load		- [Int], [-1] to load last
 setting_ntor = [-1,1]					#ntor range to plot 		- [Min,Max], [Int], [] to plot all
-setting_kstep = [399]					#kstep index range to plot 	- [Min,Max], [Int], [] to plot all
+setting_kstep = [398,399]				#kstep index range to plot 	- [Min,Max], [Int], [] to plot all
 
 
-#Requested diagnostics and plotting routines.
+#Requested diagnostics and plotting routines:
+savefig_1Dtotalenergy = True			#Plot 1D total energy trends 		(xxx.energy_p)	- Working
+savefig_1Dspectralenergy = True			#Plot 1D spectral energy trends 	(xxx.energy_n)	- Working
+
 savefig_2Dequilibrium = False			#Plot 2D equilibrium figures		(xxx.harmonics)	- Working
 savefig_2Dtemporal = False				#Plot 2D equilibrium movies			(xxx.harmonics)	- Working
-savefig_2Dharmonics = False				#Plot 2D harmonic perturbations 	(xxx.harmonics)	- ?Useless?
+savefig_2Dharmonics = False				#Plot 2D harmonic perturbations 	(xxx.harmonics)	- ?? Useless ??
 savefig_2Dfourier = False				#Plot 2D harmonic fourier analysis	(xxx.harmonics)	- Working
 
-savefig_2Dresponse = True				#Plot 2D plasma response 			(xxx.harmonics)	- Development
-
-savefig_1Dtotalenergy = False			#Plot 1D total energy trends 		(xxx.energy_p)	- Working
-savefig_1Dspectralenergy = False		#Plot 1D spectral energy trends 	(xxx.energy_n)	- Working
+savefig_2Dresponse = True				#Plot 2D plasma response 			(xxx.harmonics)	- Working
 
 
-#Steady-State diagnostics terminal output toggles.
+#Requested diagnostic terminal outputs:
 print_generaltrends = False				#Verbose Min/Max Trend Outputs						- Development
 
 
-#Write processed data to ASCII files.
+#Write processed data to ASCII files:
 write_ASCII = True						#All diagnostic output written to ASCII.
 
 
-#Image plotting options.
+#Image plotting options:
 image_extension = '.png'				#Extensions ('.png', '.jpg', '.eps')
 image_aspectratio = [10,10]				#[x,y] in cm 
 image_radialcrop = []					#[R1,R2] in cm
@@ -191,7 +191,7 @@ image_rotate = True						#Rotate image 90 degrees to the right.
 image_normalise = False					#Normalise image/profiles to local max
 image_logplot = False					#Plot ln(Data), against linear axis.
 
-#Overrides the automatic image labelling.
+#Overrides the automatic image labelling:
 titleoverride = []
 legendoverride = []
 xaxisoverride = []
@@ -286,17 +286,19 @@ cbaroverride = []
 						#COMMON I/O FUNCTIONS#
 #====================================================================#
 
-#Takes absolute directory path name as string
-#Returns list of sub-folders and list of all other contents
-#Example: HomeDirFolders,HomeDirContents = DirectoryContents(os.path.abspath("."))
+#Takes directory path and returns all contents and sub-folders
+#Inputs: one string; absolute path to desired folder
+#Returns: two lists; one of all sub-folders and one of all non-folder files
+#Example: HomeDirContents,HomeDirFolders = DirectoryContents(os.path.abspath("."))
 def DirectoryContents(AbsPath):
 	#Obtain contents of supplied directory and initiate folders list
 	DirContents = os.listdir( AbsPath )		#List of all contents (inc non-folders).
 	DirFolders = list() 					#List of all folders.
 
-	#Determine sub-folders within supplied directory and correct 'grammar'.
+	#Determine any sub-folders within supplied directory
 	for i in range(0,len(DirContents)):
 		if os.path.isdir(AbsPath+'/'+DirContents[i]) == True:
+			#Append slash to returned folder directories to differentiate them
 			DirFolders.append('/'+DirContents[i]+'/')
 		#endif
 	#endfor
@@ -1357,6 +1359,7 @@ def TAEThresholds(HarmonicData,Harmonic,eps,Va,ax='NaN'):
 	q = abs(HarmonicsData.q_psi)
 	K = np.zeros([lpsi,mpol])
 
+	#Calculates the Alfven eigenmode thresholds for all simulated poloidal mode numbers
 	#PROVIDE SUMMARY OF MATHS AND ASSUMPTIONS 
 	#PROVIDE REFERENCE FOR THESE DERIVATION(S)
 	for m in range(0,mpol):
@@ -1499,7 +1502,7 @@ print(' |  \  /  |    /  ^  \  \   \/   /  |  |    |   (----` ')
 print(' |  |\/|  |   /  /_\  \  \      /   |  |     \   \     ')
 print(' |  |  |  |  /  _____  \  \    /    |  | .----)   |    ')
 print(' |__|  |__| /__/     \__\  \__/     |__| |_______/     ')
-print('                                                 v0.0.8')
+print('                                                 v0.0.9')
 print('-------------------------------------------------------')
 print('')
 print('The following diagnostics were requested:')
@@ -1510,6 +1513,8 @@ if True in [savefig_2Dequilibrium,savefig_2Dtemporal]:
 	print('# 2D Equilibrium Analysis')
 if True in [savefig_2Dharmonics,savefig_2Dfourier]:
 	print('# 2D Spectral Analysis')
+if True in [savefig_2Dresponse]:
+	print('# 2D Plasma Response')
 print('-----------------------------------------')
 print('')
 
@@ -1601,37 +1606,42 @@ for l in range(0,len(HomeDirFolders)):
 		Dir.append(Root+HomeDirFolders[l])
 		DirFiles.append(list())
 		NumFolders += 1
-
-		#Extract contents from 'l'th simulation folder and /data/ subfolder
-		DataDir = Root+HomeDirFolders[l]+'/data/'
-		DataDirContents = DirectoryContents(DataDir)[1]		#Data Folder level
-		SimDirContents = SubDirContents						#Simulation Folder Level
-
-		#Save content files from simulation folder that fit requested data output file extensions
-		for j in range(0,len(SimDirContents)):
-			Filename = SimDirContents[j]
-			if any([x in Filename for x in FileExtensions]):
-				Prefix = Dir[-1]
-				DirFiles[-1].append(Prefix+Filename)
-				#endif
-			#endif
-		#endfor
-
-		#Save content files from /data/ subfolder that fit requested data output file extensions
-		for j in range(0,len(DataDirContents)):
-			Filename = DataDirContents[j]
-			if any([x in Filename for x in FileExtensions]):
-				Prefix = Dir[-1]+'data/'						#Note: Dir ends with a '/'
-				DirFiles[-1].append(Prefix+Filename)
-				#endif
-			#endif
-		#endfor
+	#Discard folder if it doesn't contain data
 	else:
 		#Print debug outputs to terminal if requested
 		if DebugMode == True:
-			print 'Discarding directory: ', HomeDirFolders[l]
+			print 'Discarding Directory: ', HomeDirFolders[l]
 		#endif
 	#endif
+#endfor
+Dir = sorted(Dir)			#Sort MEGA simulation directories into alphanumerical order
+
+
+for l in range(0,len(Dir)):
+	#Extract contents from 'l'th simulation folder and data/ subfolder
+	SimDirContents = DirectoryContents(Dir[l])[1]		#Documents in 'Simulation' Folder
+	DataDir = '/'+Dir[l]+'data/'						#'data' folder: Root+Dir[l]+'data/'
+	DataDirContents = DirectoryContents(DataDir)[1]		#Documents in 'data' Folder
+
+	#Save content files from simulation folder that fit requested data output file extensions
+	for j in range(0,len(SimDirContents)):
+		Filename = SimDirContents[j]
+		if any([x in Filename for x in FileExtensions]):
+			Prefix = Dir[l]
+			DirFiles[l].append(Prefix+Filename)
+			#endif
+		#endif
+	#endfor
+
+	#Save content files from /data/ subfolder that fit requested data output file extensions
+	for j in range(0,len(DataDirContents)):
+		Filename = DataDirContents[j]
+		if any([x in Filename for x in FileExtensions]):
+			Prefix = Dir[l]+'data/'						#Note: Dir ends with a '/'
+			DirFiles[l].append(Prefix+Filename)
+			#endif
+		#endif
+	#endfor
 #endfor
 
 #If no folders detected end analysis script; else continue to analysis.
@@ -1706,24 +1716,24 @@ if savefig_1Dtotalenergy == True:
 		Title = 'Spectrally Integrated Energy Evolution for '+DirString
 		Xlabel,Ylabel = 'Time [ms]', 'Energy [-]'
 
-		#Plot total thermal, kinetic and magnetic energy over time
+		#Plot total thermal, kinetic and magnetic MHD (fluid solver) energy over time
 		ax[0].plot(Energy_Phys[1],Energy_Phys[2],'k-',lw=2)		#Kinetic
 		ax[0].plot(Energy_Phys[1],Energy_Phys[3],'r-',lw=2)		#Magnetic
 		ax[0].plot(Energy_Phys[1],Energy_Phys[4],'b-',lw=2)		#Thermal
-		Legend = ['Kinetic','Magnetic','Thermal']		#Header_Phys[2::]
-		ImageOptions(fig,ax[0],'',Ylabel,Title,Legend)
+		Legend = ['Kinetic','Magnetic','Thermal']				#Header_Phys[2::]
+		ImageOptions(fig,ax[0],'','MHD '+Ylabel,Title,Legend)
 
-		#Plot ?co?, ?cntr? and ?total? energy over time
-		ax[1].plot(Energy_Phys[1],Energy_Phys[5],'k-',lw=2)		# ?co?
-		ax[1].plot(Energy_Phys[1],Energy_Phys[6],'r-',lw=2)		# ?cntr?
-		ax[1].plot(Energy_Phys[1],Energy_Phys[7],'b-',lw=2)		# ?total?
-		Legend = ['co','cntr','total']			#Header_Phys[2::]
-		ImageOptions(fig,ax[1],'',Ylabel,'',Legend)
+		#Plot parallel, perpendicular and total fast ion (kinetic solver) energy over time
+		ax[1].plot(Energy_Phys[1],Energy_Phys[5],'k-',lw=2)				#Energy parallel to current flow
+		ax[1].plot(Energy_Phys[1],Energy_Phys[6],'r-',lw=2)				#Energy perpendicular to current flow
+		ax[1].plot(Energy_Phys[1],Energy_Phys[7],'b-',lw=2)				#Total Energy (only for df, not full-f)
+		Legend = ['$\hat{J}$ Parallel','$\hat{J}$ Perpendicular','Total']	#Header_Phys[2::]
+		ImageOptions(fig,ax[1],'','Fast Ion '+Ylabel,'',Legend)
 
 		#Plot ?Transferred? and ?Total? energy over time
 		ax[2].plot(Energy_Phys[1],Energy_Phys[8],'k-',lw=2)		#Transferred
 		ax[2].plot(Energy_Phys[1],Energy_Phys[9],'r-',lw=2)		#Total
-		Legend = ['Transferred','Total']		#Header_Phys[2::]
+		Legend = ['Transferred','Total']						#Header_Phys[2::]
 		ImageOptions(fig,ax[2],Xlabel,Ylabel,'',Legend)
 
 		#Save and close open figure(s)
@@ -1789,7 +1799,7 @@ if savefig_1Dspectralenergy == True:
 			ax[1].plot(DeltaEnergy_n[1],np.log10(DeltaEnergy_n[i]), lw=2)
 			Legend.append( 'n = '+str(i-2) )
 		#endfor
-		ImageOptions(fig,ax[1],Xlabel,'Delta '+Ylabel,'',Legend)
+		ImageOptions(fig,ax[1],Xlabel,'$\Delta_{t}$ '+Ylabel,'',Legend)
 
 		#Save and close open figure(s)
 		plt.savefig(DirEnergy+'SpectralEnergy_'+SubString+ext)
@@ -2085,7 +2095,7 @@ if savefig_2Dresponse == True:
 
 		#DEVELOPMENT SETTINGS - settings_inputs to be moved to switchboard
 		print Dir[l]
-		seq = setting_seq[0]				#requested SEQ file index (001 = 0)
+		seq = setting_seq[0]				#requested SEQ file index (0 = 001, 1 = 002, etc...)
 		ntor = 1							#requested ntor mode number
 
 		#Create global 2D diagnostics folder and extract current simulation name
@@ -2134,12 +2144,12 @@ if savefig_2Dresponse == True:
 		VariableLabels = VariableLabelMaker(variables)
 
 		#Extract and plot data for each timestep
-		for i in range(398,399):
+		for i in range(setting_kstep[-2],setting_kstep[-1]):			### setting_kstep needs function
 
 			#Set TimeIndex and employ to extract KStep and Time
 			KstepIndex = i
-			Kstep = KstepArray[KstepIndex]			#[-]
-			Time = TimeArray[KstepIndex]			#[ms]
+			Kstep = float(seq+1)*KstepArray[KstepIndex]			#[-]
+			Time = float(seq+1)*TimeArray[KstepIndex]			#[ms]
 
 			#Extract Harmonics outputs for plotting, it contains:
 			#HarmonicsData.rho_pol [1D array] :: HarmonicsData.q_psi [1D array]
@@ -2260,7 +2270,10 @@ if savefig_2Dharmonics == True:
 	#For each detected simulation folder
 	for l in range(0,len(Dir)):
 
+		#DEVELOPMENT SETTINGS - settings_inputs to be moved to switchboard
 		print Dir[l]
+		seq = setting_seq[0]				#requested SEQ file index (001 = 0)
+		ntor = 1							#requested ntor mode number
 
 		#Create global 2D diagnostics folder and extract current simulation name
 		DirHarmonics = CreateNewFolder(Dir[l],'2DHarmonic_Plots/')
@@ -2287,7 +2300,7 @@ if savefig_2Dharmonics == True:
 #		print ntor_indices
 
 		#ntor range set by ntor_indices[ntor, ntor_index], for pos, neg & n=0 modes
-		ntor = 1													#requested ntor mode number
+#		ntor = 1													#requested ntor mode number
 		ntor_idx = [item[0] for item in ntor_indices].index(ntor)	#index referring to ntor mode number
 		#### - CAN BE A FUNCTION
 
@@ -2313,9 +2326,9 @@ if savefig_2Dharmonics == True:
 			HarmonicsData.data = HarmonicsData.data[:,:,:,:,0]		#Extract Real part of HarmonicsData
 
 			#Set TimeIndex and employ to extract KStep and Time ----- TimeIndex should be cleaner
-			TimeIndex = setting_kstep[0]								
-			KStep = KstepArray.kst[TimeIndex]
-			Time = TimeArray[TimeIndex]
+			KstepIndex = setting_kstep[-1]	
+			Kstep = (seq+1)*KstepArray[KstepIndex]			#[-]
+			Time = (seq+1)*TimeArray[KstepIndex]			#[ms]
 
 			#Extract normalised axes and set image extent
 			## !!! MAKE THESE A FUNCTION extent = ImageExtent() !!! ##		
@@ -2331,7 +2344,7 @@ if savefig_2Dharmonics == True:
 				#Extract image from HarmonicsData
 				ntor = ntor_indices[j][0]						#ntor mode number
 				ntor_idx = ntor_indices[j][1]					#index referring to ntor mode number
-				Image = HarmonicsData.data[TimeIndex,:,ntor_idx,:]
+				Image = HarmonicsData.data[KstepIndex,:,ntor_idx,:]
 
 				#Create figure and define Title, Legend, Axis Labels etc...
 				fig,ax = figure(image_aspectratio,1)
@@ -2534,11 +2547,13 @@ if any([savefig_2Dharmonics,savefig_2Dfourier]) == True:
 	print '-----------------------------'
 #endif
 
-#====================================================================#
-#====================================================================#
-
-
-
+#===================================================================#
+#===================================================================#
+#																	#
+#							END OF SCRIPT							#		
+#																	#
+#===================================================================#
+#===================================================================#
 
 
 
