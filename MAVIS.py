@@ -141,7 +141,7 @@ Phys = ['vrad','vtheta','vphi','brad','btheta','bphi','erad','etheta','ephi','pr
 #====================================================================#
 
 #Requested Variables and Plotting Locations:
-variables = Phys						#Requested variables to plot
+variables = ['brad']	#Phys						#Requested variables to plot
 
 radialprofiles = []						#1D Radial Profiles to be plotted (fixed Z,Phi) --
 azimuthalprofiles = []					#1D Azimuthal Profiles to be plotted (fixed R,phi) |
@@ -152,17 +152,16 @@ trendlocation = [] 						#Cell location For Trend Analysis [R,Z], ([] = min/max)
 #Various Diagnostic Settings:
 setting_seq = [0]						#Simulation seq to load		- [Int], [-1] to load last
 setting_ntor = [-1,1]					#ntor range to plot 		- [Min,Max], [Int], [] to plot all
-setting_kstep = [398,399]				#kstep index range to plot 	- [Min,Max], [Int], [] to plot all
+setting_kstep = [001,002]					#kstep index range to plot 	- [Min,Max], [Int], [] to plot all
 
 
 #Requested diagnostics and plotting routines:
-savefig_1Dtotalenergy = True			#Plot 1D total energy trends 		(xxx.energy_p)	- Working
-savefig_1Dspectralenergy = True			#Plot 1D spectral energy trends 	(xxx.energy_n)	- Working
+savefig_1Dtotalenergy = False			#Plot 1D total energy trends 		(xxx.energy_p)	- Working
+savefig_1Dspectralenergy = False		#Plot 1D spectral energy trends 	(xxx.energy_n)	- Working
 
 savefig_2Dequilibrium = False			#Plot 2D equilibrium figures		(xxx.harmonics)	- Working
 savefig_2Dtemporal = False				#Plot 2D equilibrium movies			(xxx.harmonics)	- Working
-savefig_2Dharmonics = False				#Plot 2D harmonic perturbations 	(xxx.harmonics)	- ?? Useless ??
-savefig_2Dfourier = False				#Plot 2D harmonic fourier analysis	(xxx.harmonics)	- Working
+savefig_2Dharmonics = False				#Plot 2D harmonic analysis		 	(xxx.harmonics)	- Working
 
 savefig_2Dresponse = True				#Plot 2D plasma response 			(xxx.harmonics)	- Working
 
@@ -1212,10 +1211,10 @@ def InvisibleColourbar(ax='NaN'):
 #Example: VariableLegends = VariableLabelMaker(variables)
 def VariableLabelMaker(variables):
 
-	#!!! NEED TO CHECK IF LIST FIRST !!!
-	#if list then do the normal procedure,
-	#else make into single element list and perform procedure
-	#!!! NEED TO CHECK IF LIST FIRST !!!
+	#Convert to single element list if string is supplied
+	if type(variables) is not list:
+		variables = [variables]
+	#endif
 
 	VariableLegends = list()
 	for i in range(0,len(variables)):
@@ -1250,7 +1249,7 @@ def VariableLabelMaker(variables):
 		elif variables[i] == 'vtheta':
 			Variable = 'Poloidal Velocity'
 			VariableUnit = '[m s$^{-1}$]'
-		elif variables[i] == 'vpsi':
+		elif variables[i] == 'vphi':
 			Variable = 'Toroidal Velocity'
 			VariableUnit = '[m s$^{-1}$]'
 		elif variables[i] == 'mom_a':
@@ -1287,13 +1286,13 @@ def VariableLabelMaker(variables):
 			VariableUnit = '[T]'
 		elif variables[i] == 'erad':
 			Variable = 'Radial E-field'
-			VariableUnit = '[V m^{-1}$]'
+			VariableUnit = '[V m$^{-1}$]'
 		elif variables[i] == 'etheta':
 			Variable = 'Poloidal E-field'
-			VariableUnit = '[V m^{-1}$]'
+			VariableUnit = '[V m$^{-1}$]'
 		elif variables[i] == 'ephi':
 			Variable = 'Toroidal E-field'
-			VariableUnit = '[V m^{-1}$]'
+			VariableUnit = '[V m$^{-1}$]'
 		#endif
 
 		#Default if no fitting variable found.
@@ -1511,7 +1510,7 @@ if True in [savefig_1Dtotalenergy,savefig_1Dspectralenergy]:
 	print('# 1D Energy Analysis')
 if True in [savefig_2Dequilibrium,savefig_2Dtemporal]:
 	print('# 2D Equilibrium Analysis')
-if True in [savefig_2Dharmonics,savefig_2Dfourier]:
+if True in [savefig_2Dharmonics]:
 	print('# 2D Spectral Analysis')
 if True in [savefig_2Dresponse]:
 	print('# 2D Plasma Response')
@@ -1996,11 +1995,14 @@ if savefig_2Dtemporal == True:
 		Variables,Values,Units = ExtractMEGA_Normalisations(Dir[l])
 		IonGyroFreq = Values[Variables.index('D gyro frequency')]
 
-		#Extract Variablelabels
-		VariableLabels = VariableLabelMaker(variables)
+
+		#Apply user Kstep range if requested - else default to max range
+		if len(setting_kstep) == 2: KStepRange = setting_kstep
+		else: KStepRange = [0,len(KstepArray)]
+		#endif
 
 		#Extract and plot data for each timestep
-		for i in tqdm(range(0,len(KstepArray))):
+		for i in tqdm(range(KStepRange[0],KStepRange[1])):
 
 			#Set TimeIndex and employ to extract KStep and Time
 			KstepIndex = i
@@ -2025,24 +2027,32 @@ if savefig_2Dtemporal == True:
 				DirMovie = CreateNewFolder(DirEquil,variables[j]+'_n'+str(ntor)+'_Movie/')
 
 				#Select variable and Merge 3D Data into 2D poloidal slice
-				Image = MergePoloidal(HarmonicsData,variables[i],ntor_idx)
+				Image = MergePoloidal(HarmonicsData,variables[j],ntor_idx)
+
 
 				#Create figure and define Title, Legend, Axis Labels etc...
 				fig,ax = figure(image_aspectratio,1)
-				Title = VariableLabels[j]+', n='+str(ntor)+', t='+str(round(Time,3))+' ms \n Simulation: '+DirString
+
+				#Extract Variablelabel and define figure texts
+				VariableLabel = VariableLabelMaker(variables[j])
+				Title = VariableLabel+', n='+str(ntor)+', t='+str(round(Time,3))+' ms \n Simulation: '+DirString
 				Xlabel,Ylabel = 'Radius $R$ [m]', 'Height $Z$ [m]'
 				Legend = list()
 
 				#Plot 2D harmonics figure and beautify
 				im = ax.contourf(Crdr, Crdz, Image, 100); plt.axis('scaled')
-				cbar = Colourbar(ax,im,VariableLabels[j],5)
+				cbar = Colourbar(ax,im,VariableLabel,5)
 				ImageOptions(fig,ax,Xlabel,Ylabel,Title,Legend)
 
 				#Save 2D harmonics figure for current simulation
-				plt.savefig(DirMovie+variables[j]+'_n'+str(ntor)+'_kstep'+str(KStep)+ext)
+				plt.savefig(DirMovie+variables[j]+'_n'+str(ntor)+'_kstep'+str('%07.f'%KStep)+ext)
 #				plt.show()
 				plt.close('all')
 			#endfor
+
+			#!!! AUTO CREATE MOVIES FOR EACH VARIABLE HERE !!!
+			#!!! AUTO CREATE MOVIES FOR EACH VARIABLE HERE !!!
+
 		#endfor
 	#endfor
 #endif
@@ -2262,116 +2272,10 @@ if any([savefig_2Dresponse]) == True:
 #====================================================================#
 
 #====================================================================#
-				 	      #2D HARMONIC PLOTS#
+				   #2D HARMONIC & FOURIER ANALYSIS#
 #====================================================================#
 
 if savefig_2Dharmonics == True:
-
-	#For each detected simulation folder
-	for l in range(0,len(Dir)):
-
-		#DEVELOPMENT SETTINGS - settings_inputs to be moved to switchboard
-		print Dir[l]
-		seq = setting_seq[0]				#requested SEQ file index (001 = 0)
-		ntor = 1							#requested ntor mode number
-
-		#Create global 2D diagnostics folder and extract current simulation name
-		DirHarmonics = CreateNewFolder(Dir[l],'2DHarmonic_Plots/')
-		DirString = Dir[l].split('/')[-2]
-		SubString = DirString.split('_')[-1]
-
-		#Extract Energy_n outputs and header, used to determine harmonic range
-		#energy_n: [folder][variable][timestep]
-		Energy_n,Header_n = ExtractMEGA_Energy(Dir[l],'energy_n')
-		KstepArray = Energy_n[0]				#KStep Array	[-]
-		TimeArray = Energy_n[1]					#Time Array		[ms]
-		ntor_tot = ((len(Energy_n)-3)*2)+1		#Number of positive and negative modes (Including n=0)
-		ntor_pos = int(float(ntor_tot-1)/2.0)	#Number of positive modes (Ignoring n=0)
-
-		#### - CAN BE A FUNCTION
-		#Create 2D array containing [ntor,ntor_index] for referencing data to be extracted
-		ntor_indices = list()
-		for i in range(0,ntor_tot):
-			if i-ntor_pos >= setting_ntor[0] and i-ntor_pos <= setting_ntor[1]:
-				#ntor_indices contains the following [ntor, ntor_index], for positive, negative and n=0 modes
-				ntor_indices.append( [i-ntor_pos,i] )
-			#endif
-		#endfor
-#		print ntor_indices
-
-		#ntor range set by ntor_indices[ntor, ntor_index], for pos, neg & n=0 modes
-#		ntor = 1													#requested ntor mode number
-		ntor_idx = [item[0] for item in ntor_indices].index(ntor)	#index referring to ntor mode number
-		#### - CAN BE A FUNCTION
-
-		#Extract relevant normalisation factors for current simulation folder
-		Variables,Values,Units = ExtractMEGA_Normalisations(Dir[l])
-		IonGyroFreq = Values[Variables.index('D gyro frequency')]
-
-		#Extract Variablelabels
-		VariableLabels = VariableLabelMaker(variables)
-
-
-		#For each requested variable
-		for i in range(0,len(variables)):
-
-			#Create new folder for each variable
-			DirVariable = CreateNewFolder(DirHarmonics,variables[i])
-
-			#Extract Harmonics outputs for plotting, it contains:
-			#HarmonicsData.rho_pol [1D array] :: HarmonicsData.q_psi [1D array]
-			#HarmonicsData.kst [1D array]     :: HarmonicsData.time [1D array]    
-			#HarmonicsData.data: [4D Array] of shape [kstep][mpol][ntor][lpsi][A/B] for variables[i]
-			HarmonicsData = ExtractMEGA_Harmonics(Dir[l]+'data/',variables[i],ntor_tot)
-			HarmonicsData.data = HarmonicsData.data[:,:,:,:,0]		#Extract Real part of HarmonicsData
-
-			#Set TimeIndex and employ to extract KStep and Time ----- TimeIndex should be cleaner
-			KstepIndex = setting_kstep[-1]	
-			Kstep = (seq+1)*KstepArray[KstepIndex]			#[-]
-			Time = (seq+1)*TimeArray[KstepIndex]			#[ms]
-
-			#Extract normalised axes and set image extent
-			## !!! MAKE THESE A FUNCTION extent = ImageExtent() !!! ##		
-			rho_pol = HarmonicsData.rho_pol							#Normalised poloidal angle
-			phi_tor = range(1,shape(HarmonicsData.data)[1]+1)		#Array of toroidal cells
-			phi_tor = [x/float(len(phi_tor)) for x in phi_tor]		#Normalised toroidal angle
-			extent = [rho_pol[0],rho_pol[-1], phi_tor[0],phi_tor[-1]]
-			
-			#Plot images of variables[i] for all requested ntor
-			#ntor range set by ntor_indices[ntor, ntor_index], for pos, neg & n=0 modes
-			for j in range(0,ntor_indices[-1][1]):
-
-				#Extract image from HarmonicsData
-				ntor = ntor_indices[j][0]						#ntor mode number
-				ntor_idx = ntor_indices[j][1]					#index referring to ntor mode number
-				Image = HarmonicsData.data[KstepIndex,:,ntor_idx,:]
-
-				#Create figure and define Title, Legend, Axis Labels etc...
-				fig,ax = figure(image_aspectratio,1)
-				Title = VariableLabels[j]+', ntor='+str(ntor)+', t='+str(Time)+' \n Simulation: '+DirString
-				Xlabel,Ylabel = 'Poloidal Extent $\\rho_{pol}$ [-]', 'Toroidal Extent $\phi_{tor}$ [-]'
-#				Xlabel,Ylabel = 'Poloidal Resolution $m_{\\theta}$ [cells]', 'Toroidal Resolution $l_{\phi}$ [cells]'
-				Legend = list()
-
-				#Plot 2D harmonics figure and beautify
-				im = ax.imshow(Image, extent=extent, aspect='auto', origin='bottom')
-				cbar = Colourbar(ax,im,VariableLabels[j]+' [-]',5)
-				ImageOptions(fig,ax,Xlabel,Ylabel,Title,Legend)
-
-				#Save 2D harmonics figure for current simulation
-				plt.savefig(DirVariable+variables[j]+'_n'+str(ntor)+ext)
-#				plt.show()
-				plt.close('all')
-			#endfor
-		#endfor
-	#endfor
-#endif
-
-#====================================================================#
-				 	    #2D FOURIER ANALYSIS#
-#====================================================================#
-
-if savefig_2Dfourier == True:
 
 	#For each detected simulation folder
 	for l in range(0,len(Dir)):
@@ -2541,7 +2445,7 @@ if savefig_2Dfourier == True:
 #==========##==========##==========#
 #==========##==========##==========#
 
-if any([savefig_2Dharmonics,savefig_2Dfourier]) == True:
+if any([savefig_2Dharmonics]) == True:
 	print '-----------------------------'
 	print '2D Spectral Analysis Complete'
 	print '-----------------------------'
@@ -2555,7 +2459,7 @@ if any([savefig_2Dharmonics,savefig_2Dfourier]) == True:
 #===================================================================#
 #===================================================================#
 
-
+exit()
 
 
 
@@ -2728,7 +2632,114 @@ if True == False:
 
 
 
+#====================================================================#
+				 	      #2D HARMONIC PLOTS#
+#====================================================================#
 
+if savefig_2Dharmonics == True:
+
+	#For each detected simulation folder
+	for l in range(0,len(Dir)):
+
+		#DEVELOPMENT SETTINGS - settings_inputs to be moved to switchboard
+		print Dir[l]
+		seq = setting_seq[0]				#requested SEQ file index (001 = 0)
+		ntor = 1							#requested ntor mode number
+
+		#Create global 2D diagnostics folder and extract current simulation name
+		DirHarmonics = CreateNewFolder(Dir[l],'2DHarmonic_Plots/')
+		DirString = Dir[l].split('/')[-2]
+		SubString = DirString.split('_')[-1]
+
+		#Extract Energy_n outputs and header, used to determine harmonic range
+		#energy_n: [folder][variable][timestep]
+		Energy_n,Header_n = ExtractMEGA_Energy(Dir[l],'energy_n')
+		KstepArray = Energy_n[0]				#KStep Array	[-]
+		TimeArray = Energy_n[1]					#Time Array		[ms]
+		ntor_tot = ((len(Energy_n)-3)*2)+1		#Number of positive and negative modes (Including n=0)
+		ntor_pos = int(float(ntor_tot-1)/2.0)	#Number of positive modes (Ignoring n=0)
+
+		#### - CAN BE A FUNCTION
+		#Create 2D array containing [ntor,ntor_index] for referencing data to be extracted
+		ntor_indices = list()
+		for i in range(0,ntor_tot):
+			if i-ntor_pos >= setting_ntor[0] and i-ntor_pos <= setting_ntor[1]:
+				#ntor_indices contains the following [ntor, ntor_index], for positive, negative and n=0 modes
+				ntor_indices.append( [i-ntor_pos,i] )
+			#endif
+		#endfor
+#		print ntor_indices
+
+		#ntor range set by ntor_indices[ntor, ntor_index], for pos, neg & n=0 modes
+#		ntor = 1													#requested ntor mode number
+		ntor_idx = [item[0] for item in ntor_indices].index(ntor)	#index referring to ntor mode number
+		#### - CAN BE A FUNCTION
+
+		#Extract relevant normalisation factors for current simulation folder
+		Variables,Values,Units = ExtractMEGA_Normalisations(Dir[l])
+		IonGyroFreq = Values[Variables.index('D gyro frequency')]
+
+		#Extract Variablelabels
+		VariableLabels = VariableLabelMaker(variables)
+
+
+		#For each requested variable
+		for i in range(0,len(variables)):
+
+			#Create new folder for each variable
+			DirVariable = CreateNewFolder(DirHarmonics,variables[i])
+
+			#Extract Harmonics outputs for plotting, it contains:
+			#HarmonicsData.rho_pol [1D array] :: HarmonicsData.q_psi [1D array]
+			#HarmonicsData.kst [1D array]     :: HarmonicsData.time [1D array]    
+			#HarmonicsData.data: [4D Array] of shape [kstep][mpol][ntor][lpsi][A/B] for variables[i]
+			HarmonicsData = ExtractMEGA_Harmonics(Dir[l]+'data/',variables[i],ntor_tot)
+			HarmonicsData.data = HarmonicsData.data[:,:,:,:,0]		#Extract Real part of HarmonicsData
+
+			#Set TimeIndex and employ to extract KStep and Time ----- TimeIndex should be cleaner
+			KstepIndex = setting_kstep[-1]	
+			Kstep = (seq+1)*KstepArray[KstepIndex]			#[-]
+			Time = (seq+1)*TimeArray[KstepIndex]			#[ms]
+
+			#Extract figure axes and set image extent
+			## !!! MAKE THESE A FUNCTION extent = ImageExtent() !!! ##		
+			rho_pol = HarmonicsData.rho_pol							#Normalised poloidal angle
+			phi_tor = range(1,shape(HarmonicsData.data)[1]+1)		#Array of toroidal cells
+			phi_tor = [x/float(len(phi_tor)) for x in phi_tor]		#Normalised toroidal angle
+			extent = [rho_pol[0],rho_pol[-1], phi_tor[0],phi_tor[-1]]
+			
+			#Plot images of variables[i] for all requested ntor
+			#ntor range set by ntor_indices[ntor, ntor_index], for pos, neg & n=0 modes
+			for j in range(0,ntor_indices[-1][1]):
+
+				#Extract image from HarmonicsData
+				ntor = ntor_indices[j][0]						#ntor mode number
+				ntor_idx = ntor_indices[j][1]					#index referring to ntor mode number
+				Image = HarmonicsData.data[KstepIndex,:,ntor_idx,:]
+
+				#Create figure and define Title, Legend, Axis Labels etc...
+				fig,ax = figure(image_aspectratio,1)
+				Title = VariableLabels[j]+', ntor='+str(ntor)+', t='+str(Time)+' \n Simulation: '+DirString
+				Xlabel,Ylabel = 'Poloidal Extent $\\rho_{pol}$ [-]', 'Toroidal Extent $\phi_{tor}$ [-]'
+#				Xlabel,Ylabel = 'Poloidal Resolution $m_{\\theta}$ [cells]', 'Toroidal Resolution $l_{\phi}$ [cells]'
+				Legend = list()
+
+				#Plot 2D harmonics figure and beautify
+				im = ax.imshow(Image, extent=extent, aspect='auto', origin='bottom')
+				cbar = Colourbar(ax,im,VariableLabels[j]+' [-]',5)
+				ImageOptions(fig,ax,Xlabel,Ylabel,Title,Legend)
+
+				#Save 2D harmonics figure for current simulation
+				plt.savefig(DirVariable+variables[j]+'_n'+str(ntor)+ext)
+#				plt.show()
+				plt.close('all')
+			#endfor
+		#endfor
+	#endfor
+#endif
+
+#=====================================================================#
+#=====================================================================#
 
 
 
