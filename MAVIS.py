@@ -141,7 +141,7 @@ Phys = ['vrad','vtheta','vphi','brad','btheta','bphi','erad','etheta','ephi','pr
 #====================================================================#
 
 #Requested Variables and Plotting Locations:
-variables = ['brad']	#Phys						#Requested variables to plot
+variables = Phys		#['brad','erad']		#Requested variables to plot
 
 radialprofiles = []						#1D Radial Profiles to be plotted (fixed Z,Phi) --
 azimuthalprofiles = []					#1D Azimuthal Profiles to be plotted (fixed R,phi) |
@@ -151,17 +151,17 @@ trendlocation = [] 						#Cell location For Trend Analysis [R,Z], ([] = min/max)
 
 #Various Diagnostic Settings:
 setting_seq = [0]						#Simulation seq to load		- [Int], [-1] to load last
-setting_ntor = [-1,1]					#ntor range to plot 		- [Min,Max], [Int], [] to plot all
-setting_kstep = [001,002]					#kstep index range to plot 	- [Min,Max], [Int], [] to plot all
+setting_ntor = [0,2]					#ntor range to plot 		- [Min,Max], [Int], [] to plot all
+setting_kstep = [398,399]				#kstep index range to plot 	- [Min,Max], [Int], [] to plot all
 
 
 #Requested diagnostics and plotting routines:
-savefig_1Dtotalenergy = False			#Plot 1D total energy trends 		(xxx.energy_p)	- Working
-savefig_1Dspectralenergy = False		#Plot 1D spectral energy trends 	(xxx.energy_n)	- Working
+savefig_1Dtotalenergy = True			#Plot 1D total energy trends 		(xxx.energy_p)	- Working
+savefig_1Dspectralenergy = True			#Plot 1D spectral energy trends 	(xxx.energy_n)	- Working
 
-savefig_2Dequilibrium = False			#Plot 2D equilibrium figures		(xxx.harmonics)	- Working
-savefig_2Dtemporal = False				#Plot 2D equilibrium movies			(xxx.harmonics)	- Working
-savefig_2Dharmonics = False				#Plot 2D harmonic analysis		 	(xxx.harmonics)	- Working
+savefig_2Dequilibrium = True			#Plot 2D equilibrium figures		(xxx.harmonics)	- Working
+savefig_2Dequilmovie = False			#Plot 2D equilibrium movies			(xxx.harmonics)	- Working
+savefig_2Dharmonics = True				#Plot 2D harmonic analysis		 	(xxx.harmonics)	- Working
 
 savefig_2Dresponse = True				#Plot 2D plasma response 			(xxx.harmonics)	- Working
 
@@ -214,6 +214,10 @@ cbaroverride = []
 #Include multi-var capability
 #
 #Write a poloidal plasma response diagnostic with mpol vs lphi (also name this...)
+#
+#FIX: 	absolute time is incorrect when saving file names that use different numbers of kstep
+#		Setup only works for kharm = 500 at the moment, needs to scale to any kharm, kchk, etc...
+#		Easiest fix is probably just to use Data.kstp * dt and extract dt from the data directly.
 #
 #
 #
@@ -506,12 +510,13 @@ def ExtractMEGA_DataShape(HarmonicsData):
 		ltheta_res = 256							#ltheta resolution 	#!!!!!!!
 	#endif
 
-	#Extract data array sizes for a 3D HarmonicsData object
+	#Extract data array sizes for a 3D (single kstep) HarmonicsData object
+	#NOTE, this assumes brad is an attribute within HarmonicsData - need a 'generic' attribute tag if possible
 	#Object created using: ExtractMEGA_Harmonics(Dir[l]+'data/','All',ntor_tot,KstepIndex,seq)
 	if len(Intersection) >= 1:
-		mpol_res = HarmonicsData.vrad.shape[0]		#mpol resolution
-		ntor_res = HarmonicsData.vrad.shape[1]		#ntor resolution
-		lpsi_res = HarmonicsData.vrad.shape[2]		#lpsi resolution
+		mpol_res = HarmonicsData.brad.shape[0]		#mpol resolution
+		ntor_res = HarmonicsData.brad.shape[1]		#ntor resolution
+		lpsi_res = HarmonicsData.brad.shape[2]		#lpsi resolution
 		ltheta_res = 256							#ltheta resolution 	#!!!!!!!
 	#endif
 
@@ -733,9 +738,11 @@ def Read_MEGAHarmonics(Filename,Variable,mpol,ntor,lpsi,kstep=np.nan):
 
 	#=====#=====#
 
-	#Read data from each KStep for the supplied SEQ.harmonics output folder
+	#IF no kstep supplied, read SINGLE VARIABLE FOR ALL KSTEP values into a 4D HarmonicsData object
+	#Read data for each Kstep from the supplied SEQ.harmonics output folder
+	#Save data for requested variable for each Kstep in the process
 	if np.isnan(kstep) == True:
-		kstep = 0
+		kstep = 0													#Initiate kstep index to zero
 		while(True):
 			#FORTRANFile.read_record automatically steps through all KSteps in the supplied SEQ.harmonics file.
 			#RawData for KStep[i] is of shape RawData[Variable][datapoint] where all variables are flattened to 1D
@@ -748,9 +755,7 @@ def Read_MEGAHarmonics(Filename,Variable,mpol,ntor,lpsi,kstep=np.nan):
 			if kstep == 0:
 				Data.rho_pol = np.sqrt(abs(RawData['gpsi_nrm'][0]))			#[-]
 				Data.q_psi   = RawData['q_psi'][0]							#[-]
-			#endif
-
-			#Extract 1D kstep and time arrays of shape: Data.kst[Real]
+			#Always extract 1D Kstep and Time arrays - Shape = Data.kst[Real]
 			Data.kst  = np.append(Data.kst,  RawData['kst'][0])				#[-]
 			Data.time = np.append(Data.time, RawData['t'][0])				#[IonGyroFreq*ms]
 			#Print kstep for debug purposes if requested
@@ -766,9 +771,11 @@ def Read_MEGAHarmonics(Filename,Variable,mpol,ntor,lpsi,kstep=np.nan):
 
 	#=====#=====#
 
-	#Read data from each KStep for the supplied SEQ.harmonics output folder
+	#IF Kstep is supplied, read ALL VARIABLES FOR SINGLE KSTEP into a 3D HarmonicsData object
+	#Read data for each Kstep from the supplied SEQ.harmonics output folder
+	#Save data for all variables once the requested Kstep is reached
 	elif np.isnan(kstep) == False:
-		index = 0
+		index = 0													#Initiate search index to zero
 		while(index <= kstep):
 			#FORTRANFile.read_record automatically steps through all KSteps in the supplied SEQ.harmonics file.
 			#RawData for KStep[i] is of shape RawData[Variable][datapoint] where all variables are flattened to 1D
@@ -780,13 +787,13 @@ def Read_MEGAHarmonics(Filename,Variable,mpol,ntor,lpsi,kstep=np.nan):
 			if index == 0:
 				Data.rho_pol = np.sqrt(abs(RawData['gpsi_nrm'][0]))
 				Data.q_psi   = RawData['q_psi'][0]
-			#Always extract Kstep and Time arrays, until the requested Kstep
+			#Always extract 1D Kstep and Time arrays, until the requested Kstep - Shape = Data.kst[Real]
 			if index >= 0:
 				Data.kst     = np.append(Data.kst,  RawData['kst'][0])
 				Data.time    = np.append(Data.time, RawData['t'][0])#*1e3/wa
 				#Print kstep for debug purposes if requested
 				if DebugMode == True: print(str(index)+'-'+str(Data.kst[index]))
-			#If index matches requested kstep, retrieve data for all variables
+			#If index matches requested kstep, retrieve data for all variables and add to object
 			if index == kstep:
 				Data.vrad    = np.reshape(RawData['vrad'   ],(mpol+1,ntor,lpsi,2),order='F')
 				Data.vtheta  = np.reshape(RawData['vtheta' ],(mpol+1,ntor,lpsi,2),order='F')
@@ -810,6 +817,18 @@ def Read_MEGAHarmonics(Filename,Variable,mpol,ntor,lpsi,kstep=np.nan):
 			#Delete RawData for current KStep and increment KStep counter
 	  		del RawData; index += 1
 		#endwhile
+
+		#If final index is below requested kstep no data will be saved, causing crashes.
+		#Inform user and exit program (adding dummy data might allow for soft crashes)
+		if index < kstep:
+			print('')
+			print('#=========================================#')
+			print('Requested Kstep exceeds seq.harmonics range')
+			print('  Please reduce requested Kstep and retry  ')
+			print('#=========================================#')
+			print('')
+			exit()
+		#endif
 	#endif
 
 	#=====#=====#
@@ -1508,7 +1527,7 @@ print('The following diagnostics were requested:')
 print('-----------------------------------------')
 if True in [savefig_1Dtotalenergy,savefig_1Dspectralenergy]:
 	print('# 1D Energy Analysis')
-if True in [savefig_2Dequilibrium,savefig_2Dtemporal]:
+if True in [savefig_2Dequilibrium,savefig_2Dequilmovie]:
 	print('# 2D Equilibrium Analysis')
 if True in [savefig_2Dharmonics]:
 	print('# 2D Spectral Analysis')
@@ -1865,7 +1884,7 @@ if savefig_2Dequilibrium == True:
 		#DEVELOPMENT SETTINGS - settings_inputs to be moved to switchboard
 		print Dir[l]
 		seq = setting_seq[0]				#requested SEQ file index (001 = 0)
-		ntor = 0							#requested ntor mode number
+		ntor = setting_ntor[1]				#requested ntor mode number	!!! NEEDS A FUNCTION !!!
 
 		#Create global 2D diagnostics folder and extract current simulation name
 		DirEquil = CreateNewFolder(Dir[l],'2DPoloidal_Plots/')
@@ -1875,7 +1894,7 @@ if savefig_2Dequilibrium == True:
 		#Extract Energy_n outputs and header, used to determine harmonic range
 		#energy_n: [folder][variable][timestep]
 		Energy_n,Header_n = ExtractMEGA_Energy(Dir[l],'energy_n')
-		KstepArray = Energy_n[0]				#KStep Array	[-]
+		KStepArray = Energy_n[0]				#KStep Array	[-]
 		TimeArray = Energy_n[1]					#Time Array		[ms]
 		ntor_tot = ((len(Energy_n)-3)*2)+1		#Number of positive and negative modes (Including n=0)
 		ntor_pos = int(float(ntor_tot-1)/2.0)	#Number of positive modes (Ignoring n=0)
@@ -1904,7 +1923,7 @@ if savefig_2Dequilibrium == True:
 
 		#Set TimeIndex and employ to extract KStep and Time		--- LINK THIS TO SWITCHBOARD
 		KstepIndex = setting_kstep[0]
-		Kstep = KstepArray[KstepIndex]			#[-]
+		Kstep = KStepArray[KstepIndex]			#[-]
 		Time = TimeArray[KstepIndex]			#[ms]
 
 		#Extract Harmonics outputs for plotting, it contains:
@@ -1950,7 +1969,7 @@ if savefig_2Dequilibrium == True:
 				 	      #2D POLOIDAL MOVIES#
 #====================================================================#
 
-if savefig_2Dtemporal == True:
+if savefig_2Dequilmovie == True:
 
 	#For each detected simulation folder
 	for l in range(0,len(Dir)):
@@ -1958,7 +1977,7 @@ if savefig_2Dtemporal == True:
 		#DEVELOPMENT SETTINGS - settings_inputs to be moved to switchboard
 		print Dir[l]
 		seq = setting_seq[0]				#requested SEQ file index (001 = 0)
-		ntor = 0							#requested ntor mode number
+		ntor = setting_ntor[1]				#requested ntor mode number	!!! NEEDS A FUNCTION !!!
 
 		#Create global 2D diagnostics folder and extract current simulation name
 		DirEquil = CreateNewFolder(Dir[l],'2DPoloidal_Plots/')
@@ -1968,7 +1987,7 @@ if savefig_2Dtemporal == True:
 		#Extract Energy_n outputs and header, used to determine harmonic range
 		#energy_n: [folder][variable][timestep]
 		Energy_n,Header_n = ExtractMEGA_Energy(Dir[l],'energy_n')
-		KstepArray = Energy_n[0]				#KStep Array	[-]
+		KStepArray = Energy_n[0]				#KStep Array	[-]
 		TimeArray = Energy_n[1]					#Time Array		[ms]
 		ntor_tot = ((len(Energy_n)-3)*2)+1		#Number of positive and negative modes (Including n=0)
 		ntor_pos = int(float(ntor_tot-1)/2.0)	#Number of positive modes (Ignoring n=0)
@@ -1998,7 +2017,7 @@ if savefig_2Dtemporal == True:
 
 		#Apply user Kstep range if requested - else default to max range
 		if len(setting_kstep) == 2: KStepRange = setting_kstep
-		else: KStepRange = [0,len(KstepArray)]
+		else: KStepRange = [0,len(KStepArray)]
 		#endif
 
 		#Extract and plot data for each timestep
@@ -2006,7 +2025,7 @@ if savefig_2Dtemporal == True:
 
 			#Set TimeIndex and employ to extract KStep and Time
 			KstepIndex = i
-			KStep = KstepArray[KstepIndex]			#[-]
+			KStep = KStepArray[KstepIndex]			#[-]
 			Time = TimeArray[KstepIndex]			#[ms]
 
 			#Extract Harmonics outputs for plotting, it contains:
@@ -2061,7 +2080,7 @@ if savefig_2Dtemporal == True:
 #==========##==========##==========#
 #==========##==========##==========#
 
-if any([savefig_2Dequilibrium,savefig_2Dtemporal]) == True:
+if any([savefig_2Dequilibrium,savefig_2Dequilmovie]) == True:
 	print '--------------------------------'
 	print '2D Equilibrium Analysis Complete'
 	print '--------------------------------'
@@ -2106,7 +2125,7 @@ if savefig_2Dresponse == True:
 		#DEVELOPMENT SETTINGS - settings_inputs to be moved to switchboard
 		print Dir[l]
 		seq = setting_seq[0]				#requested SEQ file index (0 = 001, 1 = 002, etc...)
-		ntor = 1							#requested ntor mode number
+		ntor = setting_ntor[1]				#requested ntor mode number	!!! NEEDS A FUNCTION !!!
 
 		#Create global 2D diagnostics folder and extract current simulation name
 		DirResponse = CreateNewFolder(Dir[l],'2DResponse_Plots/')
@@ -2116,7 +2135,7 @@ if savefig_2Dresponse == True:
 		#Extract Energy_n outputs and header, used to determine harmonic range
 		#energy_n: [folder][variable][timestep]
 		Energy_n,Header_n = ExtractMEGA_Energy(Dir[l],'energy_n')
-		KstepArray = Energy_n[0]				#KStep Array	[-]
+		KStepArray = Energy_n[0]				#KStep Array	[-]
 		TimeArray = Energy_n[1]					#Time Array		[ms]
 		ntor_tot = ((len(Energy_n)-3)*2)+1		#Number of positive and negative modes (Including n=0)
 		ntor_pos = int(float(ntor_tot-1)/2.0)	#Number of positive modes (Ignoring n=0)
@@ -2153,12 +2172,17 @@ if savefig_2Dresponse == True:
 		#Extract Variablelabels
 		VariableLabels = VariableLabelMaker(variables)
 
+		#Apply user Kstep range if requested - else default to max range
+		if len(setting_kstep) == 2: KStepRange = setting_kstep
+		else: KStepRange = [0,len(KStepArray)]
+		#endif
+
 		#Extract and plot data for each timestep
-		for i in range(setting_kstep[-2],setting_kstep[-1]):			### setting_kstep needs function
+		for i in tqdm(range(KStepRange[0],KStepRange[1])):			
 
 			#Set TimeIndex and employ to extract KStep and Time
 			KstepIndex = i
-			Kstep = float(seq+1)*KstepArray[KstepIndex]			#[-]
+			Kstep = float(seq+1)*KStepArray[KstepIndex]			#[-]
 			Time = float(seq+1)*TimeArray[KstepIndex]			#[ms]
 
 			#Extract Harmonics outputs for plotting, it contains:
@@ -2209,8 +2233,8 @@ if savefig_2Dresponse == True:
 			ax.set_xlim(-16,16)
 
 			#Save 2D harmonics figure for current simulation
-			plt.savefig(DirResponse+'PoloidalResponse_n'+str(ntor)+'_kstep='+str(Kstep)+ext)
-			plt.show()
+			plt.savefig(DirResponse+'PoloidalResponse_n'+str(ntor)+'_kstep='+str('%07.f'%Kstep)+ext)
+#			plt.show()
 			plt.close('all')
 		#endfor
 	#endfor
@@ -2290,7 +2314,7 @@ if savefig_2Dharmonics == True:
 		#Extract Energy_n outputs and header, used to determine harmonic range
 		#energy_n: [folder][variable][timestep]
 		Energy_n,Header_n = ExtractMEGA_Energy(Dir[l],'energy_n')
-		KstepArray = Energy_n[0]				#KStep Array	[-]
+		KStepArray = Energy_n[0]				#KStep Array	[-]
 		TimeArray = Energy_n[1]					#Time Array		[ms]
 		ntor_tot = ((len(Energy_n)-3)*2)+1		#Number of positive and negative modes (Including n=0)
 		ntor_pos = int(float(ntor_tot-1)/2.0)	#Number of positive modes (Ignoring n=0)
@@ -2437,7 +2461,7 @@ if savefig_2Dharmonics == True:
 
 		#Save 2D harmonics figure for current simulation
 		plt.savefig(DirHarmonics+'FourierAnalysis_'+SubString+ext)
-		plt.show()
+#		plt.show()
 		plt.close('all')
 	#endfor
 #endif
@@ -2654,7 +2678,7 @@ if savefig_2Dharmonics == True:
 		#Extract Energy_n outputs and header, used to determine harmonic range
 		#energy_n: [folder][variable][timestep]
 		Energy_n,Header_n = ExtractMEGA_Energy(Dir[l],'energy_n')
-		KstepArray = Energy_n[0]				#KStep Array	[-]
+		KStepArray = Energy_n[0]				#KStep Array	[-]
 		TimeArray = Energy_n[1]					#Time Array		[ms]
 		ntor_tot = ((len(Energy_n)-3)*2)+1		#Number of positive and negative modes (Including n=0)
 		ntor_pos = int(float(ntor_tot-1)/2.0)	#Number of positive modes (Ignoring n=0)
@@ -2698,7 +2722,7 @@ if savefig_2Dharmonics == True:
 
 			#Set TimeIndex and employ to extract KStep and Time ----- TimeIndex should be cleaner
 			KstepIndex = setting_kstep[-1]	
-			Kstep = (seq+1)*KstepArray[KstepIndex]			#[-]
+			Kstep = (seq+1)*KStepArray[KstepIndex]			#[-]
 			Time = (seq+1)*TimeArray[KstepIndex]			#[ms]
 
 			#Extract figure axes and set image extent
