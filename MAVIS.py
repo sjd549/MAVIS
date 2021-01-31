@@ -141,7 +141,7 @@ Phys = ['vrad','vtheta','vphi','brad','btheta','bphi','erad','etheta','ephi','pr
 #====================================================================#
 
 #Requested Variables and Plotting Locations:
-variables = Phys		#['brad','erad']		#Requested variables to plot
+variables = ['brad','erad']		#Requested variables to plot
 
 radialprofiles = []						#1D Radial Profiles to be plotted (fixed Z,Phi) --
 azimuthalprofiles = []					#1D Azimuthal Profiles to be plotted (fixed R,phi) |
@@ -150,20 +150,20 @@ trendlocation = [] 						#Cell location For Trend Analysis [R,Z], ([] = min/max)
 
 
 #Various Diagnostic Settings:
-setting_seq = [0]						#Simulation seq to load		- [Int], [-1] to load last
+setting_seq = [0,0]						#Simulation seq to load		- [Min,Max], [Int], [-1] to load last
 setting_ntor = [0,2]					#ntor range to plot 		- [Min,Max], [Int], [] to plot all
-setting_kstep = [398,399]				#kstep index range to plot 	- [Min,Max], [Int], [] to plot all
+setting_kstep = [375,399]				#kstep index range to plot 	- [Min,Max], [Int], [] to plot all
 
 
 #Requested diagnostics and plotting routines:
-savefig_1Dtotalenergy = True			#Plot 1D total energy trends 		(xxx.energy_p)	- Working
-savefig_1Dspectralenergy = True			#Plot 1D spectral energy trends 	(xxx.energy_n)	- Working
+savefig_1Dtotalenergy = False			#Plot 1D total energy trends 		(xxx.energy_p)	- Working
+savefig_1Dspectralenergy = False			#Plot 1D spectral energy trends 	(xxx.energy_n)	- Working
 
-savefig_2Dequilibrium = True			#Plot 2D equilibrium figures		(xxx.harmonics)	- Working
-savefig_2Dequilmovie = False			#Plot 2D equilibrium movies			(xxx.harmonics)	- Working
-savefig_2Dharmonics = True				#Plot 2D harmonic analysis		 	(xxx.harmonics)	- Working
+savefig_2Dequilibrium = False			#Plot 2D equilibrium figures		(xxx.harmonics)	- Working
+savefig_2Dequilmovie = True			#Plot 2D equilibrium movies			(xxx.harmonics)	- Working
+savefig_2Dharmonics = False				#Plot 2D harmonic analysis		 	(xxx.harmonics)	- Working
 
-savefig_2Dresponse = True				#Plot 2D plasma response 			(xxx.harmonics)	- Working
+savefig_2Dresponse = False				#Plot 2D plasma response 			(xxx.harmonics)	- Working
 
 
 #Requested diagnostic terminal outputs:
@@ -201,6 +201,19 @@ cbaroverride = []
 #=====================================================================#
 #=====================================================================#
 
+
+
+
+##########			 	IMMEDIATE TO-DO				##########
+
+#UPDATE EQUILIBRIUM AND EQUILIBRIUM MOVIE PLOTS WITH NEW TIME CALCULATION METHOD
+#UPDATE PLASMA RESPONSE PROES IMAGE WITH POLOIDALLY RESOLVED VERSION AS WELL
+
+#MAKE ALL 'BACKEND' INPUTS INTO FUNCTIONS IF POSSIBLE - CLEAN AND HOMOGONIZE ALL LABELS
+
+#CHECK NORMALISATION FOR ALL EXISTING DIAGNOSTICS AND MAKE DE-NORMALISATION OPTION AT DATA READ IN
+
+#ADD DIAGNOSTIC COMPARING ENERGY CONVERGENCE BETWEEN MULTIPLE SIMULATIONS
 
 
 
@@ -821,10 +834,12 @@ def Read_MEGAHarmonics(Filename,Variable,mpol,ntor,lpsi,kstep=np.nan):
 		#If final index is below requested kstep no data will be saved, causing crashes.
 		#Inform user and exit program (adding dummy data might allow for soft crashes)
 		if index < kstep:
+			MaxKstep = setting_seq[0]*index*(Data.kst[1]-Data.kst[0])
 			print('')
 			print('#=========================================#')
 			print('Requested Kstep exceeds seq.harmonics range')
-			print('  Please reduce requested Kstep and retry  ')
+			print('Index: '+str(index)+' Kstep: '+str(MaxKstep))
+			print('Please reduce requested Kstep and retry    ')
 			print('#=========================================#')
 			print('')
 			exit()
@@ -1227,8 +1242,8 @@ def InvisibleColourbar(ax='NaN'):
 #=========================#
 
 #Makeshift way of creating units for each legend entry.
-#Example: VariableLegends = VariableLabelMaker(variables)
-def VariableLabelMaker(variables):
+#Example: VariableLegends = VariableLabelMaker(variables,Units)
+def VariableLabelMaker(variables,Units=[]):
 
 	#Convert to single element list if string is supplied
 	if type(variables) is not list:
@@ -1317,9 +1332,14 @@ def VariableLabelMaker(variables):
 		#Default if no fitting variable found.
 		else:
 			Variable = 'Variable'
-			VariableUnit = '[Unit]'
+			VariableUnit = '[-]'
 		#endif
-		VariableLegends.append(Variable+' '+VariableUnit)
+
+		#Append variable and unit if required
+		if len(Units) == 0:
+			VariableLegends.append(Variable+' '+VariableUnit)
+		else:
+			VariableLegends.append(Variable+' '+str(Units))
 	#endfor
 
 	#Reduce list to string if it only contains one element
@@ -1520,7 +1540,7 @@ print(' |  \  /  |    /  ^  \  \   \/   /  |  |    |   (----` ')
 print(' |  |\/|  |   /  /_\  \  \      /   |  |     \   \     ')
 print(' |  |  |  |  /  _____  \  \    /    |  | .----)   |    ')
 print(' |__|  |__| /__/     \__\  \__/     |__| |_______/     ')
-print('                                                 v0.0.9')
+print('                                                 v0.1.0')
 print('-------------------------------------------------------')
 print('')
 print('The following diagnostics were requested:')
@@ -1883,8 +1903,9 @@ if savefig_2Dequilibrium == True:
 
 		#DEVELOPMENT SETTINGS - settings_inputs to be moved to switchboard
 		print Dir[l]
-		seq = setting_seq[0]				#requested SEQ file index (001 = 0)
-		ntor = setting_ntor[1]				#requested ntor mode number	!!! NEEDS A FUNCTION !!!
+		seq = setting_seq[1]				#requested SEQ file index (001 = 0)	!!! NEEDS A FUNCTION !!!
+		ntor = setting_ntor[1]				#requested ntor mode number			!!! NEEDS A FUNCTION !!!
+		KstepIdx = setting_kstep[1]			#requested kstep index 				!!! NEEDS A FUNCTION !!!
 
 		#Create global 2D diagnostics folder and extract current simulation name
 		DirEquil = CreateNewFolder(Dir[l],'2DPoloidal_Plots/')
@@ -1922,15 +1943,15 @@ if savefig_2Dequilibrium == True:
 		IonGyroFreq = Values[Variables.index('D gyro frequency')]
 
 		#Set TimeIndex and employ to extract KStep and Time		--- LINK THIS TO SWITCHBOARD
-		KstepIndex = setting_kstep[0]
-		Kstep = KStepArray[KstepIndex]			#[-]
-		Time = TimeArray[KstepIndex]			#[ms]
+		KstepIdx = setting_kstep[1]
+		Kstep = KStepArray[KstepIdx]			#[-]
+		Time = TimeArray[KstepIdx]			#[ms]
 
 		#Extract Harmonics outputs for plotting, it contains:
 		#HarmonicsData.rho_pol [1D array] :: HarmonicsData.q_psi [1D array]
 		#HarmonicsData.kst [1D array]     :: HarmonicsData.time [1D array]    
 		#HarmonicsData.data: [4D Array] of shape [mpol][ntor][lpsi][A/B] for all variables
-		HarmonicsData = ExtractMEGA_Harmonics(Dir[l]+'data/','All',ntor_tot,KstepIndex,seq)
+		HarmonicsData = ExtractMEGA_Harmonics(Dir[l]+'data/','All',ntor_tot,KstepIdx,seq)
 
 		#Extract data resolution and poloidal axes from repository .dat files
 		#DataShape contains data resolution of form: [mpol,ntor,lpsi,ltheta]
@@ -1976,8 +1997,8 @@ if savefig_2Dequilmovie == True:
 
 		#DEVELOPMENT SETTINGS - settings_inputs to be moved to switchboard
 		print Dir[l]
-		seq = setting_seq[0]				#requested SEQ file index (001 = 0)
-		ntor = setting_ntor[1]				#requested ntor mode number	!!! NEEDS A FUNCTION !!!
+		seq = setting_seq[1]				#requested SEQ file index (001 = 0)	!!! NEEDS A FUNCTION !!!
+		ntor = setting_ntor[1]				#requested ntor mode number			!!! NEEDS A FUNCTION !!!
 
 		#Create global 2D diagnostics folder and extract current simulation name
 		DirEquil = CreateNewFolder(Dir[l],'2DPoloidal_Plots/')
@@ -2124,22 +2145,35 @@ if savefig_2Dresponse == True:
 
 		#DEVELOPMENT SETTINGS - settings_inputs to be moved to switchboard
 		print Dir[l]
-		seq = setting_seq[0]				#requested SEQ file index (0 = 001, 1 = 002, etc...)
-		ntor = setting_ntor[1]				#requested ntor mode number	!!! NEEDS A FUNCTION !!!
+		seq = setting_seq[1]				#requested SEQ file index (001 = 0)	!!! NEEDS A FUNCTION !!!
+		ntor = setting_ntor[1]				#requested ntor mode number			!!! NEEDS A FUNCTION !!!
+		variable = 'brad'					#requested response variable 		!!! Need to impliment vrad etc...
+
+		#Initiate any required lists
+		DataAmpPROES = list()
+		XaxisPROES = list()
 
 		#Create global 2D diagnostics folder and extract current simulation name
-		DirResponse = CreateNewFolder(Dir[l],'2DResponse_Plots/')
-		DirString = Dir[l].split('/')[-2]
-		SubString = DirString.split('_')[-1]
+		DirResponse = CreateNewFolder(Dir[l],'2DResponse_Plots/')			#Response Folder
+		DirResponse_ntor = CreateNewFolder(DirResponse,'ntor='+str(ntor))	#Toroidal Mode Folder	
+		DirString = Dir[l].split('/')[-2]									#Full Simulation Name
+		SubString = DirString.split('_')[-1]								#Simulation Nickname
 
-		#Extract Energy_n outputs and header, used to determine harmonic range
-		#energy_n: [folder][variable][timestep]
+		#### - CAN BE A FUNCTION
+		#Extract kstep, time and toroidal harmonic data from energy_n.txt
+		#energy_n data structure: [variable][timestep]
 		Energy_n,Header_n = ExtractMEGA_Energy(Dir[l],'energy_n')
-		KStepArray = Energy_n[0]				#KStep Array	[-]
-		TimeArray = Energy_n[1]					#Time Array		[ms]
-		ntor_tot = ((len(Energy_n)-3)*2)+1		#Number of positive and negative modes (Including n=0)
-		ntor_pos = int(float(ntor_tot-1)/2.0)	#Number of positive modes (Ignoring n=0)
-		ntor0 = int(ceil(ntor_tot/2))			#ntor = 0, baseline equilibrium data
+		#Determine KStep range, Time range and related intervals
+		KStepArray = Energy_n[0]					#KStep Array			[-]
+		TimeArray = Energy_n[1]						#Time Array				[ms]
+		DeltaKstep = KStepArray[1]-KStepArray[0]	#KStep Interval 		[-]
+		DeltaTime = TimeArray[1]-TimeArray[0]		#Time Interval 			[ms]
+		KStepMod = len(KStepArray)/(seq+1)			#KStep indices per seq 	[-]
+		#Determine poloidal and toroidal harmonic ranges
+		ntor_tot = ((len(Energy_n)-3)*2)+1			#Number of positive and negative modes (Including n=0)
+		ntor_pos = int(float(ntor_tot-1)/2.0)		#Number of positive modes (Ignoring n=0)
+		ntor0 = int(ceil(ntor_tot/2))				#ntor = 0, baseline equilibrium data
+		#### - CAN BE A FUNCTION
 
 		#### - CAN BE A FUNCTION
 		#Create 2D array containing [ntor,ntor_index] for referencing data to be extracted
@@ -2169,74 +2203,117 @@ if savefig_2Dresponse == True:
 		m_D = 3.34e-27
 		eps = 0.5/R0
 
-		#Extract Variablelabels
-		VariableLabels = VariableLabelMaker(variables)
+		#Extract Variablelabel for chosen variable
+		VariableLabel = VariableLabelMaker(variable,Units='Perturbation [-]')
 
 		#Apply user Kstep range if requested - else default to max range
 		if len(setting_kstep) == 2: KStepRange = setting_kstep
 		else: KStepRange = [0,len(KStepArray)]
 		#endif
 
-		#Extract and plot data for each timestep
-		for i in tqdm(range(KStepRange[0],KStepRange[1])):			
+		#Apply user seq range if requested - else use supplied single seq
+		if len(setting_seq) == 2: seqRange = [0,setting_seq[1]+1]
+		else: seqRange = [setting_seq,setting_seq+1]
+		#endif
 
-			#Set TimeIndex and employ to extract KStep and Time
-			KstepIndex = i
-			Kstep = float(seq+1)*KStepArray[KstepIndex]			#[-]
-			Time = float(seq+1)*TimeArray[KstepIndex]			#[ms]
+		for j in range(seqRange[0],seqRange[1]):
+			#Set SeqIndex for current simulation folder
+			seqIdx = j
 
-			#Extract Harmonics outputs for plotting, it contains:
-			#HarmonicsData.rho_pol [1D array] :: HarmonicsData.q_psi [1D array]
-			#HarmonicsData.kst [1D array]     :: HarmonicsData.time [1D array]    
-			#HarmonicsData.data: [3D Array] of shape [mpol][ntor][lpsi][A/B] for all variables
-			HarmonicsData = ExtractMEGA_Harmonics(Dir[l]+'data/','All',ntor_tot,KstepIndex,seq)
+			#Extract and plot data for each timestep
+			for i in tqdm(range(KStepRange[0],KStepRange[1])):
 
-			#DataShape contains data resolution of form: [mpol,ntor,lpsi,ltheta]
-			DataShape = ExtractMEGA_DataShape(HarmonicsData)#; print DataShape
-			mpol_res = DataShape[0]; ntor_res = DataShape[1]
-			lpsi_res = DataShape[2]; ltheta_res = DataShape[3]
+				#Set TimeIndex and employ to extract KStep and Time
+				KStepIdx = i
+				IdxOffset = seqIdx*KStepMod					#[-]
+				KStep = KStepArray[KStepIdx+IdxOffset]		#[-]
+				Time = TimeArray[KStepIdx+IdxOffset]		#[ms]
 
-			#Extract radial magnetic field (brad) from SEQ.harmonic object
-			#Data is of shape: Data[mpol,ntor,lpsi,A/B]
-			Data = getattr(HarmonicsData, 'brad')		#NEED TO IMPLIMENT DIFFERENT VARIABLES, vrad for example
+				#Extract Harmonics outputs for plotting, it contains:
+				#HarmonicsData.rho_pol [1D array] :: HarmonicsData.q_psi [1D array]
+				#HarmonicsData.kst [1D array]     :: HarmonicsData.time [1D array]    
+				#HarmonicsData.data: [3D Array] of shape [mpol][ntor][lpsi][A/B] for all variables
+				HarmonicsData = ExtractMEGA_Harmonics(Dir[l]+'data/','All',ntor_tot,KStepIdx,seqIdx)
 
-			#Combine spectral components A and B in quadrature to obtain the B-field amplitude
-			#Pos corresponds to resonant poloidal modes 	i.e. +m on RHS of image
-			#Neg corresponds to non-resonant poloidal modes i.e. -m on LHS of image
-			#One of ntor_pos-ntor or ntor_pos+ntor will equal 0, the equil values.
-			DataAmpPos = np.sqrt( (Data[:, ntor_pos-ntor,:,0]**2) + (Data[:, ntor_pos-ntor,:,1]**2) )
-			DataAmpNeg = np.sqrt( (Data[:, ntor_pos+ntor,:,0]**2) + (Data[:, ntor_pos+ntor,:,1]**2) )
-			DataAmpNeg = np.flip( DataAmpNeg,axis=0)		#Flip LHS of image for plotting
+				#DataShape contains data resolution of form: [mpol,ntor,lpsi,ltheta]
+				DataShape = ExtractMEGA_DataShape(HarmonicsData)#; print DataShape
+				mpol_res = DataShape[0]; ntor_res = DataShape[1]
+				lpsi_res = DataShape[2]; ltheta_res = DataShape[3]
 
-			#Concat positive and negative ntor to obtain full poloidal harmonic spectrum
-			#DataAmp is of shape: DataAmp[lpsi,mpol]
-			DataAmp = np.concatenate((DataAmpNeg,DataAmpPos[1:,:]),axis=0)
+				#Extract radial magnetic field (brad) from SEQ.harmonic object
+				#Data is of shape: Data[mpol,ntor,lpsi,A/B]
+				Data = getattr(HarmonicsData, variable)
 
-			#Create Image array and Axes, rotate such that mpol spectrum is on X-axis.
-			#Image is of shape: [mpol,lpsi] 
-			Image = DataAmp.transpose()*B0*1e4								#[G]? - must use Brad
-			Xaxis =	[x-int(mpol_res-1) for x in range(0,2*mpol_res-1,1)]	#Poloidal Mode Numbers
-			Yaxis = HarmonicsData.rho_pol									#Radial Location
+				#Combine spectral components A and B in quadrature to obtain variable amplitude
+				#Pos corresponds to resonant poloidal modes 	i.e. +m on RHS of image
+				#Neg corresponds to non-resonant poloidal modes i.e. -m on LHS of image
+				#One of ntor_pos-ntor or ntor_pos+ntor will equal 0, representing the equilibrium values.
+				DataAmpPos = np.sqrt( (Data[:, ntor_pos-ntor,:,0]**2) + (Data[:, ntor_pos-ntor,:,1]**2) )
+				DataAmpNeg = np.sqrt( (Data[:, ntor_pos+ntor,:,0]**2) + (Data[:, ntor_pos+ntor,:,1]**2) )
+				DataAmpNeg = np.flip( DataAmpNeg,axis=0)		#Flip LHS of image for plotting
 
-			#Create figure and define Title, Legend, Axis Labels etc...
-			fig,ax = figure(image_aspectratio,1)
-			Title = 'Plasma Response: n='+str(ntor)+', t='+str(round(Time,3))+' [ms] \n Simulation: '+DirString
-			Xlabel,Ylabel = 'Poloidal Harmonic $m_{pol}$ [-]', 'Normalised Minor Radius $\\rho_{pol}$ [-]'
-			Legend = list()
+				#Concat positive and negative ntor to obtain full poloidal harmonic spectrum
+				#DataAmp is of shape: DataAmp[lpsi,mpol]
+				DataAmp = np.concatenate((DataAmpNeg,DataAmpPos[1:,:]),axis=0)
 
-			#Plot figure
-			im = ax.contourf(Xaxis, Yaxis, Image, 50)
-			res = ax.plot(-ntor*HarmonicsData.q_psi,HarmonicsData.rho_pol, 'w--', lw=2)
-			cbar = Colourbar(ax,im,'Radial Magnetic Perturbation B$_{rad}$ [G]',5)
-			#####
-			ImageOptions(fig,ax,Xlabel,Ylabel,Title,Legend)
-			ax.set_xlim(-16,16)
+				#Create Image array and Axes, rotate such that mpol spectrum is on X-axis.
+				#Image is of shape: [mpol,lpsi] 
+				Image = DataAmp.transpose()*B0*1e4								#[G]? - must use Brad
+				Xaxis =	[x-int(mpol_res-1) for x in range(0,2*mpol_res-1,1)]	#Poloidal Mode Numbers
+				Yaxis = HarmonicsData.rho_pol									#Radial Location
 
-			#Save 2D harmonics figure for current simulation
-			plt.savefig(DirResponse+'PoloidalResponse_n'+str(ntor)+'_kstep='+str('%07.f'%Kstep)+ext)
-#			plt.show()
-			plt.close('all')
+				#Create figure and define Title, Legend, Axis Labels etc...
+				fig,ax = figure(image_aspectratio,1)
+				Title = 'Plasma Response: n='+str(ntor)+', m='+str(-mpol_res+1)+','+str(mpol_res-1)+', t='+str(round(Time,3))+' [ms] \n Simulation: '+DirString
+				Xlabel,Ylabel = 'Poloidal Harmonic $m_{pol}$ [-]', 'Radial Magnetic Coordinate $\\rho_{pol}$ [-]'
+				Legend = list()
+
+				#Plot poloidal response spectrum figure (R,mpol)
+				im = ax.contourf(Xaxis, Yaxis, Image, 50)
+				res = ax.plot(-ntor*HarmonicsData.q_psi,HarmonicsData.rho_pol, 'w--', lw=2)
+				cbar = Colourbar(ax,im,VariableLabel,5)
+				#####
+				ImageOptions(fig,ax,Xlabel,Ylabel,Title,Legend)
+				ax.set_xlim(-16,16)
+
+				#Save poloidal response figure for current seq and Kstep
+				SaveString = 'PlasmaResponse_'+variable+'_n'+str(ntor)+'_kstep'+str('%07.f'%KStep)+ext
+				plt.savefig(DirResponse_ntor+SaveString)
+#				plt.show()
+				plt.close('all')
+
+				#==========#
+
+				#Collapse figure by integrating through all poloidal modes
+				DataAmp1D = list()
+				DataAmp = DataAmp.transpose()
+				for k in range(0,len(DataAmp)):
+					DataAmp1D.append(sum(DataAmp[k][:]))
+				#endfor
+				
+				#Append 1D array to PROES image
+				DataAmpPROES.append(DataAmp1D)
+				XaxisPROES.append(Time)
+			#endfor
 		#endfor
+
+		#Create figure and define Title, Legend, Axis Labels etc...
+		fig,ax = figure(image_aspectratio,1)
+		Title = 'Plasma Response: n='+str(ntor)+', m='+str(-mpol_res+1)+','+str(mpol_res-1)+', t='+str(round(Time,3))+' [ms] \n Simulation: '+DirString
+		Xlabel,Ylabel = 'Time $t$ [ms]', 'Radial Magnetic Coordinate $\\rho_{pol}$ [-]'
+		Legend = list()
+
+		#Plot temporally resolved, poloidally collapsed, response figure (R,time)
+		DataAmpPROES = np.asarray(DataAmpPROES).transpose()			#Transpose to align time on X-axis
+		im = plt.contourf(XaxisPROES, Yaxis, DataAmpPROES, 50)
+		cbar = Colourbar(ax,im,VariableLabel,5)
+		ImageOptions(fig,ax,Xlabel,Ylabel,Title,Legend)
+
+		#Save temporal response figure for current simulation directory
+		SaveString = 'PlasmaResponse_'+variable+'_n'+str(ntor)+'_t='+str(round(Time,3))+ext
+		plt.savefig(DirResponse+SaveString)
+#		plt.show()
+		plt.close('all')
 	#endfor
 #endif
 
@@ -2304,7 +2381,9 @@ if savefig_2Dharmonics == True:
 	#For each detected simulation folder
 	for l in range(0,len(Dir)):
 
+		#DEVELOPMENT SETTINGS - settings_inputs to be moved to switchboard
 		print Dir[l]
+		variable = 'bphi'				#requested response variable 		!!! Need to impliment btheta, vrad etc...
 
 		#Create global 2D diagnostics folder and extract current simulation name
 		DirHarmonics = CreateNewFolder(Dir[l],'2DHarmonic_Plots/')
@@ -2342,8 +2421,8 @@ if savefig_2Dharmonics == True:
 		#Extract Harmonics outputs for plotting, it contains:
 		#HarmonicsData.rho_pol [1D array] :: HarmonicsData.q_psi [1D array]
 		#HarmonicsData.kst [1D array]     :: HarmonicsData.time [1D array]    
-		#HarmonicsData.data: [4D Array] of shape [kstep][mpol][ntor][lpsi][A/B] for variables[i]
-		HarmonicsData = ExtractMEGA_Harmonics(Dir[l]+'data/','bphi',ntor_tot)
+		#HarmonicsData.data: [4D Array] of shape [kstep][mpol][ntor][lpsi][Re/Im] for variables[i]
+		HarmonicsData = ExtractMEGA_Harmonics(Dir[l]+'data/',variable,ntor_tot)
 		Data = HarmonicsData.data
 
 		#DataShape contains data resolution of form: [mpol,ntor,lpsi,ltheta]
@@ -2351,35 +2430,39 @@ if savefig_2Dharmonics == True:
 		mpol, ntor = DataShape[0], DataShape[1]
 		lpsi, ltheta = DataShape[2], DataShape[3]
 		kmax, dt = DataShape[4], (TimeArray[1]-TimeArray[0])
-		ntor2 = int(0.5*(ntor-1))
+		ntor2 = int(0.5*(ntor-1))					#Positive ntor (excluding n=0)
 
-		#Extract Variablelabel
-		VariableLabel = 'BField Perturbation $\delta B_{\phi}$ [T]'		#Needs a seperate function
-
+		#Extract Variablelabels
+		VariableLabel = VariableLabelMaker(variable)
 
 		#BELOW TO STILL BE TRANSLATED
 		#ALSO NEED TO ADD COLOURBAR TO THE FOURIER PLOTS!!!
 		print kmax, mpol, ntor, lpsi, ntor2
 
 
-		#Create Vcos list and add zeros equal to the toroidal resolution (Why tho?)
+		#Sum Re component of toroidal (n) and poloidal (m) modes for all ksteps
 		vcos = list()
 		for n in range(0,ntor2):
-			vcos.append( np.zeros([]) )
-			#Extract Bpol data for each respective toroidal (n) and poloidal (m) cells (adding vcos zeros?)
-			for m in range(0,mpol):
-				vcos[n] = vcos[n] + Data[:,m,n,:,0]	#data structure: [kstep][mpol][ntor][lpsi][A/B] 
+			vcos.append( np.zeros([]) )				
+			for m in range(0,mpol):						#Data structure: [kstep][mpol][ntor][lpsi][Re/Im] 
+				vcos[n] = vcos[n] + Data[:,m,n,:,0]		#vcos structure: [ntor][kstep][lpsi]
 			#endfor
 			vcos[n][np.isnan(vcos[n])] = 0			#Remove any NaNs
 		#endfor
 
+#		print len(vcos), len(vcos[0]), len(vcos[0][0])
+#		print vcos[0]
+#		plt.plot(vcos[0])
+#		plt.show()
+#		exit()
+
 		vcos_fft,vcos_len = list(),list()
 		#Extract fourier components from vcos
 		for n in range(0,ntor2):
-			vcos_fft.append( np.fft.fft(vcos[n],axis=0) )	# 												???
+			vcos_fft.append( np.fft.fft(vcos[n],axis=0) )	#Take fourier components of variable
 		  	vcos_fft[n][0,:] = vcos_fft[n][0,:]*0.0			#Discard imaginary components 					???
 			vcos_len.append( int(len(vcos_fft[n])/2)-1 )	#Determine lowpass filter frequency threshold 	???
-			vcos_fft[n] = vcos_fft[n][0:vcos_len[n],:]		#Discard upper frequencies (lowpass filter)
+			vcos_fft[n] = vcos_fft[n][0:vcos_len[n],:]		#Discard upper frequencies (lowpass filter)		???
 		#endfor
 
 		#==========##==========#
@@ -2394,6 +2477,8 @@ if savefig_2Dharmonics == True:
 			#Temporal evolution plotted on the top row (row 0)
 			if ntor2 == 1: subfig = ax[0]
 			elif ntor2 > 1: subfig = ax[0,i]
+			#endif
+
 			Harmonic = -ntor2+i									# Why is ntor reversed?
 			#Construct figure axes and meshgrid (not used)
 			Xaxis = HarmonicsData.rho_pol						#[-]
@@ -2429,6 +2514,7 @@ if savefig_2Dharmonics == True:
 			#Fourier analysis plotted on the bottom row (row 1)
 			if ntor2 == 1: subfig = ax[1]
 			elif ntor2 > 1: subfig = ax[1,i]
+
 			#Construct figure axes and meshgrid (not used)
 			Xaxis = HarmonicsData.rho_pol						#[-]
 			Yaxis = np.linspace(0,0.5/dt,vcos_len[i])			#[kHz]
@@ -2441,16 +2527,16 @@ if savefig_2Dharmonics == True:
 
 			#Add colourbar and beautify plot - taking account of panel location
 			if i == 0 and ntor2 > 1: 					#If first panel with more panels to right
-				ImageOptions(fig,subfig,'Poloidal Extent $\\rho_{pol}$','Frequency [kHz]','','')
+				ImageOptions(fig,subfig,'Radius $R$','Frequency [kHz]','','')
 			elif i == 0 and ntor2 == 1:					#If first panel with no panels to right
 				cbar = Colourbar(subfig,im,VariableLabel,5)
-				ImageOptions(fig,subfig,'Poloidal Extent $\\rho_{pol}$','Frequency [kHz]','','')
+				ImageOptions(fig,subfig,'Radius $R$','Frequency [kHz]','','')
 			elif i > 0 and i < ntor2-1:   				#If middle panel with more panels to right
-				ImageOptions(fig,subfig,'Poloidal Extent $\\rho_{pol}$','','','')
+				ImageOptions(fig,subfig,'Radius $R$','','','')
  				im.axes.get_yaxis().set_visible(False)
 			elif i == ntor2-1 and ntor2 > 1:			#If last panel with more panels to left
 				cbar = Colourbar(subfig,im,VariableLabel,5)
-				ImageOptions(fig,subfig,'Poloidal Extent $\\rho_{pol}$','','','')
+				ImageOptions(fig,subfig,'Radius $R$','','','')
  				im.axes.get_yaxis().set_visible(False)
 			#endif
 			subfig.set_ylim([0,200])
@@ -2668,7 +2754,7 @@ if savefig_2Dharmonics == True:
 		#DEVELOPMENT SETTINGS - settings_inputs to be moved to switchboard
 		print Dir[l]
 		seq = setting_seq[0]				#requested SEQ file index (001 = 0)
-		ntor = 1							#requested ntor mode number
+		ntor = 2							#requested ntor mode number
 
 		#Create global 2D diagnostics folder and extract current simulation name
 		DirHarmonics = CreateNewFolder(Dir[l],'2DHarmonic_Plots/')
