@@ -114,22 +114,24 @@ Glob_SavWindow, Glob_SavPolyOrder = 25, 3	#Window > FeatureSize, Polyorder ~= Sm
 Ctrl = ['kst','t']
 Axes = ['r_psi','gpsi_nrm','q_psi']
 Phys = ['vrad','vtheta','vphi','brad','btheta','bphi','erad','etheta','ephi','prs','rho','dns_a','mom_a', 'ppara_a','pperp_a','qpara_a','qperp_a']
+Kin = ['R_gc','Z_gc','Phi_gc','p_gc','pphi_gc','mu_gc','E_gc','Lambda_gc','psip','ffff']
 
 #Archived variable sets
 #Phys = []
 
 ####################
 
-#Commonly Used Diagnostic Settings:
-#### ASDEX ####
-#electrodeloc =		[29,44] 					#Reverse [29,62]
-#waveformlocs =		[[16,29],[16,44],[16,64],[0,44]]
-#DOFWidth =			R;16,Z;21
-#TrendLoc =			H[0];R[29,44,64,75]
-#ThrustLoc =		75, 						#stdESCT=76, smlESCT=48/54
-#SheathROI =		[34,72]
-#SourceWidth =		[0.21]						
-#Crop =				R[0.65];Z[1.0,4.0] 
+#Common Diagnostic Settings:
+
+#===== AUG#34570 =====#
+#radialprofiles = [90,120,130]
+#poloidalprofiles = []
+#toroidalprofiles = []
+#trendlocation = []
+
+#setting_seq = [0,0]
+#setting_ntor = [0,2]
+#setting_kstep = [002,003]
 
 ####################
 
@@ -141,7 +143,7 @@ Phys = ['vrad','vtheta','vphi','brad','btheta','bphi','erad','etheta','ephi','pr
 #====================================================================#
 
 #Requested Variables and Plotting Locations:
-variables = ['brad','erad','mom_a']		#Requested variables to plot
+variables = Phys						#Requested variables to plot			#Phys+Kin
 
 radialprofiles = [90,120,130]			#1D Radial Profiles to be plotted (fixed theta, phi)
 poloidalprofiles = []					#1D Poloidal Profiles to be plotted (fixed rho_pol, phi)
@@ -151,24 +153,26 @@ trendlocation = [] 						#Cell location For Trend Analysis [R,Z], ([] = min/max)
 #Various Diagnostic Settings:
 setting_seq = [0,0]						#Simulation seq to load		- [Min,Max], [Int], [-1] to load last
 setting_ntor = [0,2]					#ntor range to plot 		- [Min,Max], [Int], [] to plot all
-setting_kstep = [000,399]				#kstep index range to plot 	- [Min,Max], [Int], [] to plot all
+setting_kstep = [398,399]				#kstep index range to plot 	- [Min,Max], [Int], [] to plot all
 
 
 #Requested diagnostics and plotting routines:
 savefig_1Dtotalenergy = False			#Plot 1D total energy trends 		(xxx.energy_p)	- Working
 savefig_1Dspectralenergy = False		#Plot 1D spectral energy trends 	(xxx.energy_n)	- Working
 
-savefig_1Dequilibrium = False
-
+savefig_1Dequilibrium = False			#Plot 1D equilibrium profiles		(xxx.harmonics) - Working
 savefig_2Dequilibrium = False			#Plot 2D equilibrium figures		(xxx.harmonics)	- Working
-savefig_2Dequilmovie = True			#Plot 2D equilibrium movies			(xxx.harmonics)	- Working
-savefig_2Dharmonics = False				#Plot 2D harmonic analysis		 	(xxx.harmonics)	- Working
-
+savefig_2Dequilmovie = False			#Plot 2D equilibrium movies			(xxx.harmonics)	- Working
 savefig_2Dresponse = False				#Plot 2D plasma response 			(xxx.harmonics)	- Working
+
+savefig_2Dharmonics = False				#Plot 2D harmonic continnum		 	(xxx.harmonics)	- Working
+
+savefig_1Dkinetics = True				#Plot 2D kinetic distributions	 	(gc_a_kstepxxx)	- Working
+savefig_2Dkinetics = True				#Plot 1D kinetic distributions	 	(gc_a_kstepxxx)	- Working
 
 
 #Requested diagnostic terminal outputs:
-print_generaltrends = False				#Verbose Min/Max Trend Outputs						- Development
+print_generaltrends = False				#Verbose Min/Max Trend Outputs						- In Development
 
 
 #Write processed data to ASCII files:
@@ -205,16 +209,8 @@ cbaroverride = []
 
 
 
-##########			 	IMMEDIATE TO-DO				##########
 
-#UPDATE EQUILIBRIUM AND EQUILIBRIUM MOVIE PLOTS WITH NEW TIME CALCULATION METHOD
-#UPDATE PLASMA RESPONSE PROES IMAGE WITH POLOIDALLY RESOLVED VERSION AS WELL
 
-#MAKE ALL 'BACKEND' INPUTS INTO FUNCTIONS IF POSSIBLE - CLEAN AND HOMOGONIZE ALL LABELS
-
-#CHECK NORMALISATION FOR ALL EXISTING DIAGNOSTICS AND MAKE DE-NORMALISATION OPTION AT DATA READ IN
-
-#ADD DIAGNOSTIC COMPARING ENERGY CONVERGENCE BETWEEN MULTIPLE SIMULATIONS
 
 
 
@@ -224,22 +220,22 @@ cbaroverride = []
 #        ####TODO####        #
 #============================#
 
-#Write a 1D midplane profile diagnostic (or just generally a profile diagnostic...)
-#Include multi-var capability
+#FINISH 1D PLOTTING ROUTINE WITH POLOIDAL EXTRACTION FUNCTION
 #
-#Write a poloidal plasma response diagnostic with mpol vs lphi (also name this...)
+#FINISH PLASMA RESPONSE ROUTINE WITH POLOIDALLY RESOLVED VERSION
 #
-#FIX: 	absolute time is incorrect when saving file names that use different numbers of kstep
-#		Setup only works for kharm = 500 at the moment, needs to scale to any kharm, kchk, etc...
-#		Easiest fix is probably just to use Data.kstp * dt and extract dt from the data directly.
+#MAKE ALL 'BACKEND' INPUTS INTO FUNCTIONS - ENERGY KSTEP READIN, ETC...
 #
+#ADD INFORMATION REGARDING SIMULATION RESOLUTION SEQ, KSTEP, ETC... BELOW MAVIS SPLASH
 #
+#ADD DIAGNOSTIC COMPARING ENERGY CONVERGENCE BETWEEN MULTIPLE SIMULATIONS
 #
-#Update Read_Harmonics functions to accept 'all' as a variable input
-#This will read-in all variables and save sequentally [0,1,2,3,4] like HELENA
+#ADD ABILITY TO SAVE ASCII DATA FOR 2D IMAGES (PARTICULARILY PLASMA RESPONSE)
 #
-#Extract lpsi and mpol from data without having to explicitly hard-code it in within the Read_Harmonics functions
+#ADD OPTION TO HOMOGONISE THE COLOURBAR FOR EQUIL/RESPONSE/KINETIC MOVIES
 #
+##CHECK NORMALISATION FOR ALL EXISTING DIAGNOSTICS AND DETAIL IN READ-IN FUNCTION FOR LATER
+#ADD DE-NORMALISATION FUNCTION WITH OPTION TO APPLY AT READ-IN STAGE 
 #Maybe also multiply everything by its normalisation factor when reading in by default?
 #Make an option in the switchboard (or deep options) but this would make things much simpler...
 #Tie this function to the variable label maker function (use next to eachother)
@@ -247,25 +243,17 @@ cbaroverride = []
 #Enable choice of normalised or non-normalised units in the 1D and 2D plotting routines
 #Clean up the usage and definition of the unit normalisations as read-in from the MEGA file
 #
-#Introduce a method of selecting which time index to use for plotting
-#Allow for time index, KStep or SI time (will need a function to determine this)
-#
-#Determine what purpose the final index has in the Harmonics data output
-#HarmonicsData[kstep][mpol][ntor][lpsi][???] <--- Hard-coded to zero for ??? index for now
+#Extract lpsi and mpol from data without having to explicitly hard-code it (see Read_Harmonics function)
 #
 #Create an ImageExtent function to create normalised axes from data size
 #
+# savefig_equilibrium/equilmovie 	OPTION TO PLOT DIFFERENT TOROIDAL ANGLES?
+#
+# savefig_equilibrium				OPTION TO PLOT 2D FLUX SURFACE FUNCTION?
 
 
-# DIAGNOSTICS TO DO
-#	 	- savefig_equil 			PLOT THE REQUESTED ntor RANGE IN SINGLE FIGURE
-#		- savefig_temporal 			PLOT MOVIES FOR SINGLE ntor OVER REQUESTED kstep RANGE
-#		- savefig_temporal 			HOMOGONISE THE COLOURBAR FOR MOVIE PLOTS (MAKE USER OPTION)
-#		- savefig_equil/temporal 	PLOT DIFFERENT TOROIDAL ANGLES?
-#		- savefig_equil				CALCULATE FLUX SURFACE FUNCTION AND PLOT
-#		- COMPUTE EQUILIBRIUM AND SHAPING PARAMETERS, PLOT ON LINE GRAPH OVER TIME
-#		- DECIDE WHAT TO DO WITH HARMONIC DATA - KEEP 2D TEMPORALLY RESOLVED STUFF OR NOT?
-
+#=====================================================================#
+#=====================================================================#
 
 #USEFUL INFORMATION:
 #
@@ -279,6 +267,8 @@ cbaroverride = []
 #PoloidalAngle = 2*np.pi*(float(ltheta)/float(ltheta_total)) 	#[Rad]
 #ToroidalAngle = 2*np.pi*(float(lphi)/float(lphi_total))		#[Rad]
 #
+
+
 
 
 
@@ -426,7 +416,7 @@ def WriteFile_ASCII(data,filename,structure='w',Orientation='CSV'):
 def ReadFile_ASCII(Filename,HeaderIdx=0,Dimension='2D',Orientation='CSV'):
 #Reads 1D or 2D data from textfile in ASCII format, returns data and header.
 #Input filename, header length, data dimension and orientation (CSV or RSV).
-#Example: OutputData,Header = ReadFile_ASCII('/Data.txt', 1, '2D', CSV)
+#Example: OutputData,Header = ReadFile_ASCII('/Data.txt', 0, '2D', 'CSV')
 
 	#Define any required lists
 	OutputData,Header = list(),list()
@@ -1090,6 +1080,64 @@ def Extract_RadialProfile(HarmonicsData,variable,ntorIdx,theta):
 	return(RadialProfile)
 #enddef
 
+#=========================#
+#=========================#
+
+def ExtractMEGA_Markers(Dir,KStep,MarkerFileStep=1):
+# Reads data from kinetic marker output files (gc_a_kstep000xxxx-00xxx.txt)
+# Reads all variables and concatenates output data from all cores into single 2D array
+#
+# Inputs: Dir - Directory String to marker output file folder from root
+# Inputs: KStep - KStep value (NOT Index) of output files to be read-in
+# Inputs: MarkerFileStep - Optional speedup input, will read every 'n'th output file
+#
+# Outputs: Data_Kin - 2D Array of shape [variable][marker(n)]
+#		  Variables - R, Z, Lambda, E, p, Mu, pphi, fff, fnrml, psip, phi
+#
+# Example :: Data_Kin,Header_Kin = ExtractMEGA_Markers(Dir[l],KStep=1000,MarkerFileStep=8)
+
+
+	#Initiate kinetic data array
+	Data_Kin = list()
+
+	#Define marker folder location and filename format for supplied KStep
+	Folder = Dir+'markers/'
+	Filename = 'gc_a_kstep'+str('%07.f'%KStep)+'-*.txt'
+	#Sort all marker output files numerically by core number
+	MarkerFiles = sorted(glob.glob(Folder+Filename))
+
+	#Cycle through all marker files and read data
+	for j in tqdm( range(0,len(MarkerFiles),MarkerFileStep) ):
+
+		#Set current marker output file
+		Filename = MarkerFiles[j]				
+
+		#Read marker data for current NCore output file
+		#MarkerData :: 2D array of shape [variable,marker(n)]
+		#Variables :: 0:R, 1:Z, 2:Lambda, 3:E, 4:p, 5:Mu, 6:pphi, 7:fff*fnrml, 8:psip, 9:phi
+		#See write_ep() subroutine for full details
+		MarkerData, Header = ReadFile_ASCII(Filename, 0, '2D', 'CSV')
+
+		#Concatenate variables into Data_Kin - Override Data_Kin on first iteration
+		#Data_Kin :: 2D Array of shape [variable,marker(n)]
+		if len(Data_Kin) == 0: 
+			Data_Kin = MarkerData
+		elif len(Data_Kin) > 0: 
+			Data_Kin = [Data_Kin[x]+MarkerData[x] for x in range(0,len(Data_Kin))]
+		#endif
+
+		#Print debug outputs to terminal if requested
+		if DebugMode == True: 
+			print( Filename.split('/')[-1] )
+			print( 'Kin Num Variables: '+str(len(Data_Kin)) )
+			print( 'Kin Variable Length: '+str(len(Data_Kin[0])) )
+			print( '' )
+		#endif
+	#endfor
+
+	return(Data_Kin,Header)
+#enddef
+
 #====================================================================#
 #====================================================================#
 
@@ -1261,7 +1309,7 @@ def Colourbar(ax='NaN',image='NaN',Label='',Ticks=5,Lim=[]):
 	cbar.set_label(Label, rotation=Rotation,labelpad=Labelpad,fontsize=LabelFontSize)
 	cbar.formatter.set_scientific(True)
 	cbar.formatter.set_powerlimits((-2,3))
-	cbar.locator = ticker.MaxNLocator(nbins=Ticks)
+	cbar.locator = ticker.MaxNLocator(nBins=Ticks)
 	cbar.ax.yaxis.offsetText.set(size=TickFontsize)
 	yticks(fontsize=TickFontsize)
 	cbar.update_ticks()  
@@ -1610,13 +1658,15 @@ print(' |  \  /  |    /  ^  \  \   \/   /  |  |    |   (----` ')
 print(' |  |\/|  |   /  /_\  \  \      /   |  |     \   \     ')
 print(' |  |  |  |  /  _____  \  \    /    |  | .----)   |    ')
 print(' |__|  |__| /__/     \__\  \__/     |__| |_______/     ')
-print('                                                 v0.1.0')
+print('                                                 v0.3.0')
 print('-------------------------------------------------------')
 print('')
 print('The following diagnostics were requested:')
 print('-----------------------------------------')
 if True in [savefig_1Dtotalenergy,savefig_1Dspectralenergy]:
 	print('# 1D Energy Analysis')
+if True in [savefig_1Dequilibrium]:
+	print('# 1D Equilibrium Analysis')
 if True in [savefig_2Dequilibrium,savefig_2Dequilmovie]:
 	print('# 2D Equilibrium Analysis')
 if True in [savefig_2Dharmonics]:
@@ -1791,11 +1841,11 @@ elif NumFolders == 0:
 
 
 #====================================================================#
-					   #GENERAL ENERGY ANALYSIS#
+				  #ENERGY & CONVERGENCE DIAGNOSTICS#
 #====================================================================#
 
 #====================================================================#
-				 	    #TOTAL ENERGY DIAGNOSTIC#
+				 	    #TOTAL ENERGY ANALYSIS#
 #====================================================================#
 
 if savefig_1Dtotalenergy == True:
@@ -1959,7 +2009,7 @@ if any([savefig_1Dtotalenergy,savefig_1Dspectralenergy]) == True:
 
 
 #====================================================================#
-					 #GENERAL EQUILIBRIUM ANALYSIS#
+					   #EQUILIBRIUM DIAGNOSTICS#
 #====================================================================#
 
 #====================================================================#
@@ -1972,7 +2022,7 @@ if savefig_1Dequilibrium == True:
 	for l in range(0,len(Dir)):
 
 		#DEVELOPMENT SETTINGS - settings_inputs to be moved to switchboard
-		print Dir[l]
+		print Dir[l].split('/')[-2]
 		seq = setting_seq[1]				#requested SEQ file index (001 = 0)	!!! NEEDS A FUNCTION !!!
 		ntor = setting_ntor[1]				#requested ntor mode number			!!! NEEDS A FUNCTION !!!
 		KstepIdx = setting_kstep[1]			#requested kstep index 				!!! NEEDS A FUNCTION !!!
@@ -2149,7 +2199,7 @@ if savefig_2Dequilibrium == True:
 	for l in range(0,len(Dir)):
 
 		#DEVELOPMENT SETTINGS - settings_inputs to be moved to switchboard
-		print Dir[l]
+		print Dir[l].split('/')[-2]
 		seq = setting_seq[1]				#requested SEQ file index (001 = 0)	!!! NEEDS A FUNCTION !!!
 		ntor = setting_ntor[1]				#requested ntor mode number			!!! NEEDS A FUNCTION !!!
 		KstepIdx = setting_kstep[1]			#requested kstep index 				!!! NEEDS A FUNCTION !!!
@@ -2207,7 +2257,7 @@ if savefig_2Dequilibrium == True:
 		#HarmonicsData.rho_pol [1D array] :: HarmonicsData.q_psi [1D array]
 		#HarmonicsData.kst [1D array]     :: HarmonicsData.time [1D array]    
 		#HarmonicsData.data: [4D Array] of shape [mpol][ntor][lpsi][A/B] for all variables
-		HarmonicsData = ExtractMEGA_Harmonics(Dir[l]+'data/','All',ntor_tot,KStepIdx,seq)
+		HarmonicsData = ExtractMEGA_Harmonics(Dir[l]+'data/','All',ntor_tot,KStepIdx,seqIdx)
 
 		#Extract data resolution and poloidal axes from repository .dat files
 		#DataShape contains data resolution of form: [mpol,ntor,lpsi,ltheta]
@@ -2259,7 +2309,7 @@ if savefig_2Dequilmovie == True:
 	for l in range(0,len(Dir)):
 
 		#DEVELOPMENT SETTINGS - settings_inputs to be moved to switchboard
-		print Dir[l]
+		print Dir[l].split('/')[-2]
 		seq = setting_seq[1]				#requested SEQ file index (001 = 0)	!!! NEEDS A FUNCTION !!!
 		ntor = setting_ntor[1]				#requested ntor mode number			!!! NEEDS A FUNCTION !!!
 
@@ -2268,13 +2318,21 @@ if savefig_2Dequilmovie == True:
 		DirString = Dir[l].split('/')[-2]
 		SubString = DirString.split('_')[-1]
 
-		#Extract Energy_n outputs and header, used to determine harmonic range
-		#energy_n: [folder][variable][timestep]
+		#### - CAN BE A FUNCTION
+		#Extract kstep, time and toroidal harmonic data from energy_n.txt
+		#energy_n data structure: [variable][timestep]
 		Energy_n,Header_n = ExtractMEGA_Energy(Dir[l],'energy_n')
-		KStepArray = Energy_n[0]				#KStep Array	[-]
-		TimeArray = Energy_n[1]					#Time Array		[ms]
-		ntor_tot = ((len(Energy_n)-3)*2)+1		#Number of positive and negative modes (Including n=0)
-		ntor_pos = int(float(ntor_tot-1)/2.0)	#Number of positive modes (Ignoring n=0)
+		#Determine KStep range, Time range and related intervals
+		KStepArray = Energy_n[0]					#KStep Array			[-]
+		TimeArray = Energy_n[1]						#Time Array				[ms]
+		DeltaKstep = KStepArray[1]-KStepArray[0]	#KStep Interval 		[-]
+		DeltaTime = TimeArray[1]-TimeArray[0]		#Time Interval 			[ms]
+		KStepMod = len(KStepArray)/(seq+1)			#KStep indices per seq 	[-]
+		#Determine poloidal and toroidal harmonic ranges
+		ntor_tot = ((len(Energy_n)-3)*2)+1			#Number of positive and negative modes (Including n=0)
+		ntor_pos = int(float(ntor_tot-1)/2.0)		#Number of positive modes (Ignoring n=0)
+		ntor0 = int(ceil(ntor_tot/2))				#ntor = 0, baseline equilibrium data
+		#### - CAN BE A FUNCTION
 
 		#### - CAN BE A FUNCTION
 		#Create 2D array containing [ntor,ntor_index] for referencing data to be extracted
@@ -2308,15 +2366,16 @@ if savefig_2Dequilmovie == True:
 		for i in tqdm(range(KStepRange[0],KStepRange[1])):
 
 			#Set TimeIndex and employ to extract KStep and Time
-			KstepIndex = i
-			KStep = KStepArray[KstepIndex]			#[-]
-			Time = TimeArray[KstepIndex]			#[ms]
+			KStepIdx = i; seqIdx = seq					#Add these to seq loop.
+			IdxOffset = seqIdx*KStepMod					#[-]
+			KStep = KStepArray[KStepIdx+IdxOffset]		#[-]
+			Time = TimeArray[KStepIdx+IdxOffset]		#[ms]
 
 			#Extract Harmonics outputs for plotting, it contains:
 			#HarmonicsData.rho_pol [1D array] :: HarmonicsData.q_psi [1D array]
 			#HarmonicsData.kst [1D array]     :: HarmonicsData.time [1D array]    
 			#HarmonicsData.data: [3D Array] of shape [mpol][ntor][lpsi][A/B] for all variables
-			HarmonicsData = ExtractMEGA_Harmonics(Dir[l]+'data/','All',ntor_tot,KstepIndex,seq)
+			HarmonicsData = ExtractMEGA_Harmonics(Dir[l]+'data/','All',ntor_tot,KStepIdx,seqIdx)
 
 			#Extract data resolution and poloidal axes from repository .dat files
 			#DataShape contains data resolution of form: [mpol,ntor,lpsi,ltheta]
@@ -2395,12 +2454,22 @@ if any([savefig_2Dequilibrium,savefig_2Dequilmovie]) == True:
 
 
 
+
+
+
+
+
+
+
+
+
+
 #====================================================================#
-					#GENERAL PLASMA RESPONSE ANALYSIS#
+					 #PLASMA RESPONSE DIAGNOSTICS#
 #====================================================================#
 
 #====================================================================#
-				 	      #PLASMA RESPONSE PLOTS#
+					 #POLOIDAL RESPONSE ANALYSIS#
 #====================================================================#
 
 if savefig_2Dresponse == True:
@@ -2409,7 +2478,7 @@ if savefig_2Dresponse == True:
 	for l in range(0,len(Dir)):
 
 		#DEVELOPMENT SETTINGS - settings_inputs to be moved to switchboard
-		print Dir[l]
+		print Dir[l].split('/')[-2]
 		seq = setting_seq[1]				#requested SEQ file index (001 = 0)	!!! NEEDS A FUNCTION !!!
 		ntor = setting_ntor[1]				#requested ntor mode number			!!! NEEDS A FUNCTION !!!
 		variable = 'brad'					#requested response variable 		!!! Need to impliment vrad etc...
@@ -2625,16 +2694,8 @@ if any([savefig_2Dresponse]) == True:
 
 
 
-
-
-
-
-
-
-
-
 #====================================================================#
-				  #GENERAL SPECTRAL & HARMONIC ANALYSIS#
+				   #SPECTRAL & HARMONIC DIAGNOSTICS#
 #====================================================================#
 
 #====================================================================#
@@ -2647,7 +2708,7 @@ if savefig_2Dharmonics == True:
 	for l in range(0,len(Dir)):
 
 		#DEVELOPMENT SETTINGS - settings_inputs to be moved to switchboard
-		print Dir[l]
+		print Dir[l].split('/')[-2]
 		variable = 'bphi'				#requested response variable 		!!! Need to impliment btheta, vrad etc...
 
 		#Create global 2D diagnostics folder and extract current simulation name
@@ -2826,6 +2887,180 @@ if any([savefig_2Dharmonics]) == True:
 	print '-----------------------------'
 #endif
 
+#====================================================================#
+#====================================================================#
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#====================================================================#
+				  #KINETIC & PHASESPACE DIAGNOSTICS#
+#====================================================================#
+
+#====================================================================#
+			  			 #1D IEDF ANALYSIS#
+#====================================================================#
+
+if savefig_1Dkinetics == True:
+
+	#DEVELOPMENT SETTINGS - settings_inputs to be moved to switchboard
+	print Dir[l].split('/')[-2]
+	nBins = 100					#Kinetics Histogram Bins		- Move to Switchboard
+	KStepMax = 2000				#KStepMax						- Automate readin
+	KWep = 1000					#Write_ep save interval (kwep)	- Automate readin
+	KMarker = 1					#Marker file readin interval	- Move to Switchboard (speedup)
+
+
+	#Cycle through all simulation folders
+	for l in range(0,len(Dir)):
+
+		#KINETICS VARIABLE LOOP GOES HERE
+
+		#Initiate figure and set axes
+		fig,ax = figure(image_aspectratio,1)
+		Xlabel,Ylabel = 'Energy $\epsilon_{i}$ [keV]', 'Ion Energy Distribution Function $f(\epsilon_{i})$ [-]'
+		Legend = list()
+
+		#Cycle through all Kstep for given kwep.
+		for i in range(1000,KStepMax+1,KWep):
+
+			#Set current KStep
+			KStep = i
+			#Concatenate variables into Data_Kin - Override Data_Kin on first iteration
+			#Data_Kin :: 2D Array of shape [variable,marker(n)]
+			#Variables :: R, Z, Lambda, E, p, Mu, pphi, fff*fnrml, psip, phi
+			Data_Kin,Header_Kin = ExtractMEGA_Markers(Dir[l],KStep,KMarker)
+
+
+			#Select variable to be plotted (X axis) and histogram into nBins
+			XData = Data_Kin[3]									#'E_gc'
+			HistData,XAxis = np.histogram(XData, bins=nBins)
+
+			#Normalise distribution function
+			HistSum = sum(HistData); NormFactor = HistSum
+			HistData = [float(HistData[x])/float(NormFactor) for x in range(0,len(HistData))]
+			if DebugMode == True: print( "IEDF Integral: ",str(sum(HistData)) )
+
+			#Plot figure for current KStep
+			ax.plot(XAxis[0:-1],HistData, lw=2)
+		#endfor
+
+		#Apply image options and save figure - One variable, all KSteps
+		ImageOptions(fig,ax,Xlabel,Ylabel,'',Legend)
+		plt.show()
+		plt.close('all')
+	#endfor
+#endif
+
+#====================================================================#
+			  			 #2D IEDF ANALYSIS#
+#====================================================================#
+
+if savefig_2Dkinetics == True:
+
+	#DEVELOPMENT SETTINGS - settings_inputs to be moved to switchboard
+	print Dir[l].split('/')[-2]
+	nBins = 100					#Kinetics Histogram Bins		- Move to Switchboard
+	KStepMax = 2000				#KStepMax						- Automate readin
+	KWep = 1000					#Write_ep save interval (kwep)	- Automate readin
+	KMarker = 1					#Marker file readin interval	- Move to Switchboard (speedup)
+
+
+	#Cycle through all simulation folders
+	for l in range(0,len(Dir)):
+
+		#KINETICS VARIABLE LOOP GOES HERE
+
+		#Cycle through all Kstep for given kwep.
+		for i in range(1000,KStepMax+1,KWep):
+
+			#Set current KStep
+			KStep = i
+			#Concatenate variables into Data_Kin - Override Data_Kin on first iteration
+			#Data_Kin :: 2D Array of shape [variable,marker(n)]
+			#Variables :: R, Z, Lambda, E, p, Mu, pphi, fff*fnrml, psip, phi
+			Data_Kin,Header_Kin = ExtractMEGA_Markers(Dir[l],KStep,KMarker)
+
+
+			#Select variables to be plotted (X,Y axis)
+			XData = Data_Kin[6]						#'pphi_gc'
+			YData = Data_Kin[3]						#'E_gc'
+
+			#Extract min/max values and create histogram ranges
+			Xmin,Xmax = min(XData), max(XData)
+			Ymin,Ymax = min(YData), max(YData)
+			XRange = np.linspace(Xmin,Xmax,nBins)
+			YRange = np.linspace(Ymin,Ymax,nBins)
+
+			#Select variables to be plotted (X,Y) and histogram over supplied ranges
+			HistData,XAxis,YAxis = np.histogram2d(XData,YData, bins=(XRange,YRange))
+			extent = [min(XAxis),max(XAxis), min(YAxis),max(YAxis)]
+
+			#Normalise distribution function
+			HistSum = sum(sum(HistData)); NormFactor = HistSum
+			for x in range(0,len(HistData)):
+				for y in range(0,len(HistData[x])):
+					HistData[x,y] = float(HistData[x,y])/float(NormFactor)
+				#endfor
+			#endfor
+			if DebugMode == True: print( "IEDF Integral: ",str(sum(HistData)) )
+
+			#Initiate figure and set axes
+			fig,ax = figure(image_aspectratio,1)
+#			Title = VariableLabels[j]+', ntor='+str(ntor)+', t='+str(Time)+' \n Simulation: '+DirString
+			Xlabel,Ylabel = 'Toroidal Angular Mom. [kg m${^2}$ s$^{-1}$]', 'Energy $\epsilon_{i}$ [keV]'
+			Legend = list()
+
+			#Plot figure											#$\int f(\epsilon_{i}) dt$
+			im = ax.imshow(HistData, extent=extent, aspect='auto')
+			cbar = Colourbar(ax,im,'Ion Energy Distribution Function $f(\epsilon_{i})$ [-]',5)
+			ImageOptions(fig,ax,Xlabel,Ylabel,'',Legend)
+			#
+			plt.show()
+			plt.close('all')
+		#endfor
+	#endfor
+#endif
+
+#==========##==========##==========#
+#==========##==========##==========#
+
+if any([savefig_1Dkinetics,savefig_2Dkinetics]) == True:
+	print '-------------------------'
+	print 'Kinetic Analysis Complete'
+	print '-------------------------'
+#endif
+
+#====================================================================#
+#====================================================================#
+
 #===================================================================#
 #===================================================================#
 #																	#
@@ -2881,12 +3116,15 @@ exit()
 
 
 
+
+
+
+
 #====================================================================#
 							# CODE DUMP #
 #====================================================================#
 
-# UNUSED SNIPPITS OF CODE WILL BE PUT IN HERE.
-# MOST CODE IS BOUND FOR REMOVAL BUT SOME MAY STILL HAVE USE.
+# UNUSED OR OUTDATED SNIPPITS OF CODE ARE STORED HERE.
 
 
 #=========================#
@@ -3008,109 +3246,116 @@ if True == False:
 
 
 #====================================================================#
-				 	      #2D HARMONIC PLOTS#
+				 	 #KINETIC IEDF JAVI-METHOD#
 #====================================================================#
 
-if savefig_2Dharmonics == True:
+savefig_kineticsJAVI = False
+if savefig_kineticsJAVI == True:
 
-	#For each detected simulation folder
-	for l in range(0,len(Dir)):
+	#Set KStep range and interval (Should determine automatically)
+	KStepMax = 2000
+	KStepMod = 1000
+	KStep = 1000 		#Development Input - Remove when KStep loop is added
 
-		#DEVELOPMENT SETTINGS - settings_inputs to be moved to switchboard
-		print Dir[l]
-		seq = setting_seq[0]				#requested SEQ file index (001 = 0)
-		ntor = 2							#requested ntor mode number
+	#Set number of cores and interval (Should determine automatically)
+	NCoreTot = 64		#Not actually needed
+	NCoreMod = 8
 
-		#Create global 2D diagnostics folder and extract current simulation name
-		DirHarmonics = CreateNewFolder(Dir[l],'2DHarmonic_Plots/')
-		DirString = Dir[l].split('/')[-2]
-		SubString = DirString.split('_')[-1]
+	#KSTEP LOOP GOES HERE
 
-		#Extract Energy_n outputs and header, used to determine harmonic range
-		#energy_n: [folder][variable][timestep]
-		Energy_n,Header_n = ExtractMEGA_Energy(Dir[l],'energy_n')
-		KStepArray = Energy_n[0]				#KStep Array	[-]
-		TimeArray = Energy_n[1]					#Time Array		[ms]
-		ntor_tot = ((len(Energy_n)-3)*2)+1		#Number of positive and negative modes (Including n=0)
-		ntor_pos = int(float(ntor_tot-1)/2.0)	#Number of positive modes (Ignoring n=0)
+	#Define marker folder location and filename for current KStep
+	Folder = Dir[0]+'markers/'
+	Filename = 'gc_a_kstep'+str('%07.f'%KStep)+'-*.txt'
+	#Sort all marker communication files numerically by core number
+	CommFiles = sorted(glob.glob(Folder+Filename))
+	print(Filename)
 
-		#### - CAN BE A FUNCTION
-		#Create 2D array containing [ntor,ntor_index] for referencing data to be extracted
-		ntor_indices = list()
-		for i in range(0,ntor_tot):
-			if i-ntor_pos >= setting_ntor[0] and i-ntor_pos <= setting_ntor[1]:
-				#ntor_indices contains the following [ntor, ntor_index], for positive, negative and n=0 modes
-				ntor_indices.append( [i-ntor_pos,i] )
-			#endif
-		#endfor
-#		print ntor_indices
+	#Initiate kinetic data array of size num variables saved in write_ep() subroutine
+	#Data_Kin :: 2D Array of shape [marker(n),variable(n)]
+	Data_Kin = np.array([]).reshape(0,10)
 
-		#ntor range set by ntor_indices[ntor, ntor_index], for pos, neg & n=0 modes
-#		ntor = 1													#requested ntor mode number
-		ntor_idx = [item[0] for item in ntor_indices].index(ntor)	#index referring to ntor mode number
-		#### - CAN BE A FUNCTION
+	#Concatenate marker data from all cores into Data_Kin
+	for i in tqdm( range(len(CommFiles)/NCoreMod) ):
+		Data_Fragment = np.loadtxt(CommFiles[i])
+		if Data_Fragment.ndim == 2:
+			Data_Kin = np.concatenate((Data_Kin,Data_Fragment))
+		elif len(Data_Fragment) == 1:
+			Data_Kin = np.concatenate((Data_Kin,Data_Fragment.T))
+		#endif
+	#endfor
 
-		#Extract relevant normalisation factors for current simulation folder
-		Variables,Values,Units = ExtractMEGA_Normalisations(Dir[l])
-		IonGyroFreq = Values[Variables.index('D gyro frequency')]
+	#==========##==========##==========#
 
-		#Extract Variablelabels
-		VariableLabels = VariableLabelMaker(variables)
+	#1D TEST ZONE
+	if True == False:
+		nBins = 100
+		XData1D = Data_Kin[:,3]						#'E_gc'
 
+		#Histogram data over bin range
+		Hist = np.histogram(XData1D, bins=nBins)[0]
+		#Normalise distribution function
+		HistSum = sum(Hist)
+		NormFactor = HistSum
+		Hist = [float(Hist[x])/float(NormFactor) for x in range(0,len(Hist))]
+		if DebugMode == True: print( "Integrated Distribution: ",str(sum(Hist)) )
 
-		#For each requested variable
-		for i in range(0,len(variables)):
+		#Create Energy axis :: Scale dEnergy from min to max and create range of len(nBins)
+		Xmin,Xmax = min(XData1D),max(XData1D); 	dBin = (Xmax-Xmin)/nBins
+		XAxis = [float(x)*dBin for x in range(1,nBins+1)]
 
-			#Create new folder for each variable
-			DirVariable = CreateNewFolder(DirHarmonics,variables[i])
+		#Initiate figure and set axes
+		fig,ax = figure(image_aspectratio,1)
+		Xlabel,Ylabel = 'Energy $\epsilon_{i}$ [keV]', 'Ion Energy Distribution Function $f(\epsilon_{i})$ [-]'
+		Legend = list()
 
-			#Extract Harmonics outputs for plotting, it contains:
-			#HarmonicsData.rho_pol [1D array] :: HarmonicsData.q_psi [1D array]
-			#HarmonicsData.kst [1D array]     :: HarmonicsData.time [1D array]    
-			#HarmonicsData.data: [4D Array] of shape [kstep][mpol][ntor][lpsi][A/B] for variables[i]
-			HarmonicsData = ExtractMEGA_Harmonics(Dir[l]+'data/',variables[i],ntor_tot)
-			HarmonicsData.data = HarmonicsData.data[:,:,:,:,0]		#Extract Real part of HarmonicsData
+		#Plot figure
+		ax.plot(XAxis,Hist, lw=2)
+		ImageOptions(fig,ax,Xlabel,Ylabel,'',Legend)
+		#
+		plt.show()
+	#endif
+	#1D TEST ZONE
 
-			#Set TimeIndex and employ to extract KStep and Time ----- TimeIndex should be cleaner
-			KstepIndex = setting_kstep[-1]	
-			Kstep = (seq+1)*KStepArray[KstepIndex]			#[-]
-			Time = (seq+1)*TimeArray[KstepIndex]			#[ms]
+	#==========##==========##==========#
 
-			#Extract figure axes and set image extent
-			## !!! MAKE THESE A FUNCTION extent = ImageExtent() !!! ##		
-			rho_pol = HarmonicsData.rho_pol							#Normalised poloidal angle
-			phi_tor = range(1,shape(HarmonicsData.data)[1]+1)		#Array of toroidal cells
-			phi_tor = [x/float(len(phi_tor)) for x in phi_tor]		#Normalised toroidal angle
-			extent = [rho_pol[0],rho_pol[-1], phi_tor[0],phi_tor[-1]]
-			
-			#Plot images of variables[i] for all requested ntor
-			#ntor range set by ntor_indices[ntor, ntor_index], for pos, neg & n=0 modes
-			for j in range(0,ntor_indices[-1][1]):
+	if True == True:
+		#
+		XData = Data_Kin[:,6]						#'pphi_gc'
+		Xmin,Xmax = min(XData), max(XData)
+		YData = Data_Kin[:,3]						#'E_gc'
+		Ymin,Ymax = min(YData), max(YData)
 
-				#Extract image from HarmonicsData
-				ntor = ntor_indices[j][0]						#ntor mode number
-				ntor_idx = ntor_indices[j][1]					#index referring to ntor mode number
-				Image = HarmonicsData.data[KstepIndex,:,ntor_idx,:]
+		#
+		nBins = 100
+		XRange = np.linspace(Xmin,Xmax,nBins)
+		YRange = np.linspace(Ymin,Ymax,nBins)
 
-				#Create figure and define Title, Legend, Axis Labels etc...
-				fig,ax = figure(image_aspectratio,1)
-				Title = VariableLabels[j]+', ntor='+str(ntor)+', t='+str(Time)+' \n Simulation: '+DirString
-				Xlabel,Ylabel = 'Poloidal Extent $\\rho_{pol}$ [-]', 'Toroidal Extent $\phi_{tor}$ [-]'
-#				Xlabel,Ylabel = 'Poloidal Resolution $m_{\\theta}$ [cells]', 'Toroidal Resolution $l_{\phi}$ [cells]'
-				Legend = list()
+		#
+		Hist,XAxis,YAxis = np.histogram2d(XData, YData, bins=(XRange, YRange))
+		extent = [min(XAxis),max(XAxis), min(YAxis),max(YAxis)]
 
-				#Plot 2D harmonics figure and beautify
-				im = ax.imshow(Image, extent=extent, aspect='auto', origin='bottom')
-				cbar = Colourbar(ax,im,VariableLabels[j]+' [-]',5)
-				ImageOptions(fig,ax,Xlabel,Ylabel,Title,Legend)
-
-				#Save 2D harmonics figure for current simulation
-				plt.savefig(DirVariable+variables[j]+'_n'+str(ntor)+ext)
-#				plt.show()
-				plt.close('all')
+		#Normalise distribution function
+		HistSum = sum(sum(Hist)); NormFactor = HistSum
+		for x in range(0,len(Hist)):
+			for y in range(0,len(Hist[x])):
+				Hist[x,y] = float(Hist[x,y])/float(NormFactor)
 			#endfor
 		#endfor
-	#endfor
+		if DebugMode == True: print( "IEDF Integral: ",str(sum(Hist)) )
+
+		#Initiate figure and set axes
+		fig,ax = figure(image_aspectratio,1)
+	#	Title = VariableLabels[j]+', ntor='+str(ntor)+', t='+str(Time)+' \n Simulation: '+DirString
+		Xlabel,Ylabel = 'Toroidal Angular Mom. [kg m${^2}$ s$^{-1}$]', 'Energy $\epsilon_{i}$ [keV]'
+		Legend = list()
+
+		#Plot figure
+		im = ax.imshow(Hist, extent=extent, aspect='auto')
+		cbar = Colourbar(ax,im,'Ion Energy Distribution Function $f(\epsilon_{i})$ [-]',5)	#$\int f(\epsilon_{i}) dt$
+		ImageOptions(fig,ax,Xlabel,Ylabel,'',Legend)
+		#
+		plt.show()
+	#endif
 #endif
 
 #=====================================================================#
