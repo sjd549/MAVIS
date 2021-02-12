@@ -145,20 +145,20 @@ Kin = ['R_gc','Z_gc','Phi_gc','p_gc','pphi_gc','mu_gc','E_gc','Lambda_gc','psip'
 #Requested Variables and Plotting Locations:
 variables = Phys						#Requested variables to plot			#Phys+Kin
 
-radialprofiles = [90,120,130]			#1D Radial Profiles to be plotted (fixed theta, phi)
-poloidalprofiles = []					#1D Poloidal Profiles to be plotted (fixed rho_pol, phi)
-toroidalprofiles = []					#1D Toroidal Profiles to be plotted (fixed rho_pol, theta) 
+radialprofiles = [90]					#1D Radial Profiles (fixed theta, phi) :: Poloidal Angle [deg]
+poloidalprofiles = []					#1D Poloidal Profiles (fixed rho_pol, phi) :: Norm. Radius [-]
+toroidalprofiles = []					#1D Toroidal Profiles (fixed rho_pol, theta) :: Toroidal Angle [deg]
 trendlocation = [] 						#Cell location For Trend Analysis [R,Z], ([] = min/max)
 
 #Various Diagnostic Settings:
 setting_seq = [0,0]						#Simulation seq to load		- [Min,Max], [Int], [-1] to load last
 setting_ntor = [0,2]					#ntor range to plot 		- [Min,Max], [Int], [] to plot all
-setting_kstep = [398,399]				#kstep index range to plot 	- [Min,Max], [Int], [] to plot all
+setting_kstep = [000,399]				#kstep index range to plot 	- [Min,Max], [Int], [] to plot all
 
 
 #Requested diagnostics and plotting routines:
-savefig_1Dtotalenergy = False			#Plot 1D total energy trends 		(xxx.energy_p)	- Working
-savefig_1Dspectralenergy = False		#Plot 1D spectral energy trends 	(xxx.energy_n)	- Working
+savefig_1Dtotalenergy = True			#Plot 1D total energy trends 		(xxx.energy_p)	- Working
+savefig_1Dspectralenergy = True			#Plot 1D spectral energy trends 	(xxx.energy_n)	- Working
 
 savefig_1Dequilibrium = False			#Plot 1D equilibrium profiles		(xxx.harmonics) - Working
 savefig_2Dequilibrium = False			#Plot 2D equilibrium figures		(xxx.harmonics)	- Working
@@ -167,8 +167,8 @@ savefig_2Dresponse = False				#Plot 2D plasma response 			(xxx.harmonics)	- Work
 
 savefig_2Dharmonics = False				#Plot 2D harmonic continnum		 	(xxx.harmonics)	- Working
 
-savefig_1Dkinetics = True				#Plot 2D kinetic distributions	 	(gc_a_kstepxxx)	- Working
-savefig_2Dkinetics = True				#Plot 1D kinetic distributions	 	(gc_a_kstepxxx)	- Working
+savefig_1Dkinetics = False				#Plot 2D kinetic distributions	 	(gc_a_kstepxxx)	- Working
+savefig_2Dkinetics = False				#Plot 1D kinetic distributions	 	(gc_a_kstepxxx)	- Working
 
 
 #Requested diagnostic terminal outputs:
@@ -220,6 +220,8 @@ cbaroverride = []
 #        ####TODO####        #
 #============================#
 
+#FIX ISSUE WHERE "outputdata is referenced before assignment" IF FILENAME HAS A SPACE IN IT
+#
 #FINISH 1D PLOTTING ROUTINE WITH POLOIDAL EXTRACTION FUNCTION
 #
 #FINISH PLASMA RESPONSE ROUTINE WITH POLOIDALLY RESOLVED VERSION
@@ -457,6 +459,13 @@ def ReadFile_ASCII(Filename,HeaderIdx=0,Dimension='2D',Orientation='CSV'):
 			#Extract header and raw data
 			for m in range(0,HeaderIdx): Header.append(RawData[m])
 			RawData = RawData[HeaderIdx::]
+
+
+			#AD-HOC FIX FOR EMPTY MARKER FILES - REMOVE ONCE write_ep() SAVES HEADER
+			if len(RawData) in [0,1]:
+				return (np.zeros([10,1]).tolist(), np.zeros([10,1]).tolist())
+			#endif
+
 
 			#Enlarge output data array by number of columns
 			NumColumns = len(RawData[HeaderIdx+1].split())
@@ -1091,14 +1100,14 @@ def ExtractMEGA_Markers(Dir,KStep,MarkerFileStep=1):
 # Inputs: KStep - KStep value (NOT Index) of output files to be read-in
 # Inputs: MarkerFileStep - Optional speedup input, will read every 'n'th output file
 #
-# Outputs: Data_Kin - 2D Array of shape [variable][marker(n)]
+# Outputs: KineticsData - 2D Array of shape [variable][marker(n)]
 #		  Variables - R, Z, Lambda, E, p, Mu, pphi, fff, fnrml, psip, phi
 #
-# Example :: Data_Kin,Header_Kin = ExtractMEGA_Markers(Dir[l],KStep=1000,MarkerFileStep=8)
+# Example :: KineticsData,Header_Kin = ExtractMEGA_Markers(Dir[l],KStep=1000,MarkerFileStep=8)
 
 
 	#Initiate kinetic data array
-	Data_Kin = list()
+	KineticsData = list()
 
 	#Define marker folder location and filename format for supplied KStep
 	Folder = Dir+'markers/'
@@ -1110,32 +1119,34 @@ def ExtractMEGA_Markers(Dir,KStep,MarkerFileStep=1):
 	for j in tqdm( range(0,len(MarkerFiles),MarkerFileStep) ):
 
 		#Set current marker output file
-		Filename = MarkerFiles[j]				
+		Filename = MarkerFiles[j]
 
 		#Read marker data for current NCore output file
 		#MarkerData :: 2D array of shape [variable,marker(n)]
 		#Variables :: 0:R, 1:Z, 2:Lambda, 3:E, 4:p, 5:Mu, 6:pphi, 7:fff*fnrml, 8:psip, 9:phi
 		#See write_ep() subroutine for full details
-		MarkerData, Header = ReadFile_ASCII(Filename, 0, '2D', 'CSV')
+		MarkerData,Header = ReadFile_ASCII(Filename, 0, '2D', 'CSV')
+#		print np.asarray(MarkerData).shape
 
-		#Concatenate variables into Data_Kin - Override Data_Kin on first iteration
-		#Data_Kin :: 2D Array of shape [variable,marker(n)]
-		if len(Data_Kin) == 0: 
-			Data_Kin = MarkerData
-		elif len(Data_Kin) > 0: 
-			Data_Kin = [Data_Kin[x]+MarkerData[x] for x in range(0,len(Data_Kin))]
+
+		#Concatenate variables into KineticsData - Override KineticsData on first iteration
+		#KineticsData :: 2D Array of shape [variable,marker(n)]
+		if len(KineticsData) == 0: 
+			KineticsData = MarkerData
+		elif len(KineticsData) > 0: 
+			KineticsData = [KineticsData[x]+MarkerData[x] for x in range(0,len(KineticsData))]
 		#endif
 
 		#Print debug outputs to terminal if requested
 		if DebugMode == True: 
 			print( Filename.split('/')[-1] )
-			print( 'Kin Num Variables: '+str(len(Data_Kin)) )
-			print( 'Kin Variable Length: '+str(len(Data_Kin[0])) )
+			print( 'Kin Num Variables: '+str(len(KineticsData)) )
+			print( 'Kin Variable Length: '+str(len(KineticsData[0])) )
 			print( '' )
 		#endif
 	#endfor
 
-	return(Data_Kin,Header)
+	return(KineticsData,Header)
 #enddef
 
 #====================================================================#
@@ -1658,13 +1669,13 @@ print(' |  \  /  |    /  ^  \  \   \/   /  |  |    |   (----` ')
 print(' |  |\/|  |   /  /_\  \  \      /   |  |     \   \     ')
 print(' |  |  |  |  /  _____  \  \    /    |  | .----)   |    ')
 print(' |__|  |__| /__/     \__\  \__/     |__| |_______/     ')
-print('                                                 v0.3.0')
+print('                                                 v0.4.0')
 print('-------------------------------------------------------')
 print('')
 print('The following diagnostics were requested:')
 print('-----------------------------------------')
 if True in [savefig_1Dtotalenergy,savefig_1Dspectralenergy]:
-	print('# 1D Energy Analysis')
+	print('# Energy Convergence Analysis')
 if True in [savefig_1Dequilibrium]:
 	print('# 1D Equilibrium Analysis')
 if True in [savefig_2Dequilibrium,savefig_2Dequilmovie]:
@@ -1672,7 +1683,9 @@ if True in [savefig_2Dequilibrium,savefig_2Dequilmovie]:
 if True in [savefig_2Dharmonics]:
 	print('# 2D Spectral Analysis')
 if True in [savefig_2Dresponse]:
-	print('# 2D Plasma Response')
+	print('# 2D Plasma Response Analysis')
+if True in [savefig_1Dkinetics,savefig_2Dkinetics]:
+	print('# Kinetic Distribution Analysis')
 print('-----------------------------------------')
 print('')
 
@@ -1724,6 +1737,7 @@ Units = list()					#[1D Array] of normalisation factor variable units - Strings
 #Lists to store extracted data
 HarmonicsData = list()			#[4D Array] of shape Data[kstep][mpol][ntor][lpsi][???] for each variable
 MomentsData = list()			#[4D Array] of shape Data[kstep][mpol][ntor][lpsi][???] for each variable
+KineticsData = list()			#[2D Array] of shape Data[variables][markers(n)] concatinated for all nodes
 EnergyData_phys = list()		#[3D Array] of shape Data[folder][variable][Kstep] for energy_phys.txt
 EnergyData_n = list()			#[3D Array] of shape Data[folder][variable][Kstep] for energy_n.txt
 
@@ -1871,7 +1885,7 @@ if savefig_1Dtotalenergy == True:
 		fig,ax = figure(image_aspectratio,[3,1])
 
 		#Define Title, Legend, Axis Labels etc...
-		Title = 'Spectrally Integrated Energy Evolution for '+DirString
+		Title = 'Spectrally Integrated Energy Evolution for \n '+DirString
 		Xlabel,Ylabel = 'Time [ms]', 'Energy [-]'
 
 		#Plot total thermal, kinetic and magnetic MHD (fluid solver) energy over time
@@ -1941,7 +1955,7 @@ if savefig_1Dspectralenergy == True:
 		fig,ax = figure(image_aspectratio,[2,1])
 
 		#Define Title, Legend, Axis Labels etc...
-		Title = 'Spectrally Resolved Energy Evolution for '+DirString
+		Title = 'Spectrally Resolved Energy Evolution for \n '+DirString
 		Xlabel,Ylabel = 'Time [ms]', 'Energy (Log$_{10}$) [-]'
 		Legend = list()
 
@@ -2591,7 +2605,7 @@ if savefig_2Dresponse == True:
 				DataAmp = np.concatenate((DataAmpNeg,DataAmpPos[1:,:]),axis=0)
 
 				#Create Image array and Axes, rotate such that mpol spectrum is on X-axis.
-				#Image is of shape: [mpol,lpsi] 
+				#Image is of shape: [mpol][lpsi] 
 				Image = DataAmp.transpose()*B0*1e4								#[G]? - must use Brad
 				Xaxis =	[x-int(mpol_res-1) for x in range(0,2*mpol_res-1,1)]	#Poloidal Mode Numbers
 				Yaxis = HarmonicsData.rho_pol									#Radial Location
@@ -2618,36 +2632,40 @@ if savefig_2Dresponse == True:
 
 				#==========#
 
-				#Collapse figure by integrating through all poloidal modes
+				#Collapse figure poloidally - integrate through all poloidal modes
 				DataAmp1D = list()
 				DataAmp = DataAmp.transpose()
 				for k in range(0,len(DataAmp)):
 					DataAmp1D.append(sum(DataAmp[k][:]))
 				#endfor
 				
-				#Append 1D array to PROES image
+				#Append 1D array to 2D PROES image array
+				#DataAmpPROES: 2D array of shape [kstep][lpsi]
 				DataAmpPROES.append(DataAmp1D)
 				XaxisPROES.append(Time)
 			#endfor
 		#endfor
 
-		#Create figure and define Title, Legend, Axis Labels etc...
-		fig,ax = figure(image_aspectratio,1)
-		Title = 'Plasma Response: n='+str(ntor)+', m='+str(-mpol_res+1)+','+str(mpol_res-1)+', t='+str(round(Time,3))+' [ms] \n Simulation: '+DirString
-		Xlabel,Ylabel = 'Time $t$ [ms]', 'Radial Magnetic Coordinate $\\rho_{pol}$ [-]'
-		Legend = list()
+		#If more than one KStep was processed, create a temporal plasma response image
+		if len(DataAmpPROES) > 1:
+			#Create figure and define Title, Legend, Axis Labels etc...
+			fig,ax = figure(image_aspectratio,1)
+			Title = 'Plasma Response: n='+str(ntor)+', m='+str(-mpol_res+1)+','+str(mpol_res-1)+', t='+str(round(Time,3))+' [ms] \n Simulation: '+DirString
+			Xlabel,Ylabel = 'Time $t$ [ms]', 'Radial Magnetic Coordinate $\\rho_{pol}$ [-]'
+			Legend = list()
 
-		#Plot temporally resolved, poloidally collapsed, response figure (R,time)
-		DataAmpPROES = np.asarray(DataAmpPROES).transpose()			#Transpose to align time on X-axis
-		im = plt.contourf(XaxisPROES, Yaxis, DataAmpPROES, 50)
-		cbar = Colourbar(ax,im,VariableLabel,5)
-		ImageOptions(fig,ax,Xlabel,Ylabel,Title,Legend)
+			#Plot temporally resolved, poloidally collapsed, response figure (R,time)
+			DataAmpPROES = np.asarray(DataAmpPROES).transpose()			#Transpose to align time on X-axis
+			im = plt.contourf(XaxisPROES, Yaxis, DataAmpPROES, 50)
+			cbar = Colourbar(ax,im,VariableLabel,5)
+			ImageOptions(fig,ax,Xlabel,Ylabel,Title,Legend)
 
-		#Save temporal response figure for current simulation directory
-		SaveString = 'PlasmaResponse_'+variable+'_n'+str(ntor)+'_t='+str(round(Time,3))+ext
-		plt.savefig(DirResponse+SaveString)
-#		plt.show()
-		plt.close('all')
+			#Save temporal response figure for current simulation directory
+			SaveString = 'PlasmaResponse_'+variable+'_n'+str(ntor)+'_t='+str(round(Time,3))+ext
+			plt.savefig(DirResponse+SaveString)
+	#		plt.show()
+			plt.close('all')
+		#endif
 	#endfor
 #endif
 
@@ -2716,13 +2734,21 @@ if savefig_2Dharmonics == True:
 		DirString = Dir[l].split('/')[-2]
 		SubString = DirString.split('_')[-1]
 
-		#Extract Energy_n outputs and header, used to determine harmonic range
-		#energy_n: [folder][variable][timestep]
+		#### - CAN BE A FUNCTION
+		#Extract kstep, time and toroidal harmonic data from energy_n.txt
+		#energy_n data structure: [variable][timestep]
 		Energy_n,Header_n = ExtractMEGA_Energy(Dir[l],'energy_n')
-		KStepArray = Energy_n[0]				#KStep Array	[-]
-		TimeArray = Energy_n[1]					#Time Array		[ms]
-		ntor_tot = ((len(Energy_n)-3)*2)+1		#Number of positive and negative modes (Including n=0)
-		ntor_pos = int(float(ntor_tot-1)/2.0)	#Number of positive modes (Ignoring n=0)
+		#Determine KStep range, Time range and related intervals
+		KStepArray = Energy_n[0]					#KStep Array			[-]
+		TimeArray = Energy_n[1]						#Time Array				[ms]
+		DeltaKstep = KStepArray[1]-KStepArray[0]	#KStep Interval 		[-]
+		DeltaTime = TimeArray[1]-TimeArray[0]		#Time Interval 			[ms]
+#		KStepMod = len(KStepArray)/(seq+1)			#KStep indices per seq 	[-]
+		#Determine poloidal and toroidal harmonic ranges
+		ntor_tot = ((len(Energy_n)-3)*2)+1			#Number of positive and negative modes (Including n=0)
+		ntor_pos = int(float(ntor_tot-1)/2.0)		#Number of positive modes (Ignoring n=0)
+		ntor0 = int(ceil(ntor_tot/2))				#ntor = 0, baseline equilibrium data
+		#### - CAN BE A FUNCTION
 
 		#Create 2D array containing [ntor,ntor_index] for referencing data to be extracted
 		ntor_indices = list()
@@ -2932,16 +2958,25 @@ if savefig_1Dkinetics == True:
 
 	#DEVELOPMENT SETTINGS - settings_inputs to be moved to switchboard
 	print Dir[l].split('/')[-2]
-	nBins = 100					#Kinetics Histogram Bins		- Move to Switchboard
-	KStepMax = 2000				#KStepMax						- Automate readin
-	KWep = 1000					#Write_ep save interval (kwep)	- Automate readin
-	KMarker = 1					#Marker file readin interval	- Move to Switchboard (speedup)
-
+	nBins = 100					#Kinetics Histogram Bins		- Move to Low-Level Inputs
+	KStepMin = 0				#KStepMin						- Automate readin - Use Switchboard?
+	KStepMax = 200000			#KStepMax						- Automate readin - Use Switchboard?
+	KWep = 10000				#Write_ep save interval (kwep)	- Automate readin - Use Switchboard?
+	KMarker = 8					#Marker file readin interval	- Move to Low-Level Inputs
 
 	#Cycle through all simulation folders
 	for l in range(0,len(Dir)):
 
+		#Create global kinetics folder and extract current simulation name
+		DirKinetics = CreateNewFolder(Dir[l],'2DKinetic_Plots/')
+		DirString = Dir[l].split('/')[-2]
+		SubString = DirString.split('_')[-1]
+
+
 		#KINETICS VARIABLE LOOP GOES HERE
+
+		#Initiate KineticPROES
+		KineticPROES = list()
 
 		#Initiate figure and set axes
 		fig,ax = figure(image_aspectratio,1)
@@ -2949,33 +2984,53 @@ if savefig_1Dkinetics == True:
 		Legend = list()
 
 		#Cycle through all Kstep for given kwep.
-		for i in range(1000,KStepMax+1,KWep):
+		for i in range(KStepMin,KStepMax+1,KWep):
 
 			#Set current KStep
 			KStep = i
-			#Concatenate variables into Data_Kin - Override Data_Kin on first iteration
-			#Data_Kin :: 2D Array of shape [variable,marker(n)]
+			#Concatenate variables into KineticsData - Override KineticsData on first iteration
+			#KineticsData :: 2D Array of shape [variable,marker(n)]
 			#Variables :: R, Z, Lambda, E, p, Mu, pphi, fff*fnrml, psip, phi
-			Data_Kin,Header_Kin = ExtractMEGA_Markers(Dir[l],KStep,KMarker)
+			KineticsData,Header_Kin = ExtractMEGA_Markers(Dir[l],KStep,KMarker)
 
 
 			#Select variable to be plotted (X axis) and histogram into nBins
-			XData = Data_Kin[3]									#'E_gc'
-			HistData,XAxis = np.histogram(XData, bins=nBins)
+			XData = KineticsData[3]									#'E_gc'
+			HistData1D,XAxis = np.histogram(XData, bins=nBins)
 
 			#Normalise distribution function
-			HistSum = sum(HistData); NormFactor = HistSum
-			HistData = [float(HistData[x])/float(NormFactor) for x in range(0,len(HistData))]
-			if DebugMode == True: print( "IEDF Integral: ",str(sum(HistData)) )
+			HistSum1D = sum(HistData1D); NormFactor1D = HistSum1D
+			HistData1D = [float(HistData1D[x])/float(NormFactor1D) for x in range(0,len(HistData1D))]
+			if DebugMode == True: print( "IEDF Integral: ",str(sum(HistData1D)) )
 
 			#Plot figure for current KStep
-			ax.plot(XAxis[0:-1],HistData, lw=2)
+			ax.plot(XAxis[0:-1], HistData1D, lw=2)
+
+			#Append 1D data to KineticPROES
+			KineticPROES.append(HistData1D)
 		#endfor
 
 		#Apply image options and save figure - One variable, all KSteps
 		ImageOptions(fig,ax,Xlabel,Ylabel,'',Legend)
 		plt.show()
 		plt.close('all')
+
+		#If more than one KStep was processed, create a temporal IEDF image
+		if len(KineticPROES) > 1:
+			#Compute mean and modal values
+			MeanArray,ModeArray = list(),list()
+
+			#Initiate figure and set axes
+			fig,ax = figure(image_aspectratio,1)
+			Xlabel,Ylabel = 'Energy $\epsilon_{i}$ [keV]','Time $t$ [ms]'
+			Legend = list()
+
+			#Plot figure for current KStep
+			im = ax.imshow(KineticPROES, aspect='auto', origin='bottom')
+			cbar = Colourbar(ax,im,'Ion Energy Distribution Function $f(\epsilon_{i})$ [-]',5)
+			ImageOptions(fig,ax,Xlabel,Ylabel,'',Legend)
+			plt.show()
+		#endif
 	#endfor
 #endif
 
@@ -2987,31 +3042,37 @@ if savefig_2Dkinetics == True:
 
 	#DEVELOPMENT SETTINGS - settings_inputs to be moved to switchboard
 	print Dir[l].split('/')[-2]
-	nBins = 100					#Kinetics Histogram Bins		- Move to Switchboard
-	KStepMax = 2000				#KStepMax						- Automate readin
-	KWep = 1000					#Write_ep save interval (kwep)	- Automate readin
-	KMarker = 1					#Marker file readin interval	- Move to Switchboard (speedup)
+	nBins = 100					#Kinetics Histogram Bins		- Move to Low-Level Inputs
+	KStepMin = 200000				#KStepMin						- Automate readin - Use Switchboard?
+	KStepMax = 400000			#KStepMax						- Automate readin - Use Switchboard?
+	KWep = 10000				#Write_ep save interval (kwep)	- Automate readin - Use Switchboard?
+	KMarker = 1					#Marker file readin interval	- Move to Low-Level Inputs
 
 
 	#Cycle through all simulation folders
 	for l in range(0,len(Dir)):
 
+		#Create global kinetics folder and extract current simulation name
+		DirKinetics = CreateNewFolder(Dir[l],'2DKinetic_Plots/')
+		DirString = Dir[l].split('/')[-2]
+		SubString = DirString.split('_')[-1]
+
+
 		#KINETICS VARIABLE LOOP GOES HERE
 
 		#Cycle through all Kstep for given kwep.
-		for i in range(1000,KStepMax+1,KWep):
+		for i in range(KStepMin,KStepMax+1,KWep):
 
 			#Set current KStep
 			KStep = i
-			#Concatenate variables into Data_Kin - Override Data_Kin on first iteration
-			#Data_Kin :: 2D Array of shape [variable,marker(n)]
+			#Concatenate variables into KineticsData - Override KineticsData on first iteration
+			#KineticsData :: 2D Array of shape [variable,marker(n)]
 			#Variables :: R, Z, Lambda, E, p, Mu, pphi, fff*fnrml, psip, phi
-			Data_Kin,Header_Kin = ExtractMEGA_Markers(Dir[l],KStep,KMarker)
-
+			KineticsData,Header_Kin = ExtractMEGA_Markers(Dir[l],KStep,KMarker)
 
 			#Select variables to be plotted (X,Y axis)
-			XData = Data_Kin[6]						#'pphi_gc'
-			YData = Data_Kin[3]						#'E_gc'
+			XData = KineticsData[0]				# [3] 'E_gc'	[Typically Spatial Variable]
+			YData = KineticsData[6]				# [6] 'pphi_gc'	[Typically Physical Variable]
 
 			#Extract min/max values and create histogram ranges
 			Xmin,Xmax = min(XData), max(XData)
@@ -3019,31 +3080,53 @@ if savefig_2Dkinetics == True:
 			XRange = np.linspace(Xmin,Xmax,nBins)
 			YRange = np.linspace(Ymin,Ymax,nBins)
 
-			#Select variables to be plotted (X,Y) and histogram over supplied ranges
-			HistData,XAxis,YAxis = np.histogram2d(XData,YData, bins=(XRange,YRange))
-			extent = [min(XAxis),max(XAxis), min(YAxis),max(YAxis)]
+			#Select 2D variables to be plotted (X,Y) and histogram over supplied ranges
+			HistData2D,XAxis2D,YAxis2D = np.histogram2d(XData,YData, bins=(XRange,YRange))
+			extent = [min(XAxis2D),max(XAxis2D), min(YAxis2D),max(YAxis2D)]				#USE FIXED FULL RANGE
 
-			#Normalise distribution function
-			HistSum = sum(sum(HistData)); NormFactor = HistSum
-			for x in range(0,len(HistData)):
-				for y in range(0,len(HistData[x])):
-					HistData[x,y] = float(HistData[x,y])/float(NormFactor)
+			#Select 1D variable to be plotted (X axis) and histogram into nBins
+			HistData1D,XAxis1D = np.histogram(XData, bins=nBins)
+
+			#Normalise 2D distribution function
+			HistSum2D = sum(sum(HistData2D)); NormFactor2D = HistSum2D
+			for x in range(0,len(HistData2D)):
+				for y in range(0,len(HistData2D[x])):
+					HistData2D[x,y] = float(HistData2D[x,y])/float(NormFactor2D)
 				#endfor
 			#endfor
-			if DebugMode == True: print( "IEDF Integral: ",str(sum(HistData)) )
+			if DebugMode == True: print( "2D IEDF Integral: ",str(sum(HistData2D)) )
+
+			#Normalise 1D distribution function
+			HistSum1D = sum(HistData1D); NormFactor1D = HistSum1D
+			HistData1D = [float(HistData1D[x])/float(NormFactor1D) for x in range(0,len(HistData1D))]
+			if DebugMode == True: print( "1D IEDF Integral: ",str(sum(HistData1D)) )
 
 			#Initiate figure and set axes
-			fig,ax = figure(image_aspectratio,1)
+			fig,ax = figure(image_aspectratio,[2,1],shareX=True)
 #			Title = VariableLabels[j]+', ntor='+str(ntor)+', t='+str(Time)+' \n Simulation: '+DirString
-			Xlabel,Ylabel = 'Toroidal Angular Mom. [kg m${^2}$ s$^{-1}$]', 'Energy $\epsilon_{i}$ [keV]'
+			Title = 'Kinetic Markers, Kstep='+str(i)+' \n Simulation: '+DirString
+#			Xlabel,Ylabel = 'Energy $\epsilon_{i}$ [keV]','Angular Momentum $p_{\phi}$ \n [kg m${^2}$ s$^{-1}$]'
+			Xlabel,Ylabel = 'Radius R','Angular Momentum $p_{\phi}$ \n [kg m${^2}$ s$^{-1}$]'
+#			Xlabel,Ylabel = 'Radius R','Energy $\epsilon_{i}$ [keV]'
+#			Xlabel,Ylabel = 'Radius R','Height Z'
 			Legend = list()
 
-			#Plot figure											#$\int f(\epsilon_{i}) dt$
-			im = ax.imshow(HistData, extent=extent, aspect='auto')
-			cbar = Colourbar(ax,im,'Ion Energy Distribution Function $f(\epsilon_{i})$ [-]',5)
-			ImageOptions(fig,ax,Xlabel,Ylabel,'',Legend)
-			#
-			plt.show()
+			#Plot 2D toroidally resolved IEDF
+			im1 = ax[0].imshow(HistData2D.T, extent=extent, aspect='auto')
+#			ln1 = ax[0].plot(XAxis,np.zeros(len(XAxis)), 'r--', lw=2)
+			cbar1 = Colourbar(ax[0],im1,'IEDF $f(\epsilon_{i})$ [-]',5)
+			ImageOptions(fig,ax[0],'',Ylabel,Title,Legend)
+			
+			#Plot 1D toroidally integrated IEDF								
+			im2 = ax[1].plot(XAxis1D[0:-1], HistData1D, lw=2)
+			cbar2 = InvisibleColourbar(ax[1])
+			ImageOptions(fig,ax[1],Xlabel,'IEDF $f(\epsilon_{i})$ [-]','',Legend)
+			ax[1].set_xlim(min(XAxis1D),max(XAxis1D))									#USE FIXED FULL RANGE
+
+			#Save temporal response figure for current simulation directory
+			SaveString = 'Kinetics_'+str(i)+'_'+ext
+			plt.savefig(DirKinetics+SaveString)
+#			plt.show()
 			plt.close('all')
 		#endfor
 	#endfor
@@ -3196,7 +3279,7 @@ if True == False:
 
 			#Load data from TECPLOT_KIN file and unpack into 1D array.
 			rawdata, nn_kin = ExtractRawData(Dir,'TECPLOT_KIN.PDT',l)
-			rawdata_kin.append(rawdata)
+			rawKineticsData.append(rawdata)
 		#endif
 
 
@@ -3208,7 +3291,7 @@ if True == False:
 
 			#Load data from TECPLOT_KIN file and unpack into 1D array.
 			rawdata, nn_kin = ExtractRawData(Dir,'TECPLOT_KIN.PDT',l)
-			rawdata_kin.append(rawdata)
+			rawKineticsData.append(rawdata)
 		#endif
 
 
@@ -3271,16 +3354,16 @@ if savefig_kineticsJAVI == True:
 	print(Filename)
 
 	#Initiate kinetic data array of size num variables saved in write_ep() subroutine
-	#Data_Kin :: 2D Array of shape [marker(n),variable(n)]
-	Data_Kin = np.array([]).reshape(0,10)
+	#KineticsData :: 2D Array of shape [marker(n),variable(n)]
+	KineticsData = np.array([]).reshape(0,10)
 
-	#Concatenate marker data from all cores into Data_Kin
+	#Concatenate marker data from all cores into KineticsData
 	for i in tqdm( range(len(CommFiles)/NCoreMod) ):
 		Data_Fragment = np.loadtxt(CommFiles[i])
 		if Data_Fragment.ndim == 2:
-			Data_Kin = np.concatenate((Data_Kin,Data_Fragment))
+			KineticsData = np.concatenate((KineticsData,Data_Fragment))
 		elif len(Data_Fragment) == 1:
-			Data_Kin = np.concatenate((Data_Kin,Data_Fragment.T))
+			KineticsData = np.concatenate((KineticsData,Data_Fragment.T))
 		#endif
 	#endfor
 
@@ -3289,7 +3372,7 @@ if savefig_kineticsJAVI == True:
 	#1D TEST ZONE
 	if True == False:
 		nBins = 100
-		XData1D = Data_Kin[:,3]						#'E_gc'
+		XData1D = KineticsData[:,3]						#'E_gc'
 
 		#Histogram data over bin range
 		Hist = np.histogram(XData1D, bins=nBins)[0]
@@ -3320,9 +3403,9 @@ if savefig_kineticsJAVI == True:
 
 	if True == True:
 		#
-		XData = Data_Kin[:,6]						#'pphi_gc'
+		XData = KineticsData[:,6]						#'pphi_gc'
 		Xmin,Xmax = min(XData), max(XData)
-		YData = Data_Kin[:,3]						#'E_gc'
+		YData = KineticsData[:,3]						#'E_gc'
 		Ymin,Ymax = min(YData), max(YData)
 
 		#
