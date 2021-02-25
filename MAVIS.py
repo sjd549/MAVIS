@@ -157,7 +157,7 @@ setting_kstep = [000,399]				#kstep index range to plot 	- [Min,Max], [Int], [] 
 
 
 #Requested diagnostics and plotting routines:
-savefig_1Dtotalenergy = True			#Plot 1D total energy trends 		(xxx.energy_p)	- Working
+savefig_1Dtotalenergy = False			#Plot 1D total energy trends 		(xxx.energy_p)	- Working
 savefig_1Dspectralenergy = True			#Plot 1D spectral energy trends 	(xxx.energy_n)	- Working
 
 savefig_1Dequilibrium = False			#Plot 1D equilibrium profiles		(xxx.harmonics) - Working
@@ -736,23 +736,23 @@ def Read_MEGAHarmonics(Filename,Variable,mpol,ntor,lpsi,kstep=np.nan):
 		Data = lambda:0
 		Data.kst = np.array(([]),int)									#1D KStep Array 	[-]
 		Data.time = np.array(([]),float)								#1D Time Array 		[IonGyroFreq*ms]
-		Data.vrad    = np.empty(([0,mpol+1,ntor,lpsi,2]),np.float64)	#3D Radial   Velocity Array	[-]
-		Data.vtheta  = np.empty(([0,mpol+1,ntor,lpsi,2]),np.float64)	#3D Poloidal Velocity Array	[-]
-		Data.vphi    = np.empty(([0,mpol+1,ntor,lpsi,2]),np.float64)	#3D Toroidal Velocity Array	[-]
-		Data.brad    = np.empty(([0,mpol+1,ntor,lpsi,2]),np.float64)	#3D Radial   B-Field  Array	[-]
-		Data.btheta  = np.empty(([0,mpol+1,ntor,lpsi,2]),np.float64)	#3D Poloidal B-Field  Array	[-]
-		Data.bphi    = np.empty(([0,mpol+1,ntor,lpsi,2]),np.float64)	#3D Toroidal B-Field  Array	[-]
-		Data.erad    = np.empty(([0,mpol+1,ntor,lpsi,2]),np.float64)	#3D Radial   E-Field  Array	[-]
-		Data.etheta  = np.empty(([0,mpol+1,ntor,lpsi,2]),np.float64)	#3D Poloidal E-Field  Array	[-]
-		Data.ephi    = np.empty(([0,mpol+1,ntor,lpsi,2]),np.float64)	#3D Toroidal E-Field  Array	[-]
-		Data.prs     = np.empty(([0,mpol+1,ntor,lpsi,2]),np.float64)	#3D ????????????????  Array	[-]
-		Data.rho     = np.empty(([0,mpol+1,ntor,lpsi,2]),np.float64)	#3D ????????????????  Array	[-]
-		Data.dns_a   = np.empty(([0,mpol+1,ntor,lpsi,2]),np.float64)	#3D ????????????????  Array	[-]
-		Data.mom_a   = np.empty(([0,mpol+1,ntor,lpsi,2]),np.float64)	#3D ????????????????  Array	[-]
-		Data.ppara_a = np.empty(([0,mpol+1,ntor,lpsi,2]),np.float64)	#3D Para Pressure???  Array	[-]
-		Data.pperp_a = np.empty(([0,mpol+1,ntor,lpsi,2]),np.float64)	#3D Perp Pressure???  Array	[-]
-		Data.qpara_a = np.empty(([0,mpol+1,ntor,lpsi,2]),np.float64)	#3D Para Safety Fac?  Array	[-]
-		Data.qperp_a = np.empty(([0,mpol+1,ntor+lpsi,2]),np.float64)	#3D Perp Safefy Fac?  Array	[-]
+		Data.vrad    = np.empty(([0,mpol+1,ntor,lpsi,2]),np.float64)	#3D Radial   Velocity 	Array	[-]
+		Data.vtheta  = np.empty(([0,mpol+1,ntor,lpsi,2]),np.float64)	#3D Poloidal Velocity 	Array	[-]
+		Data.vphi    = np.empty(([0,mpol+1,ntor,lpsi,2]),np.float64)	#3D Toroidal Velocity 	Array	[-]
+		Data.brad    = np.empty(([0,mpol+1,ntor,lpsi,2]),np.float64)	#3D Radial   B-Field  	Array	[-]
+		Data.btheta  = np.empty(([0,mpol+1,ntor,lpsi,2]),np.float64)	#3D Poloidal B-Field  	Array	[-]
+		Data.bphi    = np.empty(([0,mpol+1,ntor,lpsi,2]),np.float64)	#3D Toroidal B-Field  	Array	[-]
+		Data.erad    = np.empty(([0,mpol+1,ntor,lpsi,2]),np.float64)	#3D Radial   E-Field  	Array	[-]
+		Data.etheta  = np.empty(([0,mpol+1,ntor,lpsi,2]),np.float64)	#3D Poloidal E-Field  	Array	[-]
+		Data.ephi    = np.empty(([0,mpol+1,ntor,lpsi,2]),np.float64)	#3D Toroidal E-Field  	Array	[-]
+		Data.prs     = np.empty(([0,mpol+1,ntor,lpsi,2]),np.float64)	#3D MHD Pressure	  	Array	[-]
+		Data.rho     = np.empty(([0,mpol+1,ntor,lpsi,2]),np.float64)	#3D MHD density		  	Array	[-]
+		Data.dns_a   = np.empty(([0,mpol+1,ntor,lpsi,2]),np.float64)	#3D KIN Marker Density	Array	[-]
+		Data.mom_a   = np.empty(([0,mpol+1,ntor,lpsi,2]),np.float64)	#3D KIN Marker Momentum	Array	[-]
+		Data.ppara_a = np.empty(([0,mpol+1,ntor,lpsi,2]),np.float64)	#3D KIN Para Momentum  	Array	[-]
+		Data.pperp_a = np.empty(([0,mpol+1,ntor,lpsi,2]),np.float64)	#3D KIN Perp Momentum  	Array	[-]
+		Data.qpara_a = np.empty(([0,mpol+1,ntor,lpsi,2]),np.float64)	#3D KIN Para Safety		Array	[-]
+		Data.qperp_a = np.empty(([0,mpol+1,ntor+lpsi,2]),np.float64)	#3D KIN Perp Safefy 	Array	[-]
 	#endif
 
 	#Open SEQ.harmonics file and ensure data exists
@@ -1872,7 +1872,7 @@ if savefig_1Dtotalenergy == True:
 		SubString = DirString.split('_')[-1]
 
 		#Extract Energy_Phys outputs and header for plotting
-		#Energy_Phys: [folder][variable][timestep]
+		#Energy_Phys: [variable][timestep]
 		Energy_Phys,Header_Phys = ExtractMEGA_Energy(Dir[l],'energy_phys')
 
 		#Extract normalisation factors for current simulation folder
@@ -1919,59 +1919,188 @@ if savefig_1Dtotalenergy == True:
 				 	 #SPECTRAL ENERGY DIAGNOSTIC#
 #====================================================================#
 
+
+#Warning: Output is only defined for Order > 0!
+#Example: DxDyArray = VectorDerivative(TimeArray,EnergyArray,Order=1 )[0]
+def VectorDerivative(XArray,YArray,Order=1):
+
+	#Compute i'th derivative of supplied arrays
+	for i in range(0,Order):
+
+		#Calculate derivative arrays - i.e. compute difference between successive indices
+		DxArray = np.diff(XArray).tolist()
+		DyArray = np.diff(YArray).tolist()
+		print len(DxArray)
+
+		#Calculate gradient array - i.e. derivative of Y to X
+		DxDyArray = [DyArray[j]/DxArray[j] for j in range(0,len(DxArray))]
+
+		#Sum derivatives up to each index in sequence to reconstruct XArray and set YArray to DxDy
+		#Only required for calculation of higher order derivatives (Order > 1) - ARRAYS NOT RETURNED
+		XArray = [sum(DxArray[0:j]).tolist() for j in range(0,len(DxArray))]
+		YArray = np.log(DxDyArray)		# HACKY, ONLY TRUE FOR EXPONENTIAL GROWTH
+	#endfor
+
+	return(DxDyArray,DxArray,DyArray)
+#enddef
+
+
+
+
+
 if savefig_1Dspectralenergy == True:
 
 	#For each detected simulation folder
 	for l in tqdm(range(0,len(Dir))):
+
+		#DEVELOPMENT SETTINGS - settings_inputs to be moved to switchboard
+#		print Dir[l].split('/')[-2]
+		seq = setting_seq[1]				#requested SEQ file index (001 = 0)	!!! NEEDS A FUNCTION !!!
+		ntor = 2 #setting_ntor[1]				#requested ntor mode number			!!! NEEDS A FUNCTION !!!
+		KstepIdx = setting_kstep[1]			#requested kstep index 				!!! NEEDS A FUNCTION !!!
+
+
 		#Create global 1D diagnostics folder and extract current simulation name
 		DirEnergy = CreateNewFolder(Dir[l],'1DEnergy_Profiles/')
 		DirString = Dir[l].split('/')[-2]
 		SubString = DirString.split('_')[-1]
 
 		#Extract Energy_n outputs and header for plotting
-		#energy_n: [folder][variable][timestep]
+		#energy_n: [variable][timestep]
 		Energy_n,Header_n = ExtractMEGA_Energy(Dir[l],'energy_n')
+		KStepArray = Energy_n[0]					#KStep Array			[-]
+		TimeArray = Energy_n[1]						#Time Array				[ms]
+		DeltaKstep = KStepArray[1]-KStepArray[0]	#KStep Interval 		[-]
+		DeltaTime = TimeArray[1]-TimeArray[0]		#Time Interval 			[ms]
+		KStepMod = len(KStepArray)/(seq+1)			#KStep indices per seq 	[-]
 
 		#Extract normalisation factors for current simulation folder
 		Variables,Values,Units = ExtractMEGA_Normalisations(Dir[l])
 #		print Variables[1],Values[1],Units[1]
 
-		#Compute rate of change of energy for each harmonic
+		#Compute 1st derivative of energy for each harmonic
 		DeltaEnergy_n = list()
-		DeltaEnergy_n.append(Energy_n[0][1::])		#Add kstep array
-		DeltaEnergy_n.append(Energy_n[1][1::])		#Add time array
-		for i in range (2,len(Energy_n)):
-			DeltaEnergy_n.append( list() )			#Add i'th harmonic array
-			for j in range(1,len(Energy_n[i])):
-				DeltaEnergy = (Energy_n[i][j]-Energy_n[i][j-1])
-				DeltaTime = (Energy_n[1][j]-Energy_n[1][j-1])
-				DeltaEnergy_n[i].append( DeltaEnergy/DeltaTime )
+		DeltaEnergy_n.append(KStepArray[0:-1])			#Add kstep array
+		DeltaEnergy_n.append(TimeArray[0:-1])			#Add time array
+		for i in range(2,len(Energy_n)):
+			EnergyArray = np.log(Energy_n[i])			#Add i'th harmonic array
+			DeltaEnergy_n.append( VectorDerivative(TimeArray,EnergyArray,1 )[0] )
 			#endfor
 		#endfor
 
+		#Compute 2nd derivative of energy for each harmonic
+		Delta2Energy_n = list()
+		Delta2Energy_n.append(KStepArray[0:-2])			#Add kstep array
+		Delta2Energy_n.append(TimeArray[0:-2])			#Add time array
+		for i in range(2,len(Energy_n)):
+			EnergyArray = np.log(Energy_n[i])			#Add i'th harmonic array
+			Delta2Energy_n.append( VectorDerivative(TimeArray,EnergyArray,2 )[0] )
+			#endfor
+		#endfor
+
+
+
 		#==========##==========#
+
+		#NOTES 
+#		- 	VECTOR DERIVATIVE NEEDS COMMENTED AND CLEANED UP (QUITE CONFUSING AT THE MOMENT)
+#		- 	THE 1ST AND 2ND DERIVATIVES NEED CLEANED UP, IDEALLY JUST WITH ONE OR TWO LINES
+#		-	NEED TO CHECK PHYSICAL 'MEANING' OF THE DERIVATIVE, I THINK FLAT DERIVATIVES MAKE SENSE HERE?
+#		-	NEED TO CLEAN UP THE LinearRegion AND SMOOTHING STUFF, POTENTIALLY MAKE A FUNCTION?
+#		- 	THE BELOW METHOD IS BAD AS IT ONLY USES THE FIRST AND LAST ELEMENTS OF LINEAR REGION
+#			BETTER METHOD IS TO AVERAGE ALL THE 1st DERIVATIVES USING LinearRegion AS A MASK
+#			NEED TO CHECK THE MATHS ON THAT THOUGH, JUST TO ENSURE IT ALL MAKES SENSE...	
+
+		#Smooth 2nd derivative trends
+		#Smooth kinetic data prior to analysis if requested (Savitzk-Golay filter)
+		if KineticFiltering == True:
+			WindowSize, PolyOrder = Glob_SavWindow, Glob_SavPolyOrder
+			Delta2Energy_n[ntor+2] = (savgol_filter(Delta2Energy_n[ntor+2], WindowSize, PolyOrder)).tolist()
+		#endif
+
+#		if DebugMode == True:
+#			WindowSize, PolyOrder = Glob_SavWindow, Glob_SavPolyOrder
+#			Delta2Energy_n_DEBUG = (savgol_filter(Delta2Energy_n[2], WindowSize, PolyOrder)).tolist()
+#
+#			plt.plot(Delta2Energy_n[1],Delta2Energy_n[2], 'k-', lw=2)			#Unsmoothed
+#			plt.plot(Delta2Energy_n[1],Delta2Energy_n_DEBUG, 'r-', lw=2)		#Smoothed
+#			plt.legend(['Unsmoothed','Smoothed'])
+#			plt.show()
+		#endif
+
+		#Determine temporal extent of linear growth region, i.e. where 2nd derivative is close to zero
+		Threshold = 100
+		LinearRegion = list()
+		for i in range(0,len(Delta2Energy_n[0])):
+			if abs(Delta2Energy_n[ntor+2][i]) < Threshold: 	LinearRegion.append(1)
+			else: 											LinearRegion.append(0)
+		#endfor
+
+		#Smooth Threshold (Savitzk-Golay filter)
+		WindowSize, PolyOrder = Glob_SavWindow, Glob_SavPolyOrder
+		LinearRegion = (savgol_filter(LinearRegion, WindowSize, PolyOrder)).tolist()
+		#endif
+
+		#Cut Linear Region at 0.5
+		for i in range(0,len(LinearRegion)):
+			if LinearRegion[i] > 0.5: LinearRegion[i] = 1.0
+			else: LinearRegion[i] = 0.0
+		#endfor
+
+		#Compute linear phase growth rate gamma, where Eend = Estart*exp{gamma*dt}
+		#gamma = ln(Eend/Estart)/dt
+		StartIdx = LinearRegion.index(1)
+		EndIdx = len(LinearRegion) - LinearRegion[::-1].index(1)
+
+		tstart = TimeArray[StartIdx]
+		tend = TimeArray[EndIdx]
+		dt = tend-tstart
+
+		Estart = Energy_n[ntor+2][StartIdx]					#Can't be zero
+		Eend = Energy_n[ntor+2][EndIdx]
+		Eratio = Eend/Estart
+
+		gamma = np.log(Eend/Estart)/dt
+#		print('')
+#		print( round(tstart,3), round(tend,3) )
+#		print( round(Estart,3), round(Eend,3) )
+#		print( round(gamma,2), '[s-1]')
+#		print('')
+
+#		exit()
+
+		#==========##==========#
+
+
 
 		#Create fig of desired size.
 		fig,ax = figure(image_aspectratio,[2,1])
 
 		#Define Title, Legend, Axis Labels etc...
 		Title = 'Spectrally Resolved Energy Evolution for \n '+DirString
-		Xlabel,Ylabel = 'Time [ms]', 'Energy (Log$_{10}$) [-]'
+		Xlabel,Ylabel = '', 'Energy $\epsilon_{n}$ (Log$_{10}$) [-]'
 		Legend = list()
 
-		#Plot total energy of each harmonic component
+		#Plot total energy for each harmonic component
 		for i in range(2,len(Energy_n)):
-			ax[0].plot(Energy_n[1],np.log10(Energy_n[i]), lw=2)
+			ax[0].plot(TimeArray,np.log10(Energy_n[i]), lw=2)
 			Legend.append( 'n = '+str(i-2) )
 		#endfor
-		ImageOptions(fig,ax[0],'',Ylabel,Title,Legend)
+		ImageOptions(fig,ax[0],Xlabel,Ylabel,Title,Legend)
 
-		#Plot rate of change of energy of each harmonic component
+
+		#Define Title, Legend, Axis Labels etc...
+		Title = 'Spectrally Resolved Energy Evolution for \n '+DirString
+		Xlabel,Ylabel = 'Time [ms]', '$\Delta$ Energy $\\frac{d \epsilon_{n}}{d t}$ (Log$_{10}$) [-]'
+		Legend = list()
+
+		#Plot 1st derivative of energy for each harmonic component
 		for i in range(2,len(Energy_n)):
-			ax[1].plot(DeltaEnergy_n[1],np.log10(DeltaEnergy_n[i]), lw=2)
+			ax[1].plot(TimeArray[0:-1],np.log10(DeltaEnergy_n[i]), lw=2)
 			Legend.append( 'n = '+str(i-2) )
 		#endfor
-		ImageOptions(fig,ax[1],Xlabel,'$\Delta_{t}$ '+Ylabel,'',Legend)
+		ax[1].plot(Delta2Energy_n[1],LinearRegion)				#if DebugMode == True:
+		ImageOptions(fig,ax[1],Xlabel,Ylabel,'',Legend)
 
 		#Save and close open figure(s)
 		plt.savefig(DirEnergy+'SpectralEnergy_'+SubString+ext)
@@ -2040,6 +2169,7 @@ if savefig_1Dequilibrium == True:
 		seq = setting_seq[1]				#requested SEQ file index (001 = 0)	!!! NEEDS A FUNCTION !!!
 		ntor = setting_ntor[1]				#requested ntor mode number			!!! NEEDS A FUNCTION !!!
 		KstepIdx = setting_kstep[1]			#requested kstep index 				!!! NEEDS A FUNCTION !!!
+
 
 		#Create global 1D diagnostics folder and extract current simulation name
 		DirEquil1D = CreateNewFolder(Dir[l],'1DEquil_Profiles/')
