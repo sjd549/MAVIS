@@ -143,9 +143,9 @@ Kin = ['R_gc','Z_gc','Phi_gc','p_gc','pphi_gc','mu_gc','E_gc','Lambda_gc','psip'
 #====================================================================#
 
 #Requested Variables and Plotting Locations:
-variables = ['brad','erad']+Kin	#Phys						#Requested variables to plot			#Phys+Kin
+variables = ['brad']	#Phys			#Requested variables to plot			#Phys+Kin
 
-radialprofiles = [90,120]					#1D Radial Profiles (fixed theta, phi) :: Poloidal Angle [deg]
+radialprofiles = [90,120]				#1D Radial Profiles (fixed theta, phi) :: Poloidal Angle [deg]
 poloidalprofiles = []					#1D Poloidal Profiles (fixed rho_pol, phi) :: Norm. Radius [-]
 toroidalprofiles = []					#1D Toroidal Profiles (fixed rho_pol, theta) :: Toroidal Angle [deg]
 trendlocation = [] 						#Cell location For Trend Analysis [R,theta,phi], ([] = min/max)
@@ -153,14 +153,14 @@ trendlocation = [] 						#Cell location For Trend Analysis [R,theta,phi], ([] = 
 #Various Diagnostic Settings:
 setting_seq = [0,0]						#Simulation seq to load		- [Min,Max], [Int], [-1] to load last
 setting_ntor = [0,2]					#ntor range to plot 		- [Min,Max], [Int], [] to plot all
-setting_kstep = [000,10]				#kstep index range to plot 	- [Min,Max], [Int], [] to plot all
+setting_kstep = [30,399,1]				#kstep index range to plot 	- [Min,Max,Step], [Int], [] to plot all
 
 
 #Requested diagnostics and plotting routines:
 savefig_1Dtotalenergy = False			#Plot 1D total energy trends 		(xxx.energy_p)	- Working
 savefig_1Dspectralenergy = False			#Plot 1D spectral energy trends 	(xxx.energy_n)	- Working
 
-savefig_1Dequilibrium = False			#Plot 1D equilibrium profiles		(xxx.harmonics) - Working
+savefig_1Dequilibrium = True			#Plot 1D equilibrium profiles		(xxx.harmonics) - Working
 savefig_2Dequilibrium = False			#Plot 2D equilibrium figures		(xxx.harmonics)	- Working
 savefig_2Dequilmovie = False			#Plot 2D equilibrium movies			(xxx.harmonics)	- Working
 savefig_2Dresponse = False				#Plot 2D plasma response 			(xxx.harmonics)	- Working
@@ -207,11 +207,27 @@ cbaroverride = []
 #=====================================================================#
 
 
-
-
-
-
-
+#					TO DO FOR TODAY:
+#
+#Combine all equil plots into a folder [Equil Plots] -->  1DProfiles -- > Radial
+#																		  Poloidal
+#
+#														  2DProfiles -- > Poloidal
+#
+#Get all SEQ, Ntor loops working as they should - Functional Switchboard
+#
+#FIX ISSUE WHERE "outputdata is referenced before assignment" IF FILENAME HAS A SPACE IN IT
+#
+#REMOVE RELIANCE ON ENERGY_N FOR KSTEP AND TIME AXES... WON'T WORK IF KHARM != KCHK
+#
+#MAKE ALL 'BACKEND' INPUTS INTO FUNCTIONS - ENERGY KSTEP READIN, ETC...
+#
+#FINISH MODE GROWTH RATE DIAGNOSTIC - V1 JUST NEEDS TO PLOT 'SOMETHING'.
+#
+#FINISH 1D PLOTTING ROUTINE WITH POLOIDAL EXTRACTION FUNCTION
+#
+#FINISH PLASMA RESPONSE ROUTINE WITH POLOIDALLY RESOLVED VERSION
+#
 
 
 
@@ -220,6 +236,8 @@ cbaroverride = []
 #        ####TODO####        #
 #============================#
 
+#REMOVE RELIANCE ON ENERGY_N FOR KSTEP AND TIME AXES... WON'T WORK IF KHARM != KCHK
+#
 #FIX ISSUE WHERE "outputdata is referenced before assignment" IF FILENAME HAS A SPACE IN IT
 #
 #FINISH 1D PLOTTING ROUTINE WITH POLOIDAL EXTRACTION FUNCTION
@@ -230,7 +248,7 @@ cbaroverride = []
 #
 #ADD INFORMATION REGARDING SIMULATION RESOLUTION SEQ, KSTEP, ETC... BELOW MAVIS SPLASH
 #
-#ADD DIAGNOSTIC COMPARING ENERGY CONVERGENCE BETWEEN MULTIPLE SIMULATIONS
+#ADD DIAGNOSTIC COMPARING ENERGY CONVERGENCE BETWEEN MULTIPLE SIMULATIONS  (FINISH GAMMA DIAGNOSTIC)
 #
 #ADD ABILITY TO SAVE ASCII DATA FOR 2D IMAGES (PARTICULARILY PLASMA RESPONSE)
 #
@@ -684,7 +702,7 @@ def ExtractMEGA_Energy(Dir,Filename='energy_n'):
 #=========================#
 
 def Read_MEGAHarmonics(Filename,Variable,mpol,ntor,lpsi,kstep=np.nan):
-#Reads MEGA xxx.harmonics output file and extracts data into 5D object.
+#Reads MEGA xxx.harmonics FORTRAN binary output file and extracts data into a 3D or 4D object.
 #Data is read for a single variable [variable] over all timesteps [KStep], for a single SEQ
 #Inputs: SEQ.harmonics filepath [no Root], Variable name string [Variable] as defined in DataFormat,
 #Inputs: Radial mesh resolution [lpsi], poloidal mesh resolution [mpol], 
@@ -697,7 +715,7 @@ def Read_MEGAHarmonics(Filename,Variable,mpol,ntor,lpsi,kstep=np.nan):
 
 	#Define FORTRANFile save data format
 	#KStep (kst) is an undefined length 1D integer array		[-]
-	#t (SI Time) is an undefined length 1D float array 			[1e8*IonGyroFreq*ms]
+	#t (SI Time) is an undefined length 1D float array 			[IonGyroFreq*ms]
 	#r_psi, gpsi_nrm, q_psi are [lpsi] length 1D float arrays 	[various]
 	#All other variables are [n_elem] length 1D float arrays 	[various]
 	DataFormat = np.dtype([\
@@ -764,45 +782,40 @@ def Read_MEGAHarmonics(Filename,Variable,mpol,ntor,lpsi,kstep=np.nan):
 		FORTRANFile.close(); exit()
 	#endtry
 
-	#=====#=====#
+	#=====#=====# 	#=====#=====# 	#=====#=====#
 
-	#IF NO kstep supplied, read SINGLE VARIABLE FOR ALL KSTEP values into a 4D HarmonicsData object
-	#Read data for each Kstep from the supplied SEQ.harmonics output folder
-	#Save data for requested variable for each Kstep in the process
-	if np.isnan(kstep) == True:
-		kstep = 0													#Initiate kstep index to zero
+	#IF kstep == -1 is supplied, ONLY READ TEMPORAL AND SPATIAL AXES into a 1D HarmonicsData object
+	#Read 1D rho_pol and q_psi on first iteration, and save 1D kstep and time arrays for plotting
+	if kstep == -1:													#elif: Dimension == '1D'
+		index = 0													#Initiate search index to zero
 		while(True):
 			#FORTRANFile.read_record automatically steps through all KSteps in the supplied SEQ.harmonics file.
 			#RawData for KStep[i] is of shape RawData[Variable][datapoint] where all variables are flattened to 1D
-			#Note: Rawdata Variable field is supplied as a string rather than as an index
 			try: RawData = FORTRANFile.read_record(DataFormat)		#Read KStep=0, if open then read KStep=1, etc...
 			except: FORTRANFile.close(); break						#If no KSteps remain, close FORTRAN file
 			#endtry
 
 			#Only extract rho_pol and q_psi on first Kstep
-			if kstep == 0:
-				Data.rho_pol = np.sqrt(abs(RawData['gpsi_nrm'][0]))			#[-]
-				Data.q_psi   = RawData['q_psi'][0]							#[-]
-			#Always extract 1D Kstep and Time arrays - Shape = Data.kst[Real]
-			Data.kst  = np.append(Data.kst,  RawData['kst'][0])				#[-]
-			Data.time = np.append(Data.time, RawData['t'][0])				#[IonGyroFreq*ms]
+			if index == 0:
+				Data.rho_pol = np.sqrt(abs(RawData['gpsi_nrm'][0]))
+				Data.q_psi   = RawData['q_psi'][0]
+			#Always extract 1D Kstep and Time arrays
+			Data.kst     = np.append(Data.kst,  RawData['kst'][0])
+			Data.time    = np.append(Data.time, RawData['t'][0])#*1e3/wa
 			#Print kstep for debug purposes if requested
-			if DebugMode == True: print(str(i)+'-'+str(data.kst[i]))
-
-			#Extract requested variable and reshape from 1D array into 4D array
-			#Data structures of shape: Data.data[kstep][mpol][ntor][lpsi][A/B]
-			Data.data=np.concatenate((Data.data, np.reshape(RawData[Variable],(1,mpol+1,ntor,lpsi,2),order='F')))
+			if DebugMode == True: print(str(index)+'-'+str(Data.kst[index]))
+			#endif
 
 			#Delete RawData for current KStep and increment KStep counter
-	  		del RawData; kstep += 1
+	  		del RawData; index += 1
 		#endwhile
 
 	#=====#=====#
 
-	#IF Kstep is supplied, read ALL VARIABLES FOR SINGLE KSTEP into a 3D HarmonicsData object
+	#IF Kstep > 0 is supplied, read ALL VARIABLES FOR SINGLE KSTEP into a 3D HarmonicsData object
 	#Read data for each Kstep from the supplied SEQ.harmonics output folder
 	#Save data for all variables once the requested Kstep is reached
-	elif np.isnan(kstep) == False:
+	elif np.isnan(kstep) == False:									#elif: Dimension == '3D'
 		index = 0													#Initiate search index to zero
 		while(index <= kstep):
 			#FORTRANFile.read_record automatically steps through all KSteps in the supplied SEQ.harmonics file.
@@ -849,16 +862,49 @@ def Read_MEGAHarmonics(Filename,Variable,mpol,ntor,lpsi,kstep=np.nan):
 		#If final index is below requested kstep no data will be saved, causing crashes.
 		#Inform user and exit program (adding dummy data might allow for soft crashes)
 		if index < kstep:
-			MaxKstep = setting_seq[0]*index*(Data.kst[1]-Data.kst[0])
+			MaxKstep = (setting_seq[0]+1)*index*(Data.kst[1]-Data.kst[0])
 			print('')
-			print('#=========================================#')
-			print('Requested Kstep exceeds seq.harmonics range')
-			print('Index: '+str(index)+' Kstep: '+str(MaxKstep))
-			print('Please reduce requested Kstep and retry    ')
-			print('#=========================================#')
+			print('#===========================================#')
+			print('Requested Kstep exceeds SEQ.harmonics range')
+			print('Max Kstep Index: '+str(index)+'   ::   Max Kstep: '+str(MaxKstep))
+			print('Please reduce requested Kstep index and retry')
+			print('#===========================================#')
 			print('')
 			exit()
 		#endif
+
+	#=====#=====#
+
+	#IF NO kstep supplied, read SINGLE VARIABLE FOR ALL KSTEP values into a 4D HarmonicsData object
+	#Read data for each Kstep from the supplied SEQ.harmonics output folder
+	#Save data for requested variable for each Kstep in the process
+	elif np.isnan(kstep) == True:									#elif: Dimension == '4D'
+		kstep = 0													#Initiate kstep index to zero
+		while(True):
+			#FORTRANFile.read_record automatically steps through all KSteps in the supplied SEQ.harmonics file.
+			#RawData for KStep[i] is of shape RawData[Variable][datapoint] where all variables are flattened to 1D
+			#Note: Rawdata Variable field is supplied as a string rather than as an index
+			try: RawData = FORTRANFile.read_record(DataFormat)		#Read KStep=0, if open then read KStep=1, etc...
+			except: FORTRANFile.close(); break						#If no KSteps remain, close FORTRAN file
+			#endtry
+
+			#Only extract rho_pol and q_psi on first Kstep
+			if kstep == 0:
+				Data.rho_pol = np.sqrt(abs(RawData['gpsi_nrm'][0]))			#[-]
+				Data.q_psi   = RawData['q_psi'][0]							#[-]
+			#Always extract 1D Kstep and Time arrays - Shape = Data.kst[Real]
+			Data.kst  = np.append(Data.kst,  RawData['kst'][0])				#[-]
+			Data.time = np.append(Data.time, RawData['t'][0])				#[IonGyroFreq*ms]
+			#Print kstep for debug purposes if requested
+			if DebugMode == True: print(str(i)+'-'+str(data.kst[i]))
+
+			#Extract requested variable and reshape from 1D array into 4D array
+			#Data structures of shape: Data.data[kstep][mpol][ntor][lpsi][A/B]
+			Data.data=np.concatenate((Data.data, np.reshape(RawData[Variable],(1,mpol+1,ntor,lpsi,2),order='F')))
+
+			#Delete RawData for current KStep and increment KStep counter
+	  		del RawData; kstep += 1
+		#endwhile
 	#endif
 
 	#=====#=====#
@@ -961,18 +1007,34 @@ def ExtractMEGA_Harmonics(DataDir,Variable,ntor,kstep=np.nan,SEQ=0,Dimension='1D
 
 	#=====#=====#	#=====#=====#
 
+	#IF Kstep == -1, is supplied ONLY READ TEMPORAL AND SPATIAL AXES into a 1D HarmonicsData object
 	#Extract Kstep and Time arrays for plotting purposes, ignoring all other data.
 	if Dimension == '1D':
-		a=1
+		Variable = 'NaN'		#Variable is a dummy input here - Not used.
+		#Object Shape: HarmonicsData[kstep][mpol][ntor][lpsi][A/B]
+		HarmonicData = list()
+		for i in range(0,len(DataFiles)):
+			HarmonicData.append( Read_MEGAHarmonics(DataFiles[i],Variable,mpol,ntor,lpsi,kstep=-1) )
+		#endfor
+
+		#Concatenate data from all SEQs into one continuous array for each variable within HarmonicData object
+		for i in range(0,len(HarmonicData)-1):
+			pop = HarmonicData.pop(1)										#'Pops' and removes 1st SEQ data array
+			HarmonicData[0].kst  = np.append(HarmonicData[0].kst, pop.kst)	#Appends to zero'th SEQ data array
+			HarmonicData[0].time = np.append(HarmonicData[0].time, pop.time)
+			del pop															#Refresh pop array and repeat
+		#endfor
+		HarmonicData = HarmonicData[0]		#Replace data object with fully appended (i.e. flattened) data array
 	#endif
 
 	#=====#=====#
 
-	#IF Kstep index is supplied, read ALL VARIABLES FOR SINGLE KSTEP into a 3D HarmonicsData object
+	#IF Kstep index > 0 is supplied, read ALL VARIABLES FOR SINGLE KSTEP into a 3D HarmonicsData object
 #	elif isinstance(kstep, int) and isinstance(SEQ, int):
 	elif Dimension == '3D': 
 		#Object Shape: HarmonicsData[mpol][ntor][lpsi][A/B]
-		HarmonicData = Read_MEGAHarmonics(DataFiles[SEQ],Variable,mpol,ntor,lpsi,kstep)		#Variable is a dummy here.
+		Variable = 'NaN'		#Variable is a dummy input here - Not used.
+		HarmonicData = Read_MEGAHarmonics(DataFiles[SEQ],Variable,mpol,ntor,lpsi,kstep)
 	#endif
 
 	#=====#=====#
@@ -988,15 +1050,43 @@ def ExtractMEGA_Harmonics(DataDir,Variable,ntor,kstep=np.nan,SEQ=0,Dimension='1D
 
 		#Concatenate data from all SEQs into one continuous array for each variable within HarmonicData object
 		for i in range(0,len(HarmonicData)-1):
-			aux = HarmonicData.pop(1)										#'Pops' and removes 1st SEQ data array
-			HarmonicData[0].kst  = np.append(HarmonicData[0].kst, aux.kst)	#Appends to zero'th SEQ data array
-			HarmonicData[0].time = np.append(HarmonicData[0].time, aux.time)
-			HarmonicData[0].data = np.concatenate((HarmonicData[0].data, aux.data))
-			del aux															#Refresh aux array and repeat
+			pop = HarmonicData.pop(1)										#'Pops' and removes 1st SEQ data array
+			HarmonicData[0].kst  = np.append(HarmonicData[0].kst, pop.kst)	#Appends to zero'th SEQ data array
+			HarmonicData[0].time = np.append(HarmonicData[0].time, pop.time)
+			HarmonicData[0].data = np.concatenate((HarmonicData[0].data, pop.data))
+			del pop															#Refresh pop array and repeat
 		#endfor
 		HarmonicData = HarmonicData[0]		#Replace data object with fully appended (i.e. flattened) data array
 
-	#=====#=====#
+	#=====#=====#	#=====#=====#
+
+	DenormaliseAtReadin = True
+	#De-normalise data if requested
+	if DenormaliseAtReadin == True:
+
+		#Remove '/data/' from directory --> Dir now points to simulation root folder
+		#		  Reverse       split into 2    Keep preamble  re-reverse   +'/' on end
+		NormDir = DataDir[::-1].split('/', 2)   [-1]           [::-1]       +'/'
+		#This is gross and I apologize to anyone reading this...
+
+		#Extract relevant normalisation factors for current simulation folder
+		Variables,Values,Units = ExtractMEGA_Normalisations(NormDir)
+		AlfvenVelocity = Values[Variables.index('Alfven velocity')] 	#B0/np.sqrt(4e-7*np.pi*IonDensity*m_D)
+		IonGyroFreq = Values[Variables.index('D gyro frequency')]		#
+		IonDensity = Values[Variables.index('Bulk density')]			#
+		B0 = Values[Variables.index('Mag.fld. at axis')]				#
+		R0 = Values[Variables.index('raxis')]							#
+		m_D = 3.34e-27													#
+		eps = 0.5/R0													#
+
+		#Denormalise temporal and spatial axes
+		HarmonicData.kst = HarmonicData.kst								# [-]
+		HarmonicData.time = HarmonicData.time * (1e3/IonGyroFreq)		# [ms]
+
+		#Denormalise all variables
+		# TO BE COMPLETED - MAY MOVE INTO EXTRACT FUNCTION???
+	#endif
+
 
 	return(HarmonicData)
 #enddef
@@ -2198,7 +2288,7 @@ if savefig_1Dequilibrium == True:
 		#Extract kstep, time and toroidal harmonic data from energy_n.txt
 		#energy_n data structure: [variable][timestep]
 		Energy_n,Header_n = ExtractMEGA_Energy(Dir[l],'energy_n')
-		#Determine KStep range, Time range and related intervals
+		#Determine KStep range, Time range and related intervals 			- wchck time intervals
 		KStepArray = Energy_n[0]					#KStep Array			[-]
 		TimeArray = Energy_n[1]						#Time Array				[ms]
 		DeltaKstep = KStepArray[1]-KStepArray[0]	#KStep Interval 		[-]
@@ -2208,6 +2298,20 @@ if savefig_1Dequilibrium == True:
 		ntor_tot = ((len(Energy_n)-3)*2)+1			#Number of positive and negative modes (Including n=0)
 		ntor_pos = int(float(ntor_tot-1)/2.0)		#Number of positive modes (Ignoring n=0)
 		ntor0 = int(ceil(ntor_tot/2))				#ntor = 0, baseline equilibrium data
+		#### - CAN BE A FUNCTION
+
+		#### - CAN BE A FUNCTION
+		#READ ONLY TEMPORAL AND SPATIAL AXES from SEQ.Harmonics, it contains:
+		#HarmonicsData.rho_pol [1D array] :: HarmonicsData.q_psi [1D array]
+		#HarmonicsData.kst [1D array]     :: HarmonicsData.time [1D array]    
+		HarmonicsData = ExtractMEGA_Harmonics(Dir[l]+'data/','btor',ntor_tot,Dimension='1D')
+		#Determine KStep range, Time range and related intervals 			- wharm time intervals
+		KStepArray = HarmonicsData.kst				#KStep Array			[-]
+		TimeArray = HarmonicsData.time				#Time Array				[ms]
+		DeltaKstep = KStepArray[1]-KStepArray[0]	#KStep Interval 		[-]
+		DeltaTime = TimeArray[1]-TimeArray[0]		#Time Interval 			[ms]
+		KStepMod = len(KStepArray)/(seq+1)			#KStep indices per seq 	[-]
+		rho_pol = HarmonicsData.rho_pol				#Normalised radius		[-]
 		#### - CAN BE A FUNCTION
 
 		#### - CAN BE A FUNCTION
@@ -2228,10 +2332,6 @@ if savefig_1Dequilibrium == True:
 		ntor_idx = [item[0] for item in ntor_indices].index(ntor)	#index referring to ntor mode number
 		#### - CAN BE A FUNCTION
 
-		#Extract relevant normalisation factors for current simulation folder
-		Variables,Values,Units = ExtractMEGA_Normalisations(Dir[l])
-		IonGyroFreq = Values[Variables.index('D gyro frequency')]
-
 		#Set TimeIndex and employ to extract KStep and Time
 		KStepIdx = setting_kstep[1]; seqIdx = seq	#Duplicated from Development Settings Above
 		IdxOffset = seqIdx*KStepMod					#[-]
@@ -2243,7 +2343,6 @@ if savefig_1Dequilibrium == True:
 		#HarmonicsData.kst [1D array]     :: HarmonicsData.time [1D array]    
 		#HarmonicsData.Variables[i]: [3D Array] of shape [mpol][ntor][lpsi][A/B] for a single kstep
 		HarmonicsData = ExtractMEGA_Harmonics(Dir[l]+'data/','All',ntor_tot,KStepIdx,seq,'3D')
-		Rho_pol = HarmonicsData.rho_pol
 
 		#Extract data resolution and poloidal axes from repository .dat files
 		#DataShape contains data resolution of form: [mpol,ntor,lpsi,ltheta]
@@ -2319,7 +2418,7 @@ if savefig_1Dequilibrium == True:
 
 				#Extract radially resolved profile and plot 
 				RadialProfile = Extract_RadialProfile(HarmonicsData,variables[i],ntor_idx,theta)
-				ax.plot(Rho_pol,RadialProfile, lw=2)
+				ax.plot(rho_pol,RadialProfile, lw=2)
 
 				#Save ASCII data to sub-folder
 #				Write_data_to_file(RadialProfile)			### TO BE ADDED ###
@@ -2520,12 +2619,17 @@ if savefig_2Dequilmovie == True:
 
 
 		#Apply user Kstep range if requested - else default to max range
-		if len(setting_kstep) == 2: KStepRange = setting_kstep
+		if len(setting_kstep) == 3: 
+			KStepRange = [setting_kstep[0],setting_kstep[1]]
+			KStepStep = setting_kstep[2]
+		elif len(setting_kstep) == 2:
+			KStepRange = setting_kstep
+			KStepStep = 1
 		else: KStepRange = [0,len(KStepArray)]
 		#endif
 
 		#Extract and plot data for each timestep
-		for i in tqdm(range(KStepRange[0],KStepRange[1])):
+		for i in tqdm( range(KStepRange[0],KStepRange[1],KStepStep) ):
 
 			#Set TimeIndex and employ to extract KStep and Time
 			KStepIdx = i; seqIdx = seq					#Add these to seq loop.
