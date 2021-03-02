@@ -1156,7 +1156,7 @@ def Extract_RadialProfile(HarmonicsData,variable,ntorIdx,theta):
 	#Select variable and Merge 3D Data into 2D poloidal slice
 	#PoloidalImage :: 2D array of Shape [lpsi][ltheta] ~ [R][theta]
 	#Image[n][:] = full poloidal profile (clockwise from vertical) for R = Rho_pol[n]
-	PoloidalImage = MergePoloidal(HarmonicsData,variable,ntor_idx)	
+	PoloidalImage = MergePoloidal(HarmonicsData,variable,ntorIdx)	
 
 	#Rotate Polodialimage into shape: [ltheta][lpsi]
 	PoloidalImageTrans = PoloidalImage.transpose()		
@@ -2246,15 +2246,80 @@ if any([savefig_1Dtotalenergy,savefig_1Dspectralenergy]) == True:
 
 
 
+#Input: Dir is the simulation root directory folder
+#Input: DataFile is a string determining which output file is used for the time axes
+#		DataFile options: 'energy_n', 'harmonics', 'moments'
+#Output:
+#Example: KStepArray, TimeArray, ntorArray = ExtractMEGA_Axes(Dir, DataFile='harmonics')
+def ExtractMEGA_Axes(Dir, DataFile='energy_n'):
+
+	#Extract kstep, time and toroidal harmonic data from energy_n.txt
+	#energy_n data structure: [variable][timestep]
+	Energy_n,Header_n = ExtractMEGA_Energy(Dir[l], 'energy_n')
+	#Determine poloidal and toroidal harmonic ranges
+	ntor_tot = ((len(Energy_n)-3)*2)+1			#Total number of positive and negative modes (Including n=0)
+	ntor_pos = int(float(ntor_tot-1)/2.0)		#Number of positive modes (Ignoring n=0)
+	ntor0 = int(ceil(ntor_tot/2))				#ntor = 0, baseline equilibrium data
+
+	#READ ONLY TEMPORAL AND SPATIAL AXES from SEQ.Harmonics, it contains:
+	#HarmonicsData.rho_pol [1D array] :: HarmonicsData.q_psi [1D array]
+	#HarmonicsData.kst [1D array]     :: HarmonicsData.time [1D array]    
+	HarmonicsData = ExtractMEGA_Harmonics(Dir[l]+'data/', Variable='NaN', ntor=ntor_tot, Dimension='1D')
+	rho_pol = HarmonicsData.rho_pol				#Normalised radius		[-]
+
+	#Determine KStep range, Time range and related intervals
+	#Use wchck time intervals
+	if DataFile == 'energy_n':
+		KStepArray = Energy_n[0]					#KStep Array			[-]
+		TimeArray = Energy_n[1]						#Time Array				[ms]
+
+	#Use wharm time intervals
+	elif DataFile == 'harmonics':
+		KStepArray = HarmonicsData.kst				#KStep Array			[-]
+		TimeArray = HarmonicsData.time				#Time Array				[ms]
+
+	#Use wsnapshot time intervals
+	elif DataFile == 'moments':
+		a = 1										#TO BE COMPLETED
+	#endif
+
+	return(KStepArray, TimeArray, [ntor0,ntor_pos,ntor_tot])
+#enddef
 
 
 
+#Takes toroidal mode number and returns index relating to said number.
+#Example: ntorIdx = ntor_Index(ntor,ntorArray)
+def ntor_Index(ntor,ntorArray):
 
+	#Unpack input ntorArray
+	ntor_tot = ntorArray[2]						#Total number of positive & negative modes (Inc n=0)
+	ntor_pos = ntorArray[1]						#Number of positive modes (Ignoring n=0)
+	ntor0 = ntorArray[0]						#ntor = 0, baseline equilibrium data
 
+	#Create 2D array containing [ntor,ntor_index] for referencing data to be extracted
+	ntor_indices = list()
+	for i in range(0,ntor_tot):
+		#ntor_indices contains the following [ntor, ntor_index], for positive, negative and n=0 modes
+		if i-ntor_pos >= setting_ntor[0] and i-ntor_pos <= setting_ntor[1]:
+			ntor_indices.append( [i-ntor_pos,i] )
+		else:
+			ntor_indices.append( [i-ntor_pos,np.nan] )
+		#endif
+	#endfor
 
+	#Print debug output to terminal if requested
+	if DebugMode == True: 
+		print('')
+		print('Toroidal Mode Numbers:',ntor_indices)
+		print('')
 
+	#ntor range set by ntor_indices[ntor, ntor_index], for pos, neg & n=0 modes
+#	ntor = 0													#override requested ntor mode number
+	ntorIdx = [item[0] for item in ntor_indices].index(ntor)	#index referring to ntor mode number
 
-
+	return(ntorIdx)
+#enddef
 
 
 
@@ -2272,11 +2337,11 @@ if savefig_1Dequilibrium == True:
 	#For each detected simulation folder
 	for l in range(0,len(Dir)):
 
-		#DEVELOPMENT SETTINGS - settings_inputs to be moved to switchboard
+		#DEVELOPMENT SETTINGS - all need looped over... - settings_inputs to be moved to switchboard
 		print Dir[l].split('/')[-2]
 		seq = setting_seq[1]				#requested SEQ file index (001 = 0)	!!! NEEDS A FUNCTION !!!
 		ntor = setting_ntor[1]				#requested ntor mode number			!!! NEEDS A FUNCTION !!!
-		KstepIdx = setting_kstep[1]			#requested kstep index 				!!! NEEDS A FUNCTION !!!
+		KStepIdx = setting_kstep[1]			#requested kstep index 				!!! NEEDS A FUNCTION !!!
 
 
 		#Create global 1D diagnostics folder and extract current simulation name
@@ -2284,57 +2349,20 @@ if savefig_1Dequilibrium == True:
 		DirString = Dir[l].split('/')[-2]
 		SubString = DirString.split('_')[-1]
 
-		#### - CAN BE A FUNCTION
-		#Extract kstep, time and toroidal harmonic data from energy_n.txt
-		#energy_n data structure: [variable][timestep]
-		Energy_n,Header_n = ExtractMEGA_Energy(Dir[l],'energy_n')
-		#Determine KStep range, Time range and related intervals 			- wchck time intervals
-		KStepArray = Energy_n[0]					#KStep Array			[-]
-		TimeArray = Energy_n[1]						#Time Array				[ms]
+		#Extract Kstep [-] & Time [ms] arrays from SEQ.harmonics & toroidal harmonics from energy_n.txt
+		KStepArray, TimeArray, ntorArray = ExtractMEGA_Axes(Dir, DataFile='harmonics')
 		DeltaKstep = KStepArray[1]-KStepArray[0]	#KStep Interval 		[-]
 		DeltaTime = TimeArray[1]-TimeArray[0]		#Time Interval 			[ms]
 		KStepMod = len(KStepArray)/(seq+1)			#KStep indices per seq 	[-]
-		#Determine poloidal and toroidal harmonic ranges
-		ntor_tot = ((len(Energy_n)-3)*2)+1			#Number of positive and negative modes (Including n=0)
-		ntor_pos = int(float(ntor_tot-1)/2.0)		#Number of positive modes (Ignoring n=0)
-		ntor0 = int(ceil(ntor_tot/2))				#ntor = 0, baseline equilibrium data
-		#### - CAN BE A FUNCTION
+		ntor_tot = ntorArray[2]						#Total number of positive & negative modes (Inc n=0)
+		ntor_pos = ntorArray[1]						#Number of positive modes (Ignoring n=0)
+		ntor0 = ntorArray[0]						#ntor = 0, baseline equilibrium data
 
-		#### - CAN BE A FUNCTION
-		#READ ONLY TEMPORAL AND SPATIAL AXES from SEQ.Harmonics, it contains:
-		#HarmonicsData.rho_pol [1D array] :: HarmonicsData.q_psi [1D array]
-		#HarmonicsData.kst [1D array]     :: HarmonicsData.time [1D array]    
-		HarmonicsData = ExtractMEGA_Harmonics(Dir[l]+'data/','btor',ntor_tot,Dimension='1D')
-		#Determine KStep range, Time range and related intervals 			- wharm time intervals
-		KStepArray = HarmonicsData.kst				#KStep Array			[-]
-		TimeArray = HarmonicsData.time				#Time Array				[ms]
-		DeltaKstep = KStepArray[1]-KStepArray[0]	#KStep Interval 		[-]
-		DeltaTime = TimeArray[1]-TimeArray[0]		#Time Interval 			[ms]
-		KStepMod = len(KStepArray)/(seq+1)			#KStep indices per seq 	[-]
-		rho_pol = HarmonicsData.rho_pol				#Normalised radius		[-]
-		#### - CAN BE A FUNCTION
-
-		#### - CAN BE A FUNCTION
-		#Create 2D array containing [ntor,ntor_index] for referencing data to be extracted
-		ntor_indices = list()
-		for i in range(0,ntor_tot):
-			#ntor_indices contains the following [ntor, ntor_index], for positive, negative and n=0 modes
-			if i-ntor_pos >= setting_ntor[0] and i-ntor_pos <= setting_ntor[1]:
-				ntor_indices.append( [i-ntor_pos,i] )
-			else:
-				ntor_indices.append( [i-ntor_pos,np.nan] )
-			#endif
-		#endfor
-#		print ntor_indices
-
-		#ntor range set by ntor_indices[ntor, ntor_index], for pos, neg & n=0 modes
-#		ntor = 0													#requested ntor mode number
-		ntor_idx = [item[0] for item in ntor_indices].index(ntor)	#index referring to ntor mode number
-		#### - CAN BE A FUNCTION
+		#Extract toroidal mode number array index (ntorIdx) from requested mode number (ntor)
+		ntorIdx = ntor_Index(ntor,ntorArray)
 
 		#Set TimeIndex and employ to extract KStep and Time
-		KStepIdx = setting_kstep[1]; seqIdx = seq	#Duplicated from Development Settings Above
-		IdxOffset = seqIdx*KStepMod					#[-]
+		IdxOffset = seq*KStepMod					#[-]
 		KStep = KStepArray[KStepIdx+IdxOffset]		#[-]
 		Time = TimeArray[KStepIdx+IdxOffset]		#[ms]
 
@@ -2343,6 +2371,7 @@ if savefig_1Dequilibrium == True:
 		#HarmonicsData.kst [1D array]     :: HarmonicsData.time [1D array]    
 		#HarmonicsData.Variables[i]: [3D Array] of shape [mpol][ntor][lpsi][A/B] for a single kstep
 		HarmonicsData = ExtractMEGA_Harmonics(Dir[l]+'data/','All',ntor_tot,KStepIdx,seq,'3D')
+		rho_pol = HarmonicsData.rho_pol				#Normalised radius		[-]
 
 		#Extract data resolution and poloidal axes from repository .dat files
 		#DataShape contains data resolution of form: [mpol,ntor,lpsi,ltheta]
@@ -2417,7 +2446,7 @@ if savefig_1Dequilibrium == True:
 				Legend.append('$\\theta$ = '+str(theta)+'$^{\circ}$')
 
 				#Extract radially resolved profile and plot 
-				RadialProfile = Extract_RadialProfile(HarmonicsData,variables[i],ntor_idx,theta)
+				RadialProfile = Extract_RadialProfile(HarmonicsData,variables[i],ntorIdx,theta)
 				ax.plot(rho_pol,RadialProfile, lw=2)
 
 				#Save ASCII data to sub-folder
@@ -2501,7 +2530,7 @@ if savefig_2Dequilibrium == True:
 
 		#ntor range set by ntor_indices[ntor, ntor_index], for pos, neg & n=0 modes
 #		ntor = 0													#requested ntor mode number
-		ntor_idx = [item[0] for item in ntor_indices].index(ntor)	#index referring to ntor mode number
+		ntorIdx = [item[0] for item in ntor_indices].index(ntor)	#index referring to ntor mode number
 		#### - CAN BE A FUNCTION
 
 		#Extract relevant normalisation factors for current simulation folder
@@ -2536,7 +2565,7 @@ if savefig_2Dequilibrium == True:
 			#Select variable and Merge 3D Data into 2D poloidal slice
 			#Image Shape: [lpsi][ltheta] ~~ [R][theta], like an onion (or ogre).
 			#i.e. Image[n][:] plots a full poloidal profile (clockwise from vertical) for R = Rho_pol[n]
-			Image = MergePoloidal(HarmonicsData,variables[i],ntor_idx)
+			Image = MergePoloidal(HarmonicsData,variables[i],ntorIdx)
 
 			#Create figure and define Title, Legend, Axis Labels etc...
 			fig,ax = figure(image_aspectratio,1)
@@ -2610,7 +2639,7 @@ if savefig_2Dequilmovie == True:
 
 		#ntor range set by ntor_indices[ntor, ntor_index], for pos, neg & n=0 modes
 #		ntor = 0													#requested ntor mode number
-		ntor_idx = [item[0] for item in ntor_indices].index(ntor)	#index referring to ntor mode number
+		ntorIdx = [item[0] for item in ntor_indices].index(ntor)	#index referring to ntor mode number
 		#### - CAN BE A FUNCTION
 
 		#Extract relevant normalisation factors for current simulation folder
@@ -2655,7 +2684,7 @@ if savefig_2Dequilmovie == True:
 				DirMovie = CreateNewFolder(DirEquil,variables[j]+'_n'+str(ntor)+'_Movie/')
 
 				#Select variable and Merge 3D Data into 2D poloidal slice
-				Image = MergePoloidal(HarmonicsData,variables[j],ntor_idx)
+				Image = MergePoloidal(HarmonicsData,variables[j],ntorIdx)
 
 
 				#Create figure and define Title, Legend, Axis Labels etc...
@@ -2790,7 +2819,7 @@ if savefig_2Dresponse == True:
 
 		#ntor range set by ntor_indices[ntor, ntor_index], for pos, neg & n=0 modes
 #		ntor = 1													#requested ntor mode number
-		ntor_idx = [item[0] for item in ntor_indices].index(ntor)	#index referring to ntor mode number
+		ntorIdx = [item[0] for item in ntor_indices].index(ntor)	#index referring to ntor mode number
 		#### - CAN BE A FUNCTION
 
 		#Extract relevant normalisation factors for current simulation folder
