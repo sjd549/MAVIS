@@ -143,22 +143,22 @@ Kin = ['R_gc','Z_gc','Phi_gc','p_gc','pphi_gc','mu_gc','E_gc','Lambda_gc','psip'
 #====================================================================#
 
 #Requested Variables and Plotting Locations:
-variables = Phys						#Requested variables to plot			#Phys+Kin
+variables = ['brad','erad']+Kin	#Phys						#Requested variables to plot			#Phys+Kin
 
-radialprofiles = [90]					#1D Radial Profiles (fixed theta, phi) :: Poloidal Angle [deg]
+radialprofiles = [90,120]					#1D Radial Profiles (fixed theta, phi) :: Poloidal Angle [deg]
 poloidalprofiles = []					#1D Poloidal Profiles (fixed rho_pol, phi) :: Norm. Radius [-]
 toroidalprofiles = []					#1D Toroidal Profiles (fixed rho_pol, theta) :: Toroidal Angle [deg]
-trendlocation = [] 						#Cell location For Trend Analysis [R,Z], ([] = min/max)
+trendlocation = [] 						#Cell location For Trend Analysis [R,theta,phi], ([] = min/max)
 
 #Various Diagnostic Settings:
 setting_seq = [0,0]						#Simulation seq to load		- [Min,Max], [Int], [-1] to load last
 setting_ntor = [0,2]					#ntor range to plot 		- [Min,Max], [Int], [] to plot all
-setting_kstep = [000,399]				#kstep index range to plot 	- [Min,Max], [Int], [] to plot all
+setting_kstep = [000,10]				#kstep index range to plot 	- [Min,Max], [Int], [] to plot all
 
 
 #Requested diagnostics and plotting routines:
 savefig_1Dtotalenergy = False			#Plot 1D total energy trends 		(xxx.energy_p)	- Working
-savefig_1Dspectralenergy = True			#Plot 1D spectral energy trends 	(xxx.energy_n)	- Working
+savefig_1Dspectralenergy = False			#Plot 1D spectral energy trends 	(xxx.energy_n)	- Working
 
 savefig_1Dequilibrium = False			#Plot 1D equilibrium profiles		(xxx.harmonics) - Working
 savefig_2Dequilibrium = False			#Plot 2D equilibrium figures		(xxx.harmonics)	- Working
@@ -689,7 +689,7 @@ def Read_MEGAHarmonics(Filename,Variable,mpol,ntor,lpsi,kstep=np.nan):
 #Inputs: SEQ.harmonics filepath [no Root], Variable name string [Variable] as defined in DataFormat,
 #Inputs: Radial mesh resolution [lpsi], poloidal mesh resolution [mpol], 
 #Inputs: Total number of toroidal harmonics [ntor] including positive, negative and n=0
-#Returns: Data object for requested variable with structure: Data[kstep][mpol][ntor][lpsi][Real,Complex]
+#Returns: Data object for requested variable with structure: Data[kstep][mpol][ntor][lpsi][A,B]
 #Example: HarmonicsData = Read_MEGAHarmonics('FolderName/data/001.harmonics','bphi',64,5,201]
 
 	#Compute flattened 3D data array length based upon mesh resolution
@@ -766,7 +766,7 @@ def Read_MEGAHarmonics(Filename,Variable,mpol,ntor,lpsi,kstep=np.nan):
 
 	#=====#=====#
 
-	#IF no kstep supplied, read SINGLE VARIABLE FOR ALL KSTEP values into a 4D HarmonicsData object
+	#IF NO kstep supplied, read SINGLE VARIABLE FOR ALL KSTEP values into a 4D HarmonicsData object
 	#Read data for each Kstep from the supplied SEQ.harmonics output folder
 	#Save data for requested variable for each Kstep in the process
 	if np.isnan(kstep) == True:
@@ -949,20 +949,37 @@ def Read_MEGAMoments(DataDir,Variable,ntor,kstep=np.nan,SEQ=0):
 #=========================#
 #=========================#
 
-def ExtractMEGA_Harmonics(DataDir,Variable,ntor,kstep=np.nan,SEQ=0):
+def ExtractMEGA_Harmonics(DataDir,Variable,ntor,kstep=np.nan,SEQ=0,Dimension='1D'):
 #Details on the FORTRAN file format can be found below:
 #https://docs.scipy.org/doc/scipy/reference/generated/scipy.io.FortranFile.read_record.html
 
 	#Extract harmonic output files for all SEQ in requested directory
 	DataFiles = sorted(glob.glob(DataDir+"/*harm*"))
 
-	#Extract data poloidal and toroidal resolutions 		
+	#Extract data radial (psi) and poloidal mode number (mpol) resolutions 		
 	lpsi,mpol = 201, 64											#!!! HARD-CODED FOR NOW !!!
 
 	#=====#=====#	#=====#=====#
 
-	#HarmonicsData contains single variable for all Kstep and all SEQ
-	if np.isnan(kstep) == True or np.isnan(SEQ) == True:
+	#Extract Kstep and Time arrays for plotting purposes, ignoring all other data.
+	if Dimension == '1D':
+		a=1
+	#endif
+
+	#=====#=====#
+
+	#IF Kstep index is supplied, read ALL VARIABLES FOR SINGLE KSTEP into a 3D HarmonicsData object
+#	elif isinstance(kstep, int) and isinstance(SEQ, int):
+	elif Dimension == '3D': 
+		#Object Shape: HarmonicsData[mpol][ntor][lpsi][A/B]
+		HarmonicData = Read_MEGAHarmonics(DataFiles[SEQ],Variable,mpol,ntor,lpsi,kstep)		#Variable is a dummy here.
+	#endif
+
+	#=====#=====#
+
+	#IF NO kstep index supplied, read SINGLE VARIABLE FOR ALL KSTEP values into a 4D HarmonicsData object
+#	elif np.isnan(kstep) == True or np.isnan(SEQ) == True:
+	elif Dimension == '4D':
 		#Object Shape: HarmonicData [kstep][mpol][ntor][lpsi][A/B]
 		HarmonicData = list()
 		for i in tqdm(range(0,len(DataFiles))):
@@ -978,14 +995,6 @@ def ExtractMEGA_Harmonics(DataDir,Variable,ntor,kstep=np.nan,SEQ=0):
 			del aux															#Refresh aux array and repeat
 		#endfor
 		HarmonicData = HarmonicData[0]		#Replace data object with fully appended (i.e. flattened) data array
-
-	#=====#=====#
-
-	#HarmonicsData contains all variables at a single kstep and single SEQ
-	elif isinstance(kstep, int) and isinstance(SEQ, int):							#if Variable == 'All'
-		#Object Shape: HarmonicsData[mpol][ntor][lpsi][A/B]
-		HarmonicData = Read_MEGAHarmonics(DataFiles[SEQ],Variable,mpol,ntor,lpsi,kstep)
-	#endif
 
 	#=====#=====#
 
@@ -1105,7 +1114,6 @@ def ExtractMEGA_Markers(Dir,KStep,MarkerFileStep=1):
 #
 # Example :: KineticsData,Header_Kin = ExtractMEGA_Markers(Dir[l],KStep=1000,MarkerFileStep=8)
 
-
 	#Initiate kinetic data array
 	KineticsData = list()
 
@@ -1114,6 +1122,16 @@ def ExtractMEGA_Markers(Dir,KStep,MarkerFileStep=1):
 	Filename = 'gc_a_kstep'+str('%07.f'%KStep)+'-*.txt'
 	#Sort all marker output files numerically by core number
 	MarkerFiles = sorted(glob.glob(Folder+Filename))
+
+	#Exit cleanly if no files are found:
+	if len(MarkerFiles) == 0:
+		print ''
+		print '-------------------------------------------'
+		print 'No Marker Files Detected, Aborting Analysis'
+		print '-------------------------------------------'
+		print ''
+		exit()
+	#endif
 
 	#Cycle through all marker files and read data
 	for j in tqdm( range(0,len(MarkerFiles),MarkerFileStep) ):
@@ -2061,11 +2079,11 @@ if savefig_1Dspectralenergy == True:
 		Eratio = Eend/Estart
 
 		gamma = np.log(Eend/Estart)/dt
-#		print('')
-#		print( round(tstart,3), round(tend,3) )
-#		print( round(Estart,3), round(Eend,3) )
-#		print( round(gamma,2), '[s-1]')
-#		print('')
+		print('')
+		print( round(tstart,3), round(tend,3) )
+		print( round(Estart,3), round(Eend,3) )
+		print( round(gamma,2), '[s-1]')
+		print('')
 
 #		exit()
 
@@ -2220,11 +2238,11 @@ if savefig_1Dequilibrium == True:
 		KStep = KStepArray[KStepIdx+IdxOffset]		#[-]
 		Time = TimeArray[KStepIdx+IdxOffset]		#[ms]
 
-		#Extract Harmonics outputs for plotting, it contains:
+		#Extract ALL VARIABLES FOR SINGLE KSTEP from Harmonics, it contains:
 		#HarmonicsData.rho_pol [1D array] :: HarmonicsData.q_psi [1D array]
 		#HarmonicsData.kst [1D array]     :: HarmonicsData.time [1D array]    
-		#HarmonicsData.data: [4D Array] of shape [mpol][ntor][lpsi][A/B] for all variables
-		HarmonicsData = ExtractMEGA_Harmonics(Dir[l]+'data/','All',ntor_tot,KStepIdx,seq)
+		#HarmonicsData.Variables[i]: [3D Array] of shape [mpol][ntor][lpsi][A/B] for a single kstep
+		HarmonicsData = ExtractMEGA_Harmonics(Dir[l]+'data/','All',ntor_tot,KStepIdx,seq,'3D')
 		Rho_pol = HarmonicsData.rho_pol
 
 		#Extract data resolution and poloidal axes from repository .dat files
@@ -2397,11 +2415,11 @@ if savefig_2Dequilibrium == True:
 		KStep = KStepArray[KStepIdx+IdxOffset]		#[-]
 		Time = TimeArray[KStepIdx+IdxOffset]		#[ms]
 
-		#Extract Harmonics outputs for plotting, it contains:
+		#Extract ALL VARIABLES FOR SINGLE KSTEP from Harmonics, it contains:
 		#HarmonicsData.rho_pol [1D array] :: HarmonicsData.q_psi [1D array]
 		#HarmonicsData.kst [1D array]     :: HarmonicsData.time [1D array]    
-		#HarmonicsData.data: [4D Array] of shape [mpol][ntor][lpsi][A/B] for all variables
-		HarmonicsData = ExtractMEGA_Harmonics(Dir[l]+'data/','All',ntor_tot,KStepIdx,seqIdx)
+		#HarmonicsData.Variables[i]: [3D Array] of shape [mpol][ntor][lpsi][A/B] for a single kstep
+		HarmonicsData = ExtractMEGA_Harmonics(Dir[l]+'data/','All',ntor_tot,KStepIdx,seqIdx,'3D')
 
 		#Extract data resolution and poloidal axes from repository .dat files
 		#DataShape contains data resolution of form: [mpol,ntor,lpsi,ltheta]
@@ -2515,11 +2533,11 @@ if savefig_2Dequilmovie == True:
 			KStep = KStepArray[KStepIdx+IdxOffset]		#[-]
 			Time = TimeArray[KStepIdx+IdxOffset]		#[ms]
 
-			#Extract Harmonics outputs for plotting, it contains:
+			#Extract ALL VARIABLES FOR SINGLE KSTEP from Harmonics, it contains:
 			#HarmonicsData.rho_pol [1D array] :: HarmonicsData.q_psi [1D array]
 			#HarmonicsData.kst [1D array]     :: HarmonicsData.time [1D array]    
-			#HarmonicsData.data: [3D Array] of shape [mpol][ntor][lpsi][A/B] for all variables
-			HarmonicsData = ExtractMEGA_Harmonics(Dir[l]+'data/','All',ntor_tot,KStepIdx,seqIdx)
+			#HarmonicsData.Variables[i]: [3D Array] of shape [mpol][ntor][lpsi][A/B] for a single kstep
+			HarmonicsData = ExtractMEGA_Harmonics(Dir[l]+'data/','All',ntor_tot,KStepIdx,seqIdx,'3D')
 
 			#Extract data resolution and poloidal axes from repository .dat files
 			#DataShape contains data resolution of form: [mpol,ntor,lpsi,ltheta]
@@ -2707,11 +2725,11 @@ if savefig_2Dresponse == True:
 				KStep = KStepArray[KStepIdx+IdxOffset]		#[-]
 				Time = TimeArray[KStepIdx+IdxOffset]		#[ms]
 
-				#Extract Harmonics outputs for plotting, it contains:
+				#Extract ALL VARIABLES FOR SINGLE KSTEP from Harmonics, it contains:
 				#HarmonicsData.rho_pol [1D array] :: HarmonicsData.q_psi [1D array]
 				#HarmonicsData.kst [1D array]     :: HarmonicsData.time [1D array]    
-				#HarmonicsData.data: [3D Array] of shape [mpol][ntor][lpsi][A/B] for all variables
-				HarmonicsData = ExtractMEGA_Harmonics(Dir[l]+'data/','All',ntor_tot,KStepIdx,seqIdx)
+				#HarmonicsData.Variables[i]: [3D Array] of shape [mpol][ntor][lpsi][A/B] for a single kstep
+				HarmonicsData = ExtractMEGA_Harmonics(Dir[l]+'data/','All',ntor_tot,KStepIdx,seqIdx,'3D')
 
 				#DataShape contains data resolution of form: [mpol,ntor,lpsi,ltheta]
 				DataShape = ExtractMEGA_DataShape(HarmonicsData)#; print DataShape
@@ -2900,11 +2918,11 @@ if savefig_2Dharmonics == True:
 		m_D = 3.34e-27
 		eps = 0.5/R0
 
-		#Extract Harmonics outputs for plotting, it contains:
+		#Extract ONE VARIABLES FOR ALL KSTEP from Harmonics, it contains:
 		#HarmonicsData.rho_pol [1D array] :: HarmonicsData.q_psi [1D array]
 		#HarmonicsData.kst [1D array]     :: HarmonicsData.time [1D array]    
-		#HarmonicsData.data: [4D Array] of shape [kstep][mpol][ntor][lpsi][Re/Im] for variables[i]
-		HarmonicsData = ExtractMEGA_Harmonics(Dir[l]+'data/',variable,ntor_tot)
+		#HarmonicsData.data: [4D Array] of shape [kstep][mpol][ntor][lpsi][A/B] for [variable]
+		HarmonicsData = ExtractMEGA_Harmonics(Dir[l]+'data/',variable,ntor_tot,Dimension='4D')
 		Data = HarmonicsData.data
 
 		#DataShape contains data resolution of form: [mpol,ntor,lpsi,ltheta]
