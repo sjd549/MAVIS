@@ -149,7 +149,7 @@ Kin = ['R_gc','Z_gc','Phi_gc','p_gc','pphi_gc','mu_gc','E_gc','Lambda_gc','psip'
 variables = Phys						#Requested variables to plot			#Phys+Kin
 
 radialprofiles = [90,120]				#1D Radial Profiles (fixed theta, phi) :: Poloidal Angle [deg]
-poloidalprofiles = [0.1,0.3]			#1D Poloidal Profiles (fixed rho_pol, phi) :: Norm. Radius [-]
+poloidalprofiles = [0.2,0.4]			#1D Poloidal Profiles (fixed rho_pol, phi) :: Norm. Radius [-]
 toroidalprofiles = []					#1D Toroidal Profiles (fixed rho_pol, theta) :: Toroidal Angle [deg]
 trendlocation = [] 						#Cell location For Trend Analysis [R,theta,phi], ([] = min/max)
 
@@ -163,8 +163,8 @@ setting_kstep = [0,10,2]				#kstep index range to plot 	- [Min,Max,Step], [Int],
 savefig_1Denergy = False				#Plot 1D spectral energy trends 	(xxx.energy_p)	- Working
 savefig_1Denergytrends = False			#Plot 1D spectral energy trends 	(xxx.energy_n)	- In Development
 
-savefig_1Dequilibrium = True			#Plot 1D equilibrium profiles		(xxx.harmonics) - Working
-savefig_2Dequilibrium = True			#Plot 2D equilibrium figures		(xxx.harmonics)	- Working
+savefig_1Dequilibrium = False			#Plot 1D equilibrium profiles		(xxx.harmonics) - Working
+savefig_2Dequilibrium = False			#Plot 2D equilibrium figures		(xxx.harmonics)	- Working
 savefig_2Dequilmovie = False			#Plot 2D equilibrium movies			(xxx.harmonics)	- Working
 savefig_2Dresponse = False				#Plot 2D plasma response 			(xxx.harmonics)	- Working
 
@@ -210,26 +210,26 @@ cbaroverride = []
 #=====================================================================#
 
 
-#						TO DO FOR TODAY
-#
-# PROPOGATE NEW FUNCTIONS TO ALL DIAGNOSTICS AND TEST 
+#						IMMEDIATE TO DO LIST
 #
 #Combine all equil plots into a folder [Equil Plots] -->  1DProfiles -- > Radial
 #																		  Poloidal
 #
 #														  2DProfiles -- > Poloidal
 #
-#Get all SEQ, Ntor loops working as they should - Functional Switchboard
+#FIX ISSUE WHERE "outputdata is referenced before assignment" IF FILENAME HAS A " [string] " IN IT
 #
-#FIX ISSUE WHERE "outputdata is referenced before assignment" IF FILENAME HAS A SPACE IN IT
+#ADD DE-NORMALISATION FUNCTION IMMEDIATELY FOLLOWING DATA EXTRACTION FUNCTIONS - MOST SIMPLE APPROACH
+#CHECK ALL DIAGNOSTICS FOR ANY CURRENTLY APPLIED DE-NORMALISATION AND REMOVE IF POSSIBLE
+#Make an option in the low-level commands to apply de-normalisation - generally won't change
+#Tie this option to any other applicable function, e.g. variablelabelmaker,
 #
-#FINISH MODE GROWTH RATE DIAGNOSTIC - V1 JUST NEEDS TO PLOT 'SOMETHING'.
+#ADD ABILITY TO SAVE ASCII DATA FOR 2D IMAGES (PARTICULARILY PLASMA RESPONSE)
 #
-#FINISH 1D PLOTTING ROUTINE WITH POLOIDAL EXTRACTION FUNCTION
+#ADD DIAGNOSTIC COMPARING ENERGY CONVERGENCE BETWEEN MULTIPLE SIMULATIONS
 #
 #FINISH PLASMA RESPONSE ROUTINE WITH POLOIDALLY RESOLVED VERSION
 #
-
 
 
 
@@ -237,25 +237,12 @@ cbaroverride = []
 #        ####TODO####        #
 #============================#
 
-#FIX ISSUE WHERE "outputdata is referenced before assignment" IF FILENAME HAS A SPACE IN IT
-#
-#FINISH 1D PLOTTING ROUTINE WITH POLOIDAL EXTRACTION FUNCTION
-#
-#FINISH PLASMA RESPONSE ROUTINE WITH POLOIDALLY RESOLVED VERSION
-#
 #ADD INFORMATION REGARDING SIMULATION RESOLUTION SEQ, KSTEP, ETC... BELOW MAVIS SPLASH
 #
-#ADD DIAGNOSTIC COMPARING ENERGY CONVERGENCE BETWEEN MULTIPLE SIMULATIONS  (FINISH GAMMA DIAGNOSTIC)
+#ADD OPTION TO HOMOGONISE THE COLOURBAR FOR ALL MOVIES (EQUIL / RESPONSE / KINETIC)
 #
-#ADD ABILITY TO SAVE ASCII DATA FOR 2D IMAGES (PARTICULARILY PLASMA RESPONSE)
-#
-#ADD OPTION TO HOMOGONISE THE COLOURBAR FOR EQUIL/RESPONSE/KINETIC MOVIES
-#
-##CHECK NORMALISATION FOR ALL EXISTING DIAGNOSTICS AND DETAIL IN READ-IN FUNCTION FOR LATER
-#ADD DE-NORMALISATION FUNCTION WITH OPTION TO APPLY AT READ-IN STAGE 
-#Maybe also multiply everything by its normalisation factor when reading in by default?
-#Make an option in the switchboard (or deep options) but this would make things much simpler...
-#Tie this function to the variable label maker function (use next to eachother)
+#ADD GEQDSK READ AND WRITE FUNCTIONS (WITH OPTIONS FOR MEGA / FIESTA FORMATS)
+#Create a new diagnostic (savefig_simsetup) which plots gfile inputs for analysis
 #
 #Enable choice of normalised or non-normalised units in the 1D and 2D plotting routines
 #Clean up the usage and definition of the unit normalisations as read-in from the MEGA file
@@ -1208,7 +1195,7 @@ def MergePoloidal(HarmonicsData,VariableString,ntor):
 #=========================#
 
 def Extract_RadialProfile(HarmonicsData,variable,ntorIdx,theta):
-#Extracts radially resolved profiles for a single output variable at single poloidal angle
+#Extracts radially resolved profiles for a single output variable at a single poloidal angle
 #Rounds poloidal angle down - i.e. anticlockwise - as defined from vertical zero.
 #Inputs: 
 #	HarmonicsData - 4D Object of shape [mpol][ntor][lpsi][A/B], for data at single KStep/Time 
@@ -1216,7 +1203,7 @@ def Extract_RadialProfile(HarmonicsData,variable,ntorIdx,theta):
 #	ntorIdx - 0D integer determining the toroidal mode number Index, not absolute mode number
 #	Theta - 0D float, determining the poloidal angle of the radial profile [degrees]
 #Outputs: 
-#	RadialProfile - 1D array of shape [lpsi] (rho_pol), containing the poloidally merged variable amplitudes
+#	RadialProfile - 1D array of shape [lpsi] (rho_pol), containing the poloidal mode merged variable amplitudes
 #Example: Profile = Extract_RadialProfile(HarmonicsData,'brad',ntorIdx=2,theta=64)
 
 	#Select variable and Merge 3D Data into 2D poloidal slice
@@ -1252,6 +1239,96 @@ def Extract_RadialProfile(HarmonicsData,variable,ntorIdx,theta):
 	#endif
 
 	return(RadialProfile)
+#enddef
+
+#=========================#
+#=========================#
+
+def Extract_PoloidalProfile(HarmonicsData,variable,ntorIdx,Radius):
+#Extracts poloidally resolved profiles for a single output variable at a single radius
+#Rounds radius to closest avaliable rho_pol - automatically limited to 0.0 < rho_pol < 1.0
+#Inputs: 
+#	HarmonicsData - 4D Object of shape [mpol][ntor][lpsi][A/B], for data at single KStep/Time 
+#	VariableString - 0D string matching the desired HarmonicsData variable attribute, e.g. 'brad' 
+#	ntorIdx - 0D integer determining the toroidal mode number Index, not absolute mode number
+#	Radius - 0D float, determining the radius from Rgeo of the poloidal profile [rho_pol]
+#Outputs: 
+#	PoloidalProfile - 1D array of shape [ltheta], containing the poloidal mode merged variable amplitudes
+#Example: Profile = Extract_PoloidalProfile(HarmonicsData,'brad',ntorIdx=2,Radius=0.2)
+
+	#Extract data resolution and poloidal axes from repository .dat files
+	#DataShape contains data resolution of form: [mpol,ntor,lpsi,ltheta]
+	Crdr,Crdz = ExtractMEGA_PoloidalGrid(DirRepository,HarmonicsData)
+	DataShape = ExtractMEGA_DataShape(HarmonicsData)#; print DataShape
+	mpol_res = DataShape[0]; ntor_res = DataShape[1]
+	lpsi_res = DataShape[2]; ltheta_res = DataShape[3]
+
+	#Determine radial location from user supplied switchboard values
+	#Radius is in normalised radius [rho_pol], while RadialLoc is in [m]
+	RadialLoc = min(rho_pol, key=lambda x:abs(x-Radius))	#[m]
+	RadialIdx = rho_pol.tolist().index(RadialLoc)			#[-]
+
+	#Compute poloidal angle axis from length of radial array
+	#i.e. assuming a clockwise angle from vertical zero
+	#Crdr :: 2D array of Shape [lpsi][ltheta] ~ [R][theta]
+	Crdtheta = list()
+	for i in range(0,len(Crdr[RadialIdx])):
+#		Crdtheta = np.arctan(Crdz[RadialIdx]/Crdr[RadialIdx])	#tan(theta) = Z/R  
+		dtheta = 360.0/len(Crdr[RadialIdx])
+		Crdtheta.append( i*dtheta )
+	#endfor
+
+	#==========##==========#
+
+	#Select variable and Merge 3D Data into 2D poloidal slice
+	#PoloidalImage :: 2D array of Shape [lpsi][ltheta] ~ [R][theta]
+	#Image[n][:] = full poloidal profile (clockwise from vertical) for R = Rho_pol[n]
+	PoloidalImage = MergePoloidal(HarmonicsData,variable,ntorIdx)
+	
+	#Extract single poloidal profile at Radius = RadialLoc
+	ThetaArray = Crdtheta[:]
+	DataArray = PoloidalImage[RadialIdx][:]
+
+	return(ThetaArray, DataArray)
+
+	#==========##==========#
+	#==========##==========#
+
+	ReturnInboardOutboard = False
+	if ReturnInboardOutboard == True:
+		#One full poloidal rotation corresponds to len(Image[n][:]) cells
+		FullRot = len(PoloidalImage[0])					#Total number of Poloidal Cells
+		HalfRot = FullRot/2								#Inboard/outboard Poloidal Cells
+
+		#Extract inboard and outboard poloidal profiles for Radius = RadialLoc
+		#Both PoloidalImage and Crdr are of length [lpsi] and rotate clockwise from vertical
+		#PoloidalImage[R][0] = '12 O'clock' position, PoloidalImage[R][Half] = '6 o'clock' position
+		#PoloidalImage :: 2D array of Shape [lpsi][ltheta] ~ [R][theta]
+		#Crdtheta :: 1D array of Shape [ltheta]
+		ThetaInboard = Crdtheta[0:HalfRot]							#X-Axis	(Theta at Radius R)
+		DataInboard = PoloidalImage[RadialIdx][0:HalfRot]			#Y-Axis	(Variable Amplitude)
+
+		ThetaOutboard = Crdtheta[HalfRot:FullRot]					#X-Axis	(Theta at Radius R)
+		DataOutboard = PoloidalImage[RadialIdx][HalfRot:FullRot]	#Y-Axis	(Variable Amplitude)
+
+		#Select variable and Merge 3D Data into 2D poloidal slice
+		#Inboard/Outboard = 2D array containing:
+		#		- poloidal angle axis (clockwise from vertical) for R = Radius
+		#		- poloidal variables[i] amplitude profile (clockwise from vertical) for R = Radius
+		Inboard,Outboard = Extract_PoloidalProfile(HarmonicsData,variables[i],ntorIdx,Radius)
+
+		#Set the same colour for both inboard and outboard portions of the profile
+		ColourCycle = plt.rcParams["axes.prop_cycle"].by_key()["color"]
+		Colour = ColourCycle[j % len(ColourCycle)]
+
+		#Plot the inboard and outboard portions of the poloidal profile at Radius = RadialLoc
+		#The inboard portion of the plot is given a different linestyle to aid viewing
+		Inboard = plt.plot(Inboard[0], Inboard[1], color=Colour,ls='-')
+		Outboard = plt.plot(Outboard[0], Outboard[1], color=Colour,ls='--',label='_nolegend_')
+		plt.show()
+
+		return(Inboard,Outboard)
+	#endif
 #enddef
 
 #=========================#
@@ -1883,13 +1960,15 @@ def ComputeTAEThresholds(HarmonicData,Harmonic,eps,Va,ax='NaN'):
 #=========================#
 #=========================#
 
-def ComputeMHDGrowthRates(EnergyArray,TimeArray):
+def ComputeMHDGrowthRates(EnergyArray,TimeArray,Threshold=100):
 #Determines MHD toroidal mode linear growth rates through analysis of 1st and 2nd energy derivatives
 #Derivatives are taken of log(E)/dt such that the 1st and 2nd derivatives are linear (flat)
 #Solves: Eend = Estart*exp{gamma*dt} over time indices where 2nd derivative is close to zero
 #Inputs: 
 #	EnergyArray - 1D array of temporally resolved MHD energies for a single mode number
-#	TimeArray - 1D array of times [s] relating to MHD energies provided in EnergyArray
+#	TimeArray - 1D array of SI times [s] relating to MHD energies provided in EnergyArray
+#	Threshold - 0D float determining the 'sensitivity' of the function, higher values are more sensitive.
+#				Specifically, Threshold sets the maximum 'distance from zero' when creating LinearRegion
 #Outputs:
 #	gamma - 0D scalar 'linear' growth rate [s-1] for supplied MHD mode number
 # 	Delta1Energy - 1D array containing 1st derivative of provided EnergyArray to TimeArray
@@ -1931,8 +2010,7 @@ def ComputeMHDGrowthRates(EnergyArray,TimeArray):
 	#==========##==========#
 
 	#Determine temporal extent of linear growth region, i.e. where 2nd derivative is close to zero
-	#Threshold for being 'close to zero' is arbitrarily defined at the moment.
-	Threshold = 100
+	#Threshold is the maximum allowed distance from zero, Threshold is set by function input.
 	LinearRegion = list()
 	for i in range(0,len(Delta2Energy_Smooth[1])):
 		if abs(Delta2Energy_Smooth[1][i]) < Threshold: 	LinearRegion.append(1)
@@ -2114,7 +2192,7 @@ print(' |  \  /  |    /  ^  \  \   \/   /  |  |    |   (----` ')
 print(' |  |\/|  |   /  /_\  \  \      /   |  |     \   \     ')
 print(' |  |  |  |  /  _____  \  \    /    |  | .----)   |    ')
 print(' |__|  |__| /__/     \__\  \__/     |__| |_______/     ')
-print('                                                 v0.5.0')
+print('                                                 v0.6.0')
 print('-------------------------------------------------------')
 print('')
 print('The following diagnostics were requested:')
@@ -2379,6 +2457,7 @@ if savefig_1Denergy == True:
 		plt.close('all')
 
 		#==========##==========#
+		#==========##==========#
 
 		#Create figure for energy_phys outputs
 		fig,ax = figure(image_aspectratio,[3,1])
@@ -2428,7 +2507,6 @@ if savefig_1Denergytrends == True:
 #endif
 
 
-
 #==========##==========##==========#
 #==========##==========##==========#
 
@@ -2440,6 +2518,10 @@ if any([savefig_1Denergy,savefig_1Denergytrends]) == True:
 
 #====================================================================#
 #====================================================================#
+
+
+
+
 
 
 
@@ -2526,80 +2608,97 @@ if savefig_1Dequilibrium == True:
 			#Create Variablelabel with units
 			VariableLabel = VariableLabelMaker(variables[i])
 
-			#==========#	#==========#
-
-			#Create figure and define Title, Legend, Axis Labels etc...
-#			fig,ax = figure(image_aspectratio,1)
-#			Title = VariableLabel+', n='+str(ntor)+', m='+str(-mpol_res+1)+','+str(mpol_res-1)+', t='+str(round(Time,3))+' ms \n Simulation: '+DirString
-#			Xlabel,Ylabel = 'Radius $R$ [m]', VariableLabel
-#			Legend = list()
-
-			#Plot 1D poloidally resolved profiles for current simulation folder
-			#Poloidal profiles employ fixed radial (rho_phi) and toroidal (phi) angles
-#			for j in range(0,len(poloidalprofiles)):
+			#==========##===========#
+			#	POLOIDAL PROFILES	#
+			#==========##===========#
+			if len(poloidalprofiles) > 0:
 
 				#Create new folder to store poloidal profiles
-#				if j == 0: DirEquilPoloidal = CreateNewFolder(DirEquil1D,'Poloidal/')
+				DirEquilPoloidal = CreateNewFolder(DirEquil1D,'Poloidal/')
 
-				#### CAN BE A FUNCTION (Extract_PoloidalProfile())
-				#Poloidally resolved profiles
-	#			Full = len(Image[0])					#Outboard Poloidal Cells
-	#			Half = Full/2							#Inboard Poloidal Cells
-	#			plt.plot(Crdr[50][0:Half],Image[50][0:Half], 'k-')		#Outboard poloidal profile at R = Rho_pol[50]
-	#			plt.plot(Crdr[50][Half:Full],Image[50][Half:Full], 'r-')#Inboard poloidal profile at R = Rho_pol[50]
-	##			plt.plot(Crdr[50],Image[50])							#Full Poloidal profile at R = Rho_pol[50]
-	#			plt.xlabel('Radius $R$ [m]')
-	#			plt.ylabel('Height $Z$ [m]')
-	#			plt.show()
-				#### CAN BE A FUNCTION (Extract_PoloidalProfile())
-			#endfor
+				#Create figure and define Title, Legend, Axis Labels etc...
+				fig,ax = figure(image_aspectratio,1)
+				ntorString = ', n='+str(ntor); mpolString=', m='+str(-mpol_res+1)+','+str(mpol_res-1)
+				TimeString = ', t='+str(round(Time,3))+' ms'
+				Title = VariableLabel+ntorString+mpolString+TimeString+' \n Simulation: '+DirString
+				Xlabel,Ylabel = 'Poloidal Angle $\\theta$ [Deg]', VariableLabel
+				Legend = list()
 
-			#Beautify 1D equilibrium profiles figure
-#			ImageOptions(fig,ax,Xlabel,Ylabel,Title,Legend)
+				#Plot 1D poloidally resolved profiles for current simulation folder
+				#Poloidal profiles employ fixed radial (rho_phi) and toroidal (phi) angles
+				for j in range(0,len(poloidalprofiles)):
 
-			#Save poloidal equilibrium profiles for current simulation folder
-#			SaveString = variables[i]+'_Poloidal_n'+str(ntor)+'_t='+str(round(Time,3))+ext
-#			plt.savefig(DirEquilPoloidal+SaveString)
-#			plt.show()
-#			plt.close('all')
+					#Determine radial location from user supplied switchboard values
+					#Radius is in normalised radius [rho_pol], while RadialLoc is in [m]
+					Radius = poloidalprofiles[j]							#[rho_pol]
+					RadialLoc = min(rho_pol, key=lambda x:abs(x-Radius))	#[m]
+					RadialIdx = rho_pol.tolist().index(RadialLoc)			#[-]
+					
+					#Append variable name and SI radial location to legend
+					Legend.append('$\\rho_{pol}$ = '+str(round(RadialLoc,2)))
 
-			#==========#	#==========#
+					#Extract poloidally resolved profile and plot 
+					#ThetaAxis and ThetaProfile rotate clockwise from vertical at R = Radius
+					ThetaAxis,ThetaProfile = Extract_PoloidalProfile(HarmonicsData,variables[i],ntorIdx,Radius)
+					ax.plot(ThetaAxis,ThetaProfile, lw=2)
 
-			#Create figure and define Title, Legend, Axis Labels etc...
-			fig,ax = figure(image_aspectratio,1)
-			ntorString = ', n='+str(ntor); mpolString=', m='+str(-mpol_res+1)+','+str(mpol_res-1)
-			TimeString = ', t='+str(round(Time,3))+' ms'
-			Title = VariableLabel+ntorString+mpolString+TimeString+' \n Simulation: '+DirString
-			Xlabel,Ylabel = 'Radius $R$ [m]', VariableLabel
-			Legend = list()
+					#Save ASCII data to sub-folder
+#					Write_data_to_file(ThetaAxis, ThetaProfile)			### TO BE ADDED ###
+				#endfor
 
-			#Plot 1D radially resolved profiles for current simulation folder
-			#Radial profiles employ fixed poloidal (theta) and toroidal (phi) angles
-			for j in range(0,len(radialprofiles)):
+				#Beautify 1D equilibrium profiles figure
+				ImageOptions(fig,ax,Xlabel,Ylabel,Title,Legend)
+				ax.xaxis.set_major_locator(ticker.MultipleLocator(60))
+
+				#Save poloidal equilibrium profiles for current simulation folder
+				SaveString = variables[i]+'_Poloidal_n'+str(ntor)+'_t='+str(round(Time,3))+ext
+				plt.savefig(DirEquilPoloidal+SaveString)
+#				plt.show()
+				plt.close('all')
+			#endif - poloidal profile loop
+
+			#==========##===========#
+			#	 RADIAL PROFILES	#
+			#==========##===========#
+			if len(radialprofiles) > 0:
 
 				#Create new folder to store radial profiles
-				if j == 0: DirEquilRadial = CreateNewFolder(DirEquil1D,'Radial/')
+				DirEquilRadial = CreateNewFolder(DirEquil1D,'Radial/')
 
-				#Define poloidal angle theta and append to legend list
-				theta = radialprofiles[j]
-				Legend.append('$\\theta$ = '+str(theta)+'$^{\circ}$')
+				#Create figure and define Title, Legend, Axis Labels etc...
+				fig,ax = figure(image_aspectratio,1)
+				ntorString = ', n='+str(ntor); mpolString=', m='+str(-mpol_res+1)+','+str(mpol_res-1)
+				TimeString = ', t='+str(round(Time,3))+' ms'
+				Title = VariableLabel+ntorString+mpolString+TimeString+' \n Simulation: '+DirString
+				Xlabel,Ylabel = 'Radius $R$ [m]', VariableLabel
+				Legend = list()
 
-				#Extract radially resolved profile and plot 
-				RadialProfile = Extract_RadialProfile(HarmonicsData,variables[i],ntorIdx,theta)
-				ax.plot(rho_pol,RadialProfile, lw=2)
+				#Plot 1D radially resolved profiles for current simulation folder
+				#Radial profiles employ fixed poloidal (theta) and toroidal (phi) angles
+				for j in range(0,len(radialprofiles)):
 
-				#Save ASCII data to sub-folder
-#				Write_data_to_file(RadialProfile)			### TO BE ADDED ###
-			#endfor
+					#Define poloidal angle theta and append to legend list
+					theta = radialprofiles[j]
+					Legend.append('$\\theta$ = '+str(theta)+'$^{\circ}$')
 
-			#Beautify 1D equilibrium profiles figure
-			ImageOptions(fig,ax,Xlabel,Ylabel,Title,Legend)
+					#Extract radially resolved profile and plot
+					#RadialProfile has origin at Rgeo, extending at angle theta clockwise to vertical
+					RadialProfile = Extract_RadialProfile(HarmonicsData,variables[i],ntorIdx,theta)
+					ax.plot(rho_pol,RadialProfile, lw=2)
 
-			#Save radial equilibrium profiles for current simulation folder
-			SaveString = variables[i]+'_Radial_n'+str(ntor)+'_t='+str(round(Time,3))+ext
-			plt.savefig(DirEquilRadial+SaveString)
-#			plt.show()
-			plt.close('all')
+					#Save ASCII data to sub-folder
+#					Write_data_to_file(rho_pol, RadialProfile)			### TO BE ADDED ###
+				#endfor
+
+				#Beautify 1D equilibrium profiles figure
+				ImageOptions(fig,ax,Xlabel,Ylabel,Title,Legend)
+
+				#Save radial equilibrium profiles for current simulation folder
+				SaveString = variables[i]+'_Radial_n'+str(ntor)+'_t='+str(round(Time,3))+ext
+				plt.savefig(DirEquilRadial+SaveString)
+#				plt.show()
+				plt.close('all')
+			#endif - radial profile loop
 		#endfor	- variable loop
 	#endfor	- directory loop
 #endif
