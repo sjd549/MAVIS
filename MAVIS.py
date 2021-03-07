@@ -154,49 +154,50 @@ toroidalprofiles = []					#1D Toroidal Profiles (fixed rho_pol, theta) :: Toroid
 trendlocation = [] 						#Cell location For Trend Analysis [R,theta,phi], ([] = min/max)
 
 #Various Diagnostic Settings:
-setting_SEQ = [0,1]						#Simulation SEQ to load		- [Min,Max], [Int], [-1] to load last
+setting_SEQ = [0,1]						#Simulation SEQ to load		- [Min,Max], [Int], [] to plot SEQ001
 setting_ntor = [0,2]					#ntor range to plot 		- [Min,Max], [Int], [] to plot all
-setting_kstep = [0,10,2]				#kstep index range to plot 	- [Min,Max,Step], [Int], [] to plot all
+setting_kstep = [0,100,5]				#kstep index range to plot 	- [Min,Max,Step], [Int], [] to plot all
 
 
 #Requested diagnostics and plotting routines:
-savefig_1Denergy = False				#Plot 1D spectral energy trends 	(xxx.energy_p)	- Working
-savefig_1Denergytrends = False			#Plot 1D spectral energy trends 	(xxx.energy_n)	- In Development
+savefig_1Denergy = False				#Plot 1D MHD energies (1 Sim) 		(xxx.energy_p)	- Working
+savefig_1Denergytrends = False			#Plot 1D MHD energies (multi-Sim) 	(xxx.energy_n)	- In Development
 
 savefig_1Dequilibrium = False			#Plot 1D equilibrium profiles		(xxx.harmonics) - Working
 savefig_2Dequilibrium = False			#Plot 2D equilibrium figures		(xxx.harmonics)	- Working
 savefig_2Dequilmovie = False			#Plot 2D equilibrium movies			(xxx.harmonics)	- Working
 savefig_2Dresponse = False				#Plot 2D plasma response 			(xxx.harmonics)	- Working
 
-savefig_2Dharmonics = False				#Plot 2D harmonic continnum		 	(xxx.harmonics)	- Working
+savefig_2Dcontinnum = False				#Plot 2D harmonic continnum		 	(xxx.harmonics)	- Working
 
 savefig_1Dkinetics = False				#Plot 2D kinetic distributions	 	(gc_a_kstepxxx)	- Working	!NEED FUNCS
 savefig_2Dkinetics = False				#Plot 1D kinetic distributions	 	(gc_a_kstepxxx)	- Working	!NEED FUNCS
 
 
 #Requested diagnostic terminal outputs:
-print_generaltrends = False				#Verbose Min/Max Trend Outputs						- In Development
+print_generaltrends = False				#Verbose Trend Outputs								- In Development
 
 
 #Write processed data to ASCII files:
-write_ASCII = True						#All diagnostic output written to ASCII.
+write_ASCII = True						#All diagnostic output written to ASCII				- In Development
 
 
 #Image plotting options:
-image_extension = '.png'				#Extensions ('.png', '.jpg', '.eps')
-image_aspectratio = [10,10]				#[x,y] in cm 
-image_radialcrop = []					#[R1,R2] in cm
-image_axialcrop = []					#[Z1,Z2] in cm
-image_cbarlimit = []					#[min,max] colourbar limits	
+image_extension = '.png'				#Extensions ('.png', '.jpg', '.eps')				- Working
+image_aspectratio = [10,10]				#[x,y] in cm 										- Working
+image_rhocrop = []						#Crop image radius/rho_pol [min,max]				- In Development
+image_thetacrop = []					#Crop image poloidal angle [min,max]g				- In Development
+image_mpolcrop = [-16,16]				#Crop image poloidal modes [min,max]				- Working (-ish)
+image_ntorcrop = []						#Crop image toroidal modes [min,max]				- In Development
+image_cbarlimit = []					#[min,max] colourbar limits							- Working
 
-image_plotsymmetry = True				#Toggle radial symmetry
-image_contourplot = True				#Toggle contour Lines in images
-image_plotgrid = False					#Plot major/minor gridlines on profiles
-image_plotmesh = False					#Plot material mesh outlines
-image_rotate = True						#Rotate image 90 degrees to the right.
+image_plotsymmetry = True				#Toggle radial symmetry in images					- In Development
+image_contourplot = True				#Toggle contour Lines in images						- Working
+image_plotgrid = False					#Plot major/minor gridlines in all figures			- Working
+image_plotmesh = False					#Plot material mesh outlines in images				- In Development
 
-image_normalise = False					#Normalise image/profiles to local max
-image_logplot = False					#Plot ln(Data), against linear axis.
+image_normalise = False					#Normalise image/profiles to local maximum			- In Development
+image_logaxes = [False,False]			#Apply logarithmic axes to image/profiles [x,y]		- In Development
 
 #Overrides the automatic image labelling:
 titleoverride = []
@@ -212,23 +213,14 @@ cbaroverride = []
 
 #						IMMEDIATE TO DO LIST
 #
-#Combine all equil plots into a folder [Equil Plots] -->  1DProfiles -- > Radial
-#																		  Poloidal
-#
-#														  2DProfiles -- > Poloidal
-#
-#FIX ISSUE WHERE "outputdata is referenced before assignment" IF FILENAME HAS A " [string] " IN IT
-#
 #ADD DE-NORMALISATION FUNCTION IMMEDIATELY FOLLOWING DATA EXTRACTION FUNCTIONS - MOST SIMPLE APPROACH
 #CHECK ALL DIAGNOSTICS FOR ANY CURRENTLY APPLIED DE-NORMALISATION AND REMOVE IF POSSIBLE
 #Make an option in the low-level commands to apply de-normalisation - generally won't change
-#Tie this option to any other applicable function, e.g. variablelabelmaker,
+#Tie this option to any other applicable function, e.g. variablelabelmaker, func(),
 #
 #ADD ABILITY TO SAVE ASCII DATA FOR 2D IMAGES (PARTICULARILY PLASMA RESPONSE)
 #
 #ADD DIAGNOSTIC COMPARING ENERGY CONVERGENCE BETWEEN MULTIPLE SIMULATIONS
-#
-#FINISH PLASMA RESPONSE ROUTINE WITH POLOIDALLY RESOLVED VERSION
 #
 
 
@@ -237,6 +229,13 @@ cbaroverride = []
 #        ####TODO####        #
 #============================#
 
+#
+#FIX ISSUE WHERE "outputdata is referenced before assignment" IF FILENAME HAS [] or {} IN IT
+#Issue arises in ExtractMEGA_Energy (and others) where glob.glob() can't handle brackets in file directory 
+#
+#ADD rhocrop, thetacrop, mpolcrop, ntorcrop OPTIONS TO ALL APPLICABLE DIAGNOSTICS
+#Will require a cropping function which considers any image rotation and corrects for zero crop input '[]'
+#
 #ADD INFORMATION REGARDING SIMULATION RESOLUTION SEQ, KSTEP, ETC... BELOW MAVIS SPLASH
 #
 #ADD OPTION TO HOMOGONISE THE COLOURBAR FOR ALL MOVIES (EQUIL / RESPONSE / KINETIC)
@@ -1004,7 +1003,7 @@ def ExtractMEGA_Energy(Dir,Filename='energy_n'):
 #Example: OutputData,Header = ExtractMEGA_Energy('LocalDataFolder/','energy_phys'])
 
 	#Extract Filename.txt paths for all SEQ for given data filename
-	Files = sorted(glob.glob(Dir+'data/*'+Filename+'*'))
+	Files = sorted(glob.glob( Dir+'data/*'+Filename+'*' ))
 
 	#For each output file in the current simulation directory:
 	for SEQ in range(0,len(Files)):
@@ -1414,7 +1413,7 @@ def Set_SEQRange(setting_SEQ):
 
 	#Apply user SEQ range if requested...
 	if len(setting_SEQ) == 2: 
-		SEQRange = [0,setting_SEQ[1]+1]
+		SEQRange = [setting_SEQ[0],setting_SEQ[1]+1]
 
 	#...else default to SEQ = 001
 	else:
@@ -1673,7 +1672,7 @@ def Colourbar(ax='NaN',image='NaN',Label='',Ticks=5,Lim=[]):
 	#Set default font and spacing options and modify if required
 	Rotation,Labelpad = 270,30
 	LabelFontSize,TickFontsize = 24,18
-	if '\n' in [Label]: Labelpad += 25		#Pad label for multi-line names
+	if '\n' in Label: Labelpad += 30		#Pad label for multi-line names
 
 	#Create and define colourbar axis
 	divider = make_axes_locatable(ax)
@@ -2203,7 +2202,7 @@ if True in [savefig_1Dequilibrium]:
 	print('# 1D Equilibrium Analysis')
 if True in [savefig_2Dequilibrium,savefig_2Dequilmovie]:
 	print('# 2D Equilibrium Analysis')
-if True in [savefig_2Dharmonics]:
+if True in [savefig_2Dcontinnum]:
 	print('# 2D Spectral Analysis')
 if True in [savefig_2Dresponse]:
 	print('# 2D Plasma Response Analysis')
@@ -2614,7 +2613,7 @@ if savefig_1Dequilibrium == True:
 			if len(poloidalprofiles) > 0:
 
 				#Create new folder to store poloidal profiles
-				DirEquilPoloidal = CreateNewFolder(DirEquil1D,'Poloidal/')
+				DirEquilPoloidal = CreateNewFolder(DirEquil1D,'Poloidal_Profiles/')
 
 				#Create figure and define Title, Legend, Axis Labels etc...
 				fig,ax = figure(image_aspectratio,1)
@@ -2663,7 +2662,7 @@ if savefig_1Dequilibrium == True:
 			if len(radialprofiles) > 0:
 
 				#Create new folder to store radial profiles
-				DirEquilRadial = CreateNewFolder(DirEquil1D,'Radial/')
+				DirEquilRadial = CreateNewFolder(DirEquil1D,'Radial_Profiles/')
 
 				#Create figure and define Title, Legend, Axis Labels etc...
 				fig,ax = figure(image_aspectratio,1)
@@ -2700,7 +2699,7 @@ if savefig_1Dequilibrium == True:
 				plt.close('all')
 			#endif - radial profile loop
 		#endfor	- variable loop
-	#endfor	- directory loop
+	#endfor	- dir loop
 #endif
 
 
@@ -2733,7 +2732,7 @@ if savefig_2Dequilibrium == True:
 		KStepIdx = setting_kstep[1]			#requested kstep index 				!!! NEEDS A FUNCTION !!!
 
 		#Create global 2D diagnostics folder and extract current simulation name
-		DirEquil = CreateNewFolder(Dir[l],'2DPoloidal_Plots/')
+		DirEquil2D = CreateNewFolder(Dir[l],'2DEquil_Plots/')
 		DirString = Dir[l].split('/')[-2]
 		SubString = DirString.split('_')[-1]
 
@@ -2790,13 +2789,25 @@ if savefig_2Dequilibrium == True:
 			cbar = Colourbar(ax,im,VariableLabel,5)
 			ImageOptions(fig,ax,Xlabel,Ylabel,Title,Legend)
 
+			#OVERLAY 1D PROFILE OUTLINES ONTO THESE SINGLE KSTEP EQUIL IMAGES
+			#MAKES THEM USEFUL FOR QUICK DIAGNOSIS, OTHERWISE THEY SERVE LITTLE PURPOSE
+			#for i in range(0,len(radialprofiles)):
+				#Stuff
+			#endfor
+			#for i in range(0,len(poloidalprofiles)):
+				#Stuff
+			#endfor
+#
+			#OR, MAKE THESE HAVE THE FULL RANGE OF MODE NUMBERS ON THE SAME FIGURE?
+			#SOMETHING TO MAKE THEM DIFFERENT FROM THE MOVIE PLOTS
+
 			#Save 2D poloidally resolved figure for current simulation
 			SaveString = variables[i]+'_n'+str(ntor)+'_t='+str(round(Time,3))+ext
-			plt.savefig(DirEquil+SaveString)
+			plt.savefig(DirEquil2D+SaveString)
 #			plt.show()
 			plt.close('all')
-		#endfor
-	#endfor
+		#endfor - Variable loop
+	#endfor - dir loop
 #endif
 
 
@@ -2811,11 +2822,10 @@ if savefig_2Dequilmovie == True:
 
 		#DEVELOPMENT SETTINGS - all need looped over... - settings_inputs to be moved to switchboard
 		print Dir[l].split('/')[-2]
-		SEQ = setting_SEQ[1]				#requested SEQ file index (001 = 0)	!!! NEEDS A FUNCTION !!!
 		ntor = setting_ntor[1]				#requested ntor mode number			!!! NEEDS A FUNCTION !!!
 
 		#Create global 2D diagnostics folder and extract current simulation name
-		DirEquil = CreateNewFolder(Dir[l],'2DPoloidal_Plots/')
+		DirEquil2D = CreateNewFolder(Dir[l],'2DEquil_Plots/')
 		DirString = Dir[l].split('/')[-2]
 		SubString = DirString.split('_')[-1]
 
@@ -2823,7 +2833,6 @@ if savefig_2Dequilmovie == True:
 		KStepArray, TimeArray, ntorArray = ExtractMEGA_TemporalAxes(Dir, DataFile='harmonics')
 		DeltaKstep = KStepArray[1]-KStepArray[0]	#KStep Interval 		[-]
 		DeltaTime = TimeArray[1]-TimeArray[0]		#Time Interval 			[ms]
-		KStepMod = len(KStepArray)/(SEQ+1)			#KStep indices per SEQ 	[-]
 		ntor_tot = ntorArray[2]						#Total number of positive & negative modes (Inc n=0)
 		ntor_pos = ntorArray[1]						#Number of positive modes (Ignoring n=0)
 		ntor0 = ntorArray[0]						#ntor = 0, baseline equilibrium data
@@ -2831,69 +2840,75 @@ if savefig_2Dequilmovie == True:
 		#Extract toroidal mode number array index (ntorIdx) from requested mode number (ntor)
 		ntorIdx = Set_ntorIdx(ntor,ntorArray)
 
-		#Apply user Kstep range if requested - else default to max range
+		#Apply user SEQ and Kstep ranges if requested - else default to max range
 		KStepRange,KStepStep = Set_KStepRange(KStepArray,setting_kstep)
+		SEQRange = Set_SEQRange(setting_SEQ)
+		KStepMod = len(KStepArray)/max(SEQRange)	#KStep indices per SEQ 	[-]
 
-		#Extract and plot data for each timestep
-		for i in tqdm( range(KStepRange[0],KStepRange[1],KStepStep) ):
+		for j in range(SEQRange[0],SEQRange[1]):
+			#Set SEQIndex for current simulation folder
+			SEQ = j
 
-			#Set TimeIndex and employ to extract KStep and Time
-			KStepIdx = i; 								#Add these to SEQ loop.
-			IdxOffset = SEQ*KStepMod					#[-]
-			KStep = KStepArray[KStepIdx+IdxOffset]		#[-]
-			Time = TimeArray[KStepIdx+IdxOffset]		#[ms]
+			#Extract and plot data for each timestep
+			for i in tqdm( range(KStepRange[0],KStepRange[1],KStepStep) ):
 
-			#Extract ALL VARIABLES FOR SINGLE KSTEP from Harmonics, it contains:
-			#HarmonicsData.rho_pol [1D array] :: HarmonicsData.q_psi [1D array]
-			#HarmonicsData.kst [1D array]     :: HarmonicsData.time [1D array]    
-			#HarmonicsData.Variables[i]: [3D Array] of shape [mpol][ntor][lpsi][A/B] for a single kstep
-			HarmonicsData = ExtractMEGA_Harmonics(Dir[l]+'data/','All',ntor_tot,KStepIdx,SEQ,'3D')
+				#Set TimeIndex and employ to extract KStep and Time
+				KStepIdx = i; 								#[-]
+				IdxOffset = SEQ*KStepMod					#[-]
+				KStep = KStepArray[KStepIdx+IdxOffset]		#[-]
+				Time = TimeArray[KStepIdx+IdxOffset]		#[ms]
 
-			#Extract data resolution and poloidal axes from repository .dat files
-			#DataShape contains data resolution of form: [mpol,ntor,lpsi,ltheta]
-			DataShape = ExtractMEGA_DataShape(HarmonicsData)
-			Crdr,Crdz = ExtractMEGA_PoloidalGrid(DirRepository,HarmonicsData)
+				#Extract ALL VARIABLES FOR SINGLE KSTEP from Harmonics, it contains:
+				#HarmonicsData.rho_pol [1D array] :: HarmonicsData.q_psi [1D array]
+				#HarmonicsData.kst [1D array]     :: HarmonicsData.time [1D array]    
+				#HarmonicsData.Variables[i]: [3D Array] of shape [mpol][ntor][lpsi][A/B] for a single kstep
+				HarmonicsData = ExtractMEGA_Harmonics(Dir[l]+'data/','All',ntor_tot,KStepIdx,SEQ,'3D')
 
-			#For each requested variable at the current Kstep
-			for j in range(0,len(variables)):
+				#Extract data resolution and poloidal axes from repository .dat files
+				#DataShape contains data resolution of form: [mpol,ntor,lpsi,ltheta]
+				DataShape = ExtractMEGA_DataShape(HarmonicsData)
+				Crdr,Crdz = ExtractMEGA_PoloidalGrid(DirRepository,HarmonicsData)
 
-				#Create global 2D diagnostics folder and extract current simulation name
-				DirMovie = CreateNewFolder(DirEquil,variables[j]+'_n'+str(ntor))
+				#For each requested variable at the current Kstep
+				for j in range(0,len(variables)):
 
-				#Select variable and Merge 3D Data into 2D poloidal slice
-				Image = MergePoloidal(HarmonicsData,variables[j],ntorIdx)
+					#Create global 2D diagnostics folder and extract current simulation name
+					DirMovie = CreateNewFolder(DirEquil2D,variables[j]+'_n'+str(ntor))
 
-				#==========#
+					#Select variable and Merge 3D Data into 2D poloidal slice
+					Image = MergePoloidal(HarmonicsData,variables[j],ntorIdx)
 
-				#Create figure and define Title, Legend, Axis Labels etc...
-				fig,ax = figure(image_aspectratio,1)
+					#==========#
 
-				#Extract Variablelabel and define figure texts
-				VariableLabel = VariableLabelMaker(variables[j])
-				Title = VariableLabel+', n='+str(ntor)+', t='+str(round(Time,3))+' ms \n Simulation: '+DirString
-				Xlabel,Ylabel = 'Radius $R$ [m]', 'Height $Z$ [m]'
-				Legend = list()
+					#Create figure and define Title, Legend, Axis Labels etc...
+					fig,ax = figure(image_aspectratio,1)
 
-				#Plot 2D poloidally resolved figure and beautify
-				im = ax.contourf(Crdr, Crdz, Image, 100); plt.axis('scaled')
-				im2 = ax.contour(Crdr, Crdz, Image, 20); plt.axis('scaled')
-				cbar = Colourbar(ax,im,VariableLabel,5)
-				ImageOptions(fig,ax,Xlabel,Ylabel,Title,Legend)
+					#Extract Variablelabel and define figure texts
+					VariableLabel = VariableLabelMaker(variables[j])
+					Title = VariableLabel+', n='+str(ntor)+', t='+str(round(Time,3))+' ms \n Simulation: '+DirString
+					Xlabel,Ylabel = 'Radius $R$ [m]', 'Height $Z$ [m]'
+					Legend = list()
 
-				#Save 2D poloidally resolved figure for current simulation
-				SaveString = variables[j]+'_n'+str(ntor)+'_kstep'+str('%07.f'%KStep)+ext
-				plt.savefig(DirMovie+SaveString)
-#				plt.show()
-				plt.close('all')
-			#endfor
+					#Plot 2D poloidally resolved figure and beautify
+					im = ax.contourf(Crdr, Crdz, Image, 100); plt.axis('scaled')
+					im2 = ax.contour(Crdr, Crdz, Image, 20); plt.axis('scaled')
+					cbar = Colourbar(ax,im,VariableLabel,5)
+					ImageOptions(fig,ax,Xlabel,Ylabel,Title,Legend)
 
-			#!!! AUTO CREATE MOVIES FOR EACH VARIABLE HERE !!!
-			#!!! AUTO CREATE MOVIES FOR EACH VARIABLE HERE !!!
+					#Save 2D poloidally resolved figure for current simulation
+					SaveString = variables[j]+'_n'+str(ntor)+'_kstep'+str('%07.f'%KStep)+ext
+					plt.savefig(DirMovie+SaveString)
+#					plt.show()
+					plt.close('all')
+				#endfor - Variable loop
 
-		#endfor
-	#endfor
+				#!!! AUTO CREATE MOVIES FOR EACH VARIABLE HERE !!!
+				#!!! AUTO CREATE MOVIES FOR EACH VARIABLE HERE !!!
+
+			#endfor - Kstep loop
+		#endfor - SEQ loop
+	#endfor - dir loop
 #endif
-
 
 #==========##==========##==========#
 #==========##==========##==========#
@@ -2953,12 +2968,11 @@ if savefig_2Dresponse == True:
 
 		#DEVELOPMENT SETTINGS - all need looped over... - settings_inputs to be moved to switchboard
 		print Dir[l].split('/')[-2]
-		SEQ = setting_SEQ[1]				#requested SEQ file index (001 = 0)	!!! NEEDS A FUNCTION !!!
 		ntor = setting_ntor[1]				#requested ntor mode number			!!! NEEDS A FUNCTION !!!
 		variable = 'brad'					#requested response variable 		!!! Need to impliment vrad etc...
 
 		#Initiate any required lists
-		DataAmpPROES = list()
+		DataAmpPROES_pol,DataAmpPROES_rad = list(),list()
 		XaxisPROES = list()
 
 		#Create global 2D diagnostics folder and extract current simulation name
@@ -2971,7 +2985,6 @@ if savefig_2Dresponse == True:
 		KStepArray, TimeArray, ntorArray = ExtractMEGA_TemporalAxes(Dir, DataFile='harmonics')
 		DeltaKstep = KStepArray[1]-KStepArray[0]	#KStep Interval 		[-]
 		DeltaTime = TimeArray[1]-TimeArray[0]		#Time Interval 			[ms]
-		KStepMod = len(KStepArray)/(SEQ+1)			#KStep indices per SEQ 	[-]
 		ntor_tot = ntorArray[2]						#Total number of positive & negative modes (Inc n=0)
 		ntor_pos = ntorArray[1]						#Number of positive modes (Ignoring n=0)
 		ntor0 = ntorArray[0]						#ntor = 0, baseline equilibrium data
@@ -2982,6 +2995,7 @@ if savefig_2Dresponse == True:
 		#Apply user SEQ and Kstep ranges if requested - else default to max range
 		KStepRange,KStepStep = Set_KStepRange(KStepArray,setting_kstep)
 		SEQRange = Set_SEQRange(setting_SEQ)
+		KStepMod = len(KStepArray)/max(SEQRange)	#KStep indices per SEQ 	[-]
 
 		#Extract Variablelabel for chosen variable
 		VariableLabel = VariableLabelMaker(variable,Units='Perturbation [-]')
@@ -2994,7 +3008,7 @@ if savefig_2Dresponse == True:
 			for i in tqdm( range(KStepRange[0],KStepRange[1],KStepStep) ):
 
 				#Set TimeIndex and employ to extract KStep and Time
-				KStepIdx = i
+				KStepIdx = i								#[-]
 				IdxOffset = SEQ*KStepMod					#[-]
 				KStep = KStepArray[KStepIdx+IdxOffset]		#[-]
 				Time = TimeArray[KStepIdx+IdxOffset]		#[ms]
@@ -3024,14 +3038,14 @@ if savefig_2Dresponse == True:
 				DataAmpNeg = np.flip( DataAmpNeg,axis=0)		#Flip LHS of image for plotting
 
 				#Concat positive and negative ntor to obtain full poloidal harmonic spectrum
-				#DataAmp is of shape: DataAmp[lpsi,mpol]
+				#DataAmp is of shape: [2*mpol-1][lpsi]
 				DataAmp = np.concatenate((DataAmpNeg,DataAmpPos[1:,:]),axis=0)
 
 				#Create Image array and Axes, rotate such that mpol spectrum is on X-axis.
-				#Image is of shape: [mpol][lpsi] 
+				#Image is of shape: [lpsi][2*mpol+1]	(i.e. Image is orientated [Y,X])
 				Image = DataAmp.transpose()
-				Xaxis =	[x-int(mpol_res-1) for x in range(0,2*mpol_res-1,1)]	#Poloidal Mode Numbers
-				Yaxis = HarmonicsData.rho_pol									#Radial Location
+				Xaxis =	[x-int(mpol_res-1) for x in range(0,2*mpol_res-1,1)]	#Poloidal Mode Numbers	[mpolAxis] 
+				Yaxis = HarmonicsData.rho_pol									#Radial Location		[lpsiAxis]
 
 				#Create figure and define Title, Legend, Axis Labels etc...
 				fig,ax = figure(image_aspectratio,1)
@@ -3040,12 +3054,15 @@ if savefig_2Dresponse == True:
 				Legend = list()
 
 				#Plot poloidal response spectrum figure (R,mpol)
-				im = ax.contourf(Xaxis, Yaxis, Image, 50)
+				extent = [Xaxis[0],Xaxis[-1], Yaxis[0],Yaxis[-1]]						#[mpolAxis, lpsiAxis]
+				im = ax.imshow(Image, extent=extent, aspect='auto', origin='bottom')	#Image orientated [Y,X]
+				co = ax.contour(Image, extent=extent, origin='lower', levels=10)		#Image orientated [Y,X]
+#				im = ax.contourf(Xaxis, Yaxis, Image, 50)
 				res = ax.plot(-ntor*q_psi, rho_pol, 'w--', lw=2)
 				cbar = Colourbar(ax,im,VariableLabel,5)
 				#####
 				ImageOptions(fig,ax,Xlabel,Ylabel,Title,Legend)
-				ax.set_xlim(-16,16)
+				ax.set_xlim(image_mpolcrop[0],image_mpolcrop[1])
 
 				#Save poloidal response figure for current SEQ and Kstep
 				SaveString = 'PlasmaResponse_'+variable+'_n'+str(ntor)+'_kstep'+str('%07.f'%KStep)+ext
@@ -3053,44 +3070,100 @@ if savefig_2Dresponse == True:
 #				plt.show()
 				plt.close('all')
 
-				#==========#
+				#==========##==========#
+				#==========##==========#
 
-				#Collapse figure poloidally - integrate through all poloidal modes
-				DataAmp1D = list()
+				#Collapse figure radially to create 'PROES'-like temporal evolution figure
+				#Integrate through all radii, maintaining poloidal spectrum (mpol) resolution
+				DataAmp1D_pol = list()
+				for k in range(0,len(DataAmp)):
+					#DataAmp is of shape: [2*mpol-1][lpsi]
+					#DataAmp1D is of shape: [2*mpol-1]
+					DataAmp1D_pol.append(sum(DataAmp[k][:]))
+				#endfor
+
+				#Collapse figure poloidally to create 'PROES'-like temporal evolution figure
+				#Integrate through all poloidal modes, maintaining radial (rho_pol) resolution
+				DataAmp1D_rad = list()
 				DataAmp = DataAmp.transpose()
 				for k in range(0,len(DataAmp)):
-					DataAmp1D.append(sum(DataAmp[k][:]))
+					#Transposed DataAmp is of shape: [lpsi][2*mpol-1]
+					#DataAmp1D is of shape: [lpsi]
+					DataAmp1D_rad.append(sum(DataAmp[k][:]))
 				#endfor
-				
-				#Append 1D array to 2D PROES image array
-				#DataAmpPROES: 2D array of shape [kstep][lpsi]
-				DataAmpPROES.append(DataAmp1D)
-				XaxisPROES.append(Time)
-			#endfor
-		#endfor
 
-		#If more than one KStep was processed, create a temporal plasma response image
-		if len(DataAmpPROES) > 1:
-			#Create figure and define Title, Legend, Axis Labels etc...
+				#Append 1D spatial arrays into 2D spati-temporal 'PROES-like' image arrays
+				#DataAmpPROES_pol: 2D array of shape [kstep][2*mpol+1]
+				#DataAmpPROES_rad: 2D array of shape [kstep][lpsi]
+				DataAmpPROES_pol.append(DataAmp1D_pol)
+				DataAmpPROES_rad.append(DataAmp1D_rad)
+				XaxisPROES.append(Time)
+
+			#endfor - Kstep loop
+		#endfor - SEQ loop
+
+		#================##=================#
+		#	TEMPORALLY RESOLVED PROFILES	#
+		#================##=================#
+
+		#Plot spatio-temporally resolved plasma response figures
+		if len(XaxisPROES) > 1:
+
+			#Create 'PROES-like' Image array, rotated such that time is on X-axis.
+			#PROESImage is of shape: [lpsi OR 2*mpol+1][kstep]	(i.e. Image is orientated [Y,X])
+			PROESImage_pol = np.asarray(DataAmpPROES_pol).transpose()
+			PROESImage_rad = np.asarray(DataAmpPROES_rad).transpose()
+
+			#Set image extents for each orientation
+			extent_pol = [XaxisPROES[0],XaxisPROES[-1], Xaxis[0],Xaxis[-1]]		#[2*mpol+1][kstep]
+			extent_rad = [XaxisPROES[0],XaxisPROES[-1], Yaxis[0],Yaxis[-1]]		#[lpsi][kstep]
+
+			#==========##==========#
+
+			#Poloidially resolved 'PROES-like' figure: Title, Legend, Axis Labels etc...
+			fig,ax = figure(image_aspectratio,1)
+			Title = 'Plasma Response: n='+str(ntor)+', m='+str(-mpol_res+1)+','+str(mpol_res-1)+', t='+str(round(Time,3))+' [ms] \n Simulation: '+DirString
+			Xlabel,Ylabel = 'Time $t$ [ms]', 'Poloidal Harmonic $m_{pol}$ [-]'
+			Legend = list()
+
+			#Plot temporally resolved, radially collapsed, response figure (R,time)
+			im = ax.imshow(PROESImage_pol, extent=extent_pol, aspect='auto', origin='bottom')	#Image orientated [Y,X]
+			co = ax.contour(PROESImage_pol, extent=extent_pol, origin='lower', levels=10)		#Image orientated [Y,X]
+#			im = plt.contourf(XaxisPROES, Yaxis, PROESImage, 50)
+			cbar = Colourbar(ax,im,VariableLabel,5)
+			ImageOptions(fig,ax,Xlabel,Ylabel,Title,Legend)
+			ax.set_ylim(image_mpolcrop[0],image_mpolcrop[1])
+
+			#Save temporal response figure for current simulation directory
+			SaveString = 'PoloidalResponse_'+variable+'_n'+str(ntor)+'_t='+str(round(Time,3))+ext
+			plt.savefig(DirResponse+SaveString)
+#			plt.show()
+			plt.close('all')
+
+			#==========##==========#
+
+			#Radially resolved 'PROES-like' figure: Title, Legend, Axis Labels etc...
 			fig,ax = figure(image_aspectratio,1)
 			Title = 'Plasma Response: n='+str(ntor)+', m='+str(-mpol_res+1)+','+str(mpol_res-1)+', t='+str(round(Time,3))+' [ms] \n Simulation: '+DirString
 			Xlabel,Ylabel = 'Time $t$ [ms]', 'Radial Magnetic Coordinate $\\rho_{pol}$ [-]'
 			Legend = list()
 
 			#Plot temporally resolved, poloidally collapsed, response figure (R,time)
-			DataAmpPROES = np.asarray(DataAmpPROES).transpose()			#Transpose to align time on X-axis
-			im = plt.contourf(XaxisPROES, Yaxis, DataAmpPROES, 50)
+			im = ax.imshow(PROESImage_rad, extent=extent_rad, aspect='auto', origin='bottom')	#Image orientated [Y,X]
+			co = ax.contour(PROESImage_rad, extent=extent_rad, origin='lower', levels=10)		#Image orientated [Y,X]
+#			im = plt.contourf(XaxisPROES, Yaxis, PROESImage, 50)
 			cbar = Colourbar(ax,im,VariableLabel,5)
 			ImageOptions(fig,ax,Xlabel,Ylabel,Title,Legend)
+			ax.set_ylim(0,1)									#ax.set_ylim(image_rhocrop[0],image_rhocrop[1])
 
 			#Save temporal response figure for current simulation directory
-			SaveString = 'PlasmaResponse_'+variable+'_n'+str(ntor)+'_t='+str(round(Time,3))+ext
+			SaveString = 'RadialResponse_'+variable+'_n'+str(ntor)+'_t='+str(round(Time,3))+ext
 			plt.savefig(DirResponse+SaveString)
-	#		plt.show()
+#			plt.show()
 			plt.close('all')
-		#endif
-	#endfor
-#endif
+		#endif - PROES plotting branch
+	#endfor - Dir loop
+#endif - Diag loop
 
 
 #==========##==========##==========#
@@ -3140,10 +3213,10 @@ if any([savefig_2Dresponse]) == True:
 #====================================================================#
 
 #====================================================================#
-				   #2D HARMONIC & FOURIER ANALYSIS#
+				   #2D CONTINUUM & FOURIER ANALYSIS#
 #====================================================================#
 
-if savefig_2Dharmonics == True:
+if savefig_2Dcontinnum == True:
 
 	#For each detected simulation folder
 	for l in range(0,len(Dir)):
@@ -3155,7 +3228,7 @@ if savefig_2Dharmonics == True:
 		variable = 'bphi'				#requested response variable 		!!! Need to impliment btheta, vrad etc...
 
 		#Create global 2D diagnostics folder and extract current simulation name
-		DirHarmonics = CreateNewFolder(Dir[l],'2DHarmonic_Plots/')
+		DirContinuum = CreateNewFolder(Dir[l],'2DContinnum_Plots/')
 		DirString = Dir[l].split('/')[-2]
 		SubString = DirString.split('_')[-1]
 
@@ -3276,7 +3349,7 @@ if savefig_2Dharmonics == True:
 
 			#==========#
 
-			#Fourier analysis plotted on the bottom row (row 1)
+			#Alfven continuum (Fourier) analysis plotted on the bottom row (row 1)
 			if ntor2 == 1: subfig = ax[1]
 			elif ntor2 > 1: subfig = ax[1,i]
 
@@ -3286,7 +3359,7 @@ if savefig_2Dharmonics == True:
 			extent = [Xaxis[0],Xaxis[-1], Yaxis[0],Yaxis[-1]]
 			X,Y = np.meshgrid(Xaxis,Yaxis)						#im = subfig.contourf(X,Y,vcos_fft[i])
 
-			#Plot fourier amplitude spectrum
+			#Plot Fourier amplitude spectrum
 			im = subfig.imshow(real(vcos_fft[i])[::-1], extent=extent, aspect='auto')
 			co = subfig.contour(real(vcos_fft[i]), extent=extent, levels=10)
 
@@ -3311,7 +3384,7 @@ if savefig_2Dharmonics == True:
 		#endfor
 
 		#Save 2D harmonics figure for current simulation
-		plt.savefig(DirHarmonics+'FourierAnalysis_'+SubString+ext)
+		plt.savefig(DirContinuum+'ContinuumAnalysis_'+SubString+ext)
 #		plt.show()
 		plt.close('all')
 	#endfor
@@ -3320,7 +3393,7 @@ if savefig_2Dharmonics == True:
 #==========##==========##==========#
 #==========##==========##==========#
 
-if any([savefig_2Dharmonics]) == True:
+if any([savefig_2Dcontinnum]) == True:
 	print '-----------------------------'
 	print '2D Spectral Analysis Complete'
 	print '-----------------------------'
