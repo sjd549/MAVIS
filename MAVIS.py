@@ -161,7 +161,7 @@ setting_kstep = [0,199,20]				#kstep index range to plot 	- [Min,Max,Step], [Int
 
 #Requested diagnostics and plotting routines:
 savefig_1Denergy = False				#Plot 1D MHD energies (1 Sim) 		(xxx.energy_p)	- Working
-savefig_1Denergytrends = True			#Plot 1D MHD energies (multi-Sim) 	(xxx.energy_n)	- In Development
+savefig_1Denergytrends = True			#Plot 1D MHD energies (multi-Sim) 	(xxx.energy_n)	- Working
 
 savefig_1Dequilibrium = False			#Plot 1D equilibrium profiles		(xxx.harmonics) - Working
 savefig_2Dequilibrium = False			#Plot 2D equilibrium figures		(xxx.harmonics)	- Working
@@ -2223,7 +2223,7 @@ print(' |  \  /  |    /  ^  \  \   \/   /  |  |    |   (----` ')
 print(' |  |\/|  |   /  /_\  \  \      /   |  |     \   \     ')
 print(' |  |  |  |  /  _____  \  \    /    |  | .----)   |    ')
 print(' |__|  |__| /__/     \__\  \__/     |__| |_______/     ')
-print('                                                 v0.6.1')
+print('                                                 v0.6.2')
 print('-------------------------------------------------------')
 print('')
 print('The following diagnostics were requested:')
@@ -2413,25 +2413,24 @@ if savefig_1Denergy == True:
 	#For each detected simulation folder
 	for l in tqdm(range(0,len(Dir))):
 
-		#DEVELOPMENT SETTINGS - all need looped over... - settings_inputs to be moved to switchboard
-#		print Dir[l].split('/')[-2]
-		SEQ = setting_SEQ[1]				#requested SEQ file index (001 = 0)	!!! NEEDS A FUNCTION !!!
-
-
 		#Create global 1D diagnostics folder and extract current simulation name
 		DirEnergy = CreateNewFolder(Dir[l],'1DEnergy_Profiles/')
 		DirString = Dir[l].split('/')[-2]
 		SubString = DirString.split('_')[-1]
 
-		#Extract Energy_n outputs and header for plotting
-		#energy_n: [variable][timestep]
-		Energy_n,Header_n = ExtractMEGA_Energy(Dir[l],'energy_n')
-		KStepArray = Energy_n[0]					#KStep Array			[-]
-		TimeArray = Energy_n[1]						#Time Array				[ms]
+		#Extract Kstep [-], Time [ms] & toroidal harmonics from energy_n.txt
+		SEQArray, KStepArray, TimeArray, ntorArray = ExtractMEGA_DataRanges(Dir[l], DataFile='energy_n')
 		DeltaKstep = KStepArray[1]-KStepArray[0]	#KStep Interval 		[-]
 		DeltaTime = TimeArray[1]-TimeArray[0]		#Time Interval 			[ms]
-		KStepMod = len(KStepArray)/(SEQ+1)			#KStep indices per SEQ 	[-]
-		Energy_n = Energy_n[2::]					#Remove time arrays from data
+		KStepMod = len(KStepArray)/len(SEQArray)	#KStep indices per SEQ 	[-]
+		ntor_tot = ntorArray[2]						#Total number of positive & negative modes (Inc n=0)
+		ntor_pos = ntorArray[1]						#Number of positive modes (Ignoring n=0)
+		ntor0 = ntorArray[0]						#ntor = 0, baseline equilibrium data
+
+		#Extract Energy_n outputs and header for plotting
+		#energy_n: [ntor][timestep]
+		Energy_n,Header_n = ExtractMEGA_Energy(Dir[l],'energy_n')
+		Energy_n = Energy_n[2::]					#Remove KStep and Time arrays from array
 
 		#Extract Energy_Phys outputs and header for plotting
 		#Energy_Phys: [variable][timestep]
@@ -2478,7 +2477,7 @@ if savefig_1Denergy == True:
 		#Plot 1st derivative of energy for each harmonic component
 		for i in range(0,len(Energy_n)):
 			ax[1].plot(dEnergydt_Array[i][0],np.log10(dEnergydt_Array[i][1]), lw=2)
-			Legend.append( 'n = '+str(i) )
+			Legend.append( 'n_{tor} = '+str(i) )
 		#endfor
 		ImageOptions(fig,ax[1],Xlabel,Ylabel,'',Legend)
 
@@ -2521,7 +2520,7 @@ if savefig_1Denergy == True:
 		plt.savefig(DirEnergy+'TotalEnergy_'+SubString+ext)
 #		plt.show()
 		plt.close('all')
-	#endfor
+	#endfor - Dir loop
 #endif
 
 
@@ -2532,11 +2531,130 @@ if savefig_1Denergy == True:
 
 if savefig_1Denergytrends == True:
 
-	#TO BE COMPLETED
-	a = 1
+	#Create global 1D diagnostics folder and extract current simulation name
+	DirTrends = CreateNewFolder(os.getcwd(),'/1D_Trends/')
+	DirEnergy = CreateNewFolder(DirTrends,'/1DEnergy_Trends/')
 
+	#Initiate any required lists
+	dEnergydt_Array, d2Energydt2_Array = list(),list()
+	gamma_Array = list()
+
+	TimeArray_Lengths = list()
+	#For each detected simulation folder, record the KStep array length
+	#Smallest KStep range and directory index represents the minimum shared KStep range
+	for l in tqdm(range(0,len(Dir))):
+		#Extract Kstep [-], Time [ms] & toroidal harmonics from energy_n.txt
+		SEQArray, KStepArray, TimeArray, ntorArray = ExtractMEGA_DataRanges(Dir[l], DataFile='energy_n')
+		TimeArray_Lengths.append( len(TimeArray) )
+	#endfor
+	MinKStep = min(TimeArray_Lengths)						#Minimum shared KStep Array Length
+	MinKStep_DirIdx = TimeArray_Lengths.index(MinKStep)		#Folder Dir[Idx] of simulation with Minimum
+
+	#Extract Kstep [-], Time [ms] & toroidal harmonics from energy_n.txt with lowest kstep range
+	SEQArray, KStepArray, TimeArray, ntorArray = ExtractMEGA_DataRanges(Dir[MinKStep_DirIdx], DataFile='energy_n')
+	DeltaKstep = KStepArray[1]-KStepArray[0]	#KStep Interval 		[-]
+	DeltaTime = TimeArray[1]-TimeArray[0]		#Time Interval 			[ms]
+	KStepMod = len(KStepArray)/len(SEQArray)	#KStep indices per SEQ 	[-]
+	ntor_tot = ntorArray[2]						#Total number of positive & negative modes (Inc n=0)
+	ntor_pos = ntorArray[1]						#Number of positive modes (Ignoring n=0)
+	ntor0 = ntorArray[0]						#ntor = 0, baseline equilibrium data
+
+	#For each toroidal mode number
+	for i in range(0,ntor_pos+1):
+
+		#Create figure for energy_n trend comparison
+		fig,ax = figure(image_aspectratio,[2,1])
+
+		#Append new dimension to lists used when comparing growth rates
+		dEnergydt_Array.append([]), d2Energydt2_Array.append([])
+		gamma_Array.append([])
+
+		#Refresh lists used when comparing energy profiles
+		Legend0,Legend1 = list(),list()
+		TrendAxis = list()
+
+		#For each detected simulation folder
+		for l in tqdm(range(0,len(Dir))):
+
+			#Write simulation folder name strings
+			DirString = Dir[l].split('/')[-2]
+			SubString = DirString.split('_')[-1]
+			TrendAxis.append(SubString)
+
+			#Extract Energy_n outputs and header for plotting
+			#energy_n: [ntor][timestep]
+			Energy_n,Header_n = ExtractMEGA_Energy(Dir[l],'energy_n')
+			Energy_n = Energy_n[2::]					#Remove KStep and Time arrays from array
+			for j in range(0,len(Energy_n)):
+				Energy_n[j] = Energy_n[j][0:MinKStep]	#Reduce KStep range to minimum shared range
+			#endfor
+
+			#Extract normalisation factors for current simulation folder
+			Variables,Values,Units = ExtractMEGA_Normalisations(Dir[l])
+#			print Variables[1],Values[1],Units[1]
+
+			#Compute 1st and 2nd energy derivatives and determine MHD linear growth rates
+			#Solves: Eend = Estart*exp{gamma*dt} where 2nd derivative is close to zero
+			gamma,dEdt,d2Edt2 = ComputeMHDGrowthRates(Energy_n[i],TimeArray)
+			#dEnergydt_Array, d2Energydt2_Array 3D arrays of shape: [SimFolder][ntor][kstep]
+			#gamma_Array 2D array of shape: [SimFolder][ntor]
+			dEnergydt_Array[i].append([dEdt]); d2Energydt2_Array[i].append([d2Edt2])
+			gamma_Array[i].append(gamma)
+
+			#==========##==========#
+
+			#Energy_n Ax[0] Title, Legend, Axis Labels etc...
+			Title = 'MHD Energy Evolution for ntor = '+str(i)+' \n '+DirString
+			Xlabel,Ylabel = '', 'Energy $\epsilon_{n}$ (Log$_{10}$) [-]'
+
+			#Plot total energy for each folder (for ntor[i])
+			ax[0].plot(TimeArray,np.log10(Energy_n[i]), lw=2)
+			Legend0.append( SubString+': $\gamma'+'_{'+str(i)+'}$ = '+str(gamma)+' [s$^{-1}$]' )
+			#endfor
+			ImageOptions(fig,ax[0],Xlabel,Ylabel,Title,Legend0)
+
+			#Energy_n Ax[1] Title, Legend, Axis Labels etc...
+			Xlabel,Ylabel = 'Time [ms]', '$\Delta$ Energy $\\frac{d \epsilon_{n}}{d t}$ (Log$_{10}$) [-]'
+
+			#Plot 1st derivative of energy for each folder (for ntor[i])
+			ax[1].plot(dEdt[0],np.log10(dEdt[1]), lw=2)
+			Legend1.append( SubString )
+			#endfor
+			ImageOptions(fig,ax[1],Xlabel,Ylabel,'',Legend1)
+		#endfor - Dir loop
+
+		#Save and close 1D energy evolution profile figures for current ntor[i]
+		plt.savefig(DirEnergy+'SpectralEnergy_n='+str(i)+'_Trends'+ext)
+#		plt.show()
+		plt.close('all')
+	#endfor - ntor loop
+	
+	#==========##==========#
+
+	#Create figure for energy_n growth rate comparison
+	fig,ax = figure(image_aspectratio,[1,1])
+
+	#Energy_n Ax[0] Title, Legend, Axis Labels etc...
+	Title = 'Linear Growth Rate $\gamma$ Comparison for \n '+DirString
+	Xlabel,Ylabel = 'Varied Parameter [-]', 'Growth Rate $\gamma_{n}$ [s$^{-1}$]'
+	Legend = list()
+
+	#Plot growth rates with respect to simulation folder for each toroidal mode number
+	#gamma_Array 2D array of shape: [SimFolder][ntor]
+	for i in range(0,len(gamma_Array)):
+		ax.plot(TrendAxis, gamma_Array[i], marker='o', markerfacecolor='none', ms=14, lw=2)
+		Legend.append('n$_{tor}$ = '+str(i))
+	#endfor
+	ImageOptions(fig,ax,Xlabel,Ylabel,Title,Legend)
+
+	#Save and close open figure(s)
+	plt.savefig(DirEnergy+'GrowthRate_Trends'+ext)
+#	plt.show()
+	plt.close('all')
+
+	#endfor
+	ImageOptions(fig,ax,Xlabel,Ylabel,Title,Legend)
 #endif
-
 
 #==========##==========##==========#
 #==========##==========##==========#
