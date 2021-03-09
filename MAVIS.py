@@ -148,23 +148,23 @@ Kin = ['R_gc','Z_gc','Phi_gc','p_gc','pphi_gc','mu_gc','E_gc','Lambda_gc','psip'
 #Requested Variables and Plotting Locations:
 variables = Phys						#Requested variables to plot			#Phys+Kin
 
-radialprofiles = [90,120]				#1D Radial Profiles (fixed theta, phi) :: Poloidal Angle [deg]
+radialprofiles = [90,180]				#1D Radial Profiles (fixed theta, phi) :: Poloidal Angle [deg]
 poloidalprofiles = [0.2,0.4]			#1D Poloidal Profiles (fixed rho_pol, phi) :: Norm. Radius [-]
 toroidalprofiles = []					#1D Toroidal Profiles (fixed rho_pol, theta) :: Toroidal Angle [deg]
 trendlocation = [] 						#Cell location For Trend Analysis [R,theta,phi], ([] = min/max)
 
 #Various Diagnostic Settings:
 setting_SEQ = [0,0]						#Simulation SEQ to load		- [Min,Max], [Int], [] to plot SEQ001
-setting_ntor = [0,2]					#ntor range to plot 		- [Min,Max], [Int], [] to plot all
-setting_kstep = [0,199,20]				#kstep index range to plot 	- [Min,Max,Step], [Int], [] to plot all
+setting_ntor = [0,0]					#ntor range to plot 		- [Min,Max], [Int], [] to plot all
+setting_kstep = [0,0,1]				#kstep index range to plot 	- [Min,Max,Step], [Int], [] to plot all
 
 
 #Requested diagnostics and plotting routines:
 savefig_1Denergy = False				#Plot 1D MHD energies (1 Sim) 		(xxx.energy_p)	- Working
-savefig_1Denergytrends = True			#Plot 1D MHD energies (multi-Sim) 	(xxx.energy_n)	- Working
+savefig_1Denergytrends = False			#Plot 1D MHD energies (multi-Sim) 	(xxx.energy_n)	- Working
 
 savefig_1Dequilibrium = False			#Plot 1D equilibrium profiles		(xxx.harmonics) - Working
-savefig_2Dequilibrium = False			#Plot 2D equilibrium figures		(xxx.harmonics)	- Working
+savefig_2Dequilibrium = False			#Plot 2D equilibrium figures		(xxx.harmonics)	- Working	-ASCII
 savefig_2Dequilmovie = False			#Plot 2D equilibrium movies			(xxx.harmonics)	- Working
 savefig_2Dresponse = False				#Plot 2D plasma response 			(xxx.harmonics)	- Working
 
@@ -179,7 +179,8 @@ print_generaltrends = False				#Verbose Trend Outputs								- In Development
 
 
 #Write processed data to ASCII files:
-write_ASCII = True						#All diagnostic output written to ASCII				- In Development
+write_ASCII = True						#All diagnostic outputs written to ASCII.dat		- In Development
+write_ASCIIFormat = 'RSV'				#Choose ASCII file output format ('RSV', 'CSV')		- In Development
 
 
 #Image plotting options:
@@ -220,10 +221,16 @@ cbaroverride = []
 #Tie this option to any other applicable function, e.g. variablelabelmaker, func(),
 #
 #ADD ABILITY TO SAVE ASCII DATA FOR 2D IMAGES (PARTICULARILY PLASMA RESPONSE)
+#Added to Savefig_Equilibrium but needs fixing, save one copy of 2D axes in each folder by default.
+#Add to all other functions and save axes in each folder by default.
+#Need to save if variables are normalised or not in header, also maybe 'CSV', 'RSV'?
 #
-#ADD DIAGNOSTIC COMPARING ENERGY CONVERGENCE BETWEEN MULTIPLE SIMULATIONS
+#ADD DOTTED LINE OR SHADED AREA TO INDICATE SEQ NUMBERS IN THE ENERGY DIAGRAMS (AND JUST GENERALLY)
+#Use KStepMod as the KStepArray indices to apply the line, make an image_SEQline input for switchboard
 #
-
+#ADD DOTTED LINE TO 1D (2D?) EQUILIBRIUM IMAGES TO SHOW THE VACUUM MASK EXTENT
+#Will require a SEQ.in (.nam) readin function to work, would be quite useful to have anyway!
+#
 
 
 #============================#
@@ -407,7 +414,7 @@ def ReadRawData(Dirlist,NameString,ListIndex):
 def WriteFile_ASCII(data,filename,structure='w',Orientation='CSV'):
 #Takes a 1D or 2D array and writes to a datafile in ASCII format.
 #Imputs: Data, Filename, 'w'rite or 'a'ppend, and orientation (CSV or RSV).
-#Example: WriteFile_ASCII(Image, "Filename", 'H', 'w')
+#Example: WriteFile_ASCII(Image, "Filename", 'w', 'CSV')
 
 	#Determine dimensionality of profile.
 	if isinstance(data[0], (list, np.ndarray) ) == True:
@@ -885,7 +892,7 @@ def ExtractMEGA_DataShape(HarmonicsData):
 #=========================#
 
 def ExtractMEGA_DataRanges(Dir, DataFile='energy_n'):
-#Extracts MEGA temporal axes and toroidal mode number information from specific output file
+#Extracts MEGA temporal axes and toroidal mode number information from specified output file
 #Used for extracting axes to plot against or to determine toroidal mode number indices
 #Inputs: 
 #	Dir - 0D string containing simulation directory (local or root)
@@ -913,12 +920,6 @@ def ExtractMEGA_DataRanges(Dir, DataFile='energy_n'):
 	ntor_pos = int(float(ntor_tot-1)/2.0)		#Number of positive modes (Ignoring n=0)
 	ntor0 = int(ceil(ntor_tot/2))				#ntor = 0, baseline equilibrium data
 
-	#READ ONLY TEMPORAL AND SPATIAL AXES from SEQ.Harmonics, it contains:
-	#HarmonicsData.rho_pol [1D array] :: HarmonicsData.q_psi [1D array]
-	#HarmonicsData.kst [1D array]     :: HarmonicsData.time [1D array]    
-	HarmonicsData = ExtractMEGA_Harmonics(Dir, Variable='NaN', ntor=ntor_tot, Dimension='1D')
-	rho_pol = HarmonicsData.rho_pol				#Normalised radius		[-]
-
 	#Determine KStep range, Time range and related intervals
 	#Use wchck time intervals
 	if DataFile == 'energy_n':
@@ -927,15 +928,60 @@ def ExtractMEGA_DataRanges(Dir, DataFile='energy_n'):
 
 	#Use wharm time intervals
 	elif DataFile == 'harmonics':
+		#READ ONLY TEMPORAL AND SPATIAL AXES from SEQ.Harmonics, it contains:
+		#HarmonicsData.rho_pol [1D array] :: HarmonicsData.q_psi [1D array]
+		#HarmonicsData.kst [1D array]     :: HarmonicsData.time [1D array]    
+		HarmonicsData = ExtractMEGA_Harmonics(Dir, Variable='NaN', ntor=ntor_tot, Dimension='1D')
+		rho_pol = HarmonicsData.rho_pol				#Normalised radius		[-]
+
 		KStepArray = HarmonicsData.kst				#KStep Array			[-]
 		TimeArray = HarmonicsData.time				#Time Array				[ms]
 
 	#Use wsnapshot time intervals
 	elif DataFile == 'moments':
+#		KStepArray = MomentsData.kst				#KStep Array			[-]
+#		TimeArray = MomentsData.time				#Time Array				[ms]
+		a = 1										#TO BE COMPLETED
+
+	#Use wep time intervals
+	elif DataFile == 'markers':
+#		KStepArray = KineticData.kst				#KStep Array			[-]
+#		TimeArray = KineticData.time				#Time Array				[ms]
 		a = 1										#TO BE COMPLETED
 	#endif
 
 	return(SEQArray, KStepArray, TimeArray, [ntor0,ntor_pos,ntor_tot])
+#enddef
+
+#=========================#
+#=========================#
+
+def ExtractMEGA_SharedDataRange(DirList):
+#Determines the maximum shared KStepArray length between all simulation folders
+#Returns max shared KStep index and associated Dir index for the relevant simulation folder
+#Inputs:
+#	DirList - 1D string array containing all simulation folder root directories
+#Outputs:
+#	MaxSharedKStep - 0D Scalar indicating the maximum shared KStep array length
+#	MaxSharedDirIdx - 0D Scalar indicating the Dir[Idx] for the smallest simulation folder
+#Example: MaxSharedKStep,MaxSharedDirIdx = ExtractMEGA_SharedDataRange(Dir[l])
+
+	#Initiate any required lists
+	TimeArray_Lengths = list()
+
+	#For each detected simulation folder, record the KStep array length
+	for l in range(0,len(DirList)):
+
+		#Extract Kstep [-], Time [ms] & toroidal harmonics from energy_n.txt
+		SEQArray, KStepArray, TimeArray, ntorArray = ExtractMEGA_DataRanges(Dir[l], DataFile='energy_n')
+		TimeArray_Lengths.append( len(TimeArray) )
+	#endfor
+
+	#Extract the minimum shared TimeArray length and associated Dir Array index
+	MaxSharedKStep = min(TimeArray_Lengths)						#Maximum shared KStep array length
+	MaxSharedDirIdx = TimeArray_Lengths.index(MaxSharedKStep)	#Dir[Idx] of simulation with minimum length
+	
+	return(MaxSharedKStep, MaxSharedDirIdx)
 #enddef
 
 #=========================#
@@ -1131,7 +1177,7 @@ def ExtractMEGA_Harmonics(Dir,Variable,ntor,kstep=np.nan,SEQ=0,Dimension='1D'):
 		#Remove '/data/' from directory --> Dir now points to simulation root folder
 		#		  Reverse       split into 2    Keep preamble  re-reverse   +'/' on end
 		NormDir = DataDir[::-1].split('/', 2)   [-1]           [::-1]       +'/'
-		#This is gross and I apologize to anyone reading this...
+		#This is disgusting and I apologize to anyone who has to read this...
 
 		#Extract relevant normalisation factors for current simulation folder
 		Variables,Values,Units = ExtractMEGA_Normalisations(NormDir)
@@ -1171,14 +1217,82 @@ def ExtractMEGA_Moments(DataDir,Variable,ntor,kstep=np.nan,SEQ=0,Dimension='1D')
 #=========================#
 #=========================#
 
-def MergePoloidal(HarmonicsData,VariableString,ntor):
+def ExtractMEGA_Markers(Dir,KStep,MarkerFileStep=1):
+# Reads data from kinetic marker output files (gc_a_kstep000xxxx-00xxx.txt)
+# Reads all variables and concatenates output data from all cores into single 2D array
+# Inputs: 
+#	Dir - Directory String to marker output file folder from root
+# 	KStep - KStep value (NOT Index) of output files to be read-in
+# 	MarkerFileStep - Optional speedup input, will read every 'n'th output file
+# Outputs: 
+#	KineticsData - 2D Array of shape [variable][marker(n)]
+#	Variables - R, Z, Lambda, E, p, Mu, pphi, fff, fnrml, psip, phi
+# Example :: KineticsData,Header_Kin = ExtractMEGA_Markers(Dir[l],KStep=1000,MarkerFileStep=8)
+
+	#Initiate kinetic data array
+	KineticsData = list()
+
+	#Define marker folder location and filename format for supplied KStep
+	Folder = Dir+'markers/'
+	Filename = 'gc_a_kstep'+str('%07.f'%KStep)+'-*.txt'
+	#Sort all marker output files numerically by core number
+	MarkerFiles = sorted(glob.glob(Folder+Filename))
+
+	#Exit cleanly if no files are found:
+	if len(MarkerFiles) == 0:
+		print ''
+		print '-------------------------------------------'
+		print 'No Marker Files Detected, Aborting Analysis'
+		print '-------------------------------------------'
+		print ''
+		exit()
+	#endif
+
+	#Cycle through all marker files and read data
+	for j in tqdm( range(0,len(MarkerFiles),MarkerFileStep) ):
+
+		#Set current marker output file
+		Filename = MarkerFiles[j]
+
+		#Read marker data for current NCore output file
+		#MarkerData :: 2D array of shape [variable,marker(n)]
+		#Variables :: 0:R, 1:Z, 2:Lambda, 3:E, 4:p, 5:Mu, 6:pphi, 7:fff*fnrml, 8:psip, 9:phi
+		#See write_ep() subroutine for full details
+		MarkerData,Header = ReadFile_ASCII(Filename, 0, '2D', 'CSV')
+#		print np.asarray(MarkerData).shape
+
+
+		#Concatenate variables into KineticsData - Override KineticsData on first iteration
+		#KineticsData :: 2D Array of shape [variable,marker(n)]
+		if len(KineticsData) == 0: 
+			KineticsData = MarkerData
+		elif len(KineticsData) > 0: 
+			KineticsData = [KineticsData[x]+MarkerData[x] for x in range(0,len(KineticsData))]
+		#endif
+
+		#Print debug outputs to terminal if requested
+		if DebugMode == True: 
+			print( Filename.split('/')[-1] )
+			print( 'Kin Num Variables: '+str(len(KineticsData)) )
+			print( 'Kin Variable Length: '+str(len(KineticsData[0])) )
+			print( '' )
+		#endif
+	#endfor
+
+	return(KineticsData,Header)
+#enddef
+
+#=========================#
+#=========================#
+
+def Extract_PoloidalImage(HarmonicsData,VariableString,ntor):
 #Reduces 3D HarmonicsData [mpol][ntor][lpsi][A/B] into 2D poloidal image [mpol,ltheta]
 #Reduces 3D HarmonicsData by extracting only 1 ntor and averaging over mpol
 #Also merges the real and imaginary components of HarmonicsData
 #Inputs: HarmonicsData object [mpol][ntor][lpsi][A/B], 
 #Inputs: VariableString matching HarmonicsData attribute, ntor Index (not mode number)
 #Outputs: 2D PoloidalData2D array of shape [lpsi,ltheta]
-#Example: PoloidalImage = MergePoloidal(HarmonicsData,'vrad',1)		
+#Example: PoloidalImage = Extract_PoloidalImage(HarmonicsData,'vrad',1)		
 
 	#Extract data shape from supplied data object
 	DataShape = ExtractMEGA_DataShape(HarmonicsData)
@@ -1235,7 +1349,7 @@ def Extract_RadialProfile(HarmonicsData,variable,ntorIdx,theta):
 	#Select variable and Merge 3D Data into 2D poloidal slice
 	#PoloidalImage :: 2D array of Shape [lpsi][ltheta] ~ [R][theta]
 	#Image[n][:] = full poloidal profile (clockwise from vertical) for R = Rho_pol[n]
-	PoloidalImage = MergePoloidal(HarmonicsData,variable,ntorIdx)	
+	PoloidalImage = Extract_PoloidalImage(HarmonicsData,variable,ntorIdx)	
 
 	#Rotate Polodialimage into shape: [ltheta][lpsi]
 	PoloidalImageTrans = PoloidalImage.transpose()		
@@ -1309,7 +1423,7 @@ def Extract_PoloidalProfile(HarmonicsData,variable,ntorIdx,Radius):
 	#Select variable and Merge 3D Data into 2D poloidal slice
 	#PoloidalImage :: 2D array of Shape [lpsi][ltheta] ~ [R][theta]
 	#Image[n][:] = full poloidal profile (clockwise from vertical) for R = Rho_pol[n]
-	PoloidalImage = MergePoloidal(HarmonicsData,variable,ntorIdx)
+	PoloidalImage = Extract_PoloidalImage(HarmonicsData,variable,ntorIdx)
 	
 	#Extract single poloidal profile at Radius = RadialLoc
 	ThetaArray = Crdtheta[:]
@@ -1355,74 +1469,6 @@ def Extract_PoloidalProfile(HarmonicsData,variable,ntorIdx,Radius):
 
 		return(Inboard,Outboard)
 	#endif
-#enddef
-
-#=========================#
-#=========================#
-
-def ExtractMEGA_Markers(Dir,KStep,MarkerFileStep=1):
-# Reads data from kinetic marker output files (gc_a_kstep000xxxx-00xxx.txt)
-# Reads all variables and concatenates output data from all cores into single 2D array
-# Inputs: 
-#	Dir - Directory String to marker output file folder from root
-# 	KStep - KStep value (NOT Index) of output files to be read-in
-# 	MarkerFileStep - Optional speedup input, will read every 'n'th output file
-# Outputs: 
-#	KineticsData - 2D Array of shape [variable][marker(n)]
-#	Variables - R, Z, Lambda, E, p, Mu, pphi, fff, fnrml, psip, phi
-# Example :: KineticsData,Header_Kin = ExtractMEGA_Markers(Dir[l],KStep=1000,MarkerFileStep=8)
-
-	#Initiate kinetic data array
-	KineticsData = list()
-
-	#Define marker folder location and filename format for supplied KStep
-	Folder = Dir+'markers/'
-	Filename = 'gc_a_kstep'+str('%07.f'%KStep)+'-*.txt'
-	#Sort all marker output files numerically by core number
-	MarkerFiles = sorted(glob.glob(Folder+Filename))
-
-	#Exit cleanly if no files are found:
-	if len(MarkerFiles) == 0:
-		print ''
-		print '-------------------------------------------'
-		print 'No Marker Files Detected, Aborting Analysis'
-		print '-------------------------------------------'
-		print ''
-		exit()
-	#endif
-
-	#Cycle through all marker files and read data
-	for j in tqdm( range(0,len(MarkerFiles),MarkerFileStep) ):
-
-		#Set current marker output file
-		Filename = MarkerFiles[j]
-
-		#Read marker data for current NCore output file
-		#MarkerData :: 2D array of shape [variable,marker(n)]
-		#Variables :: 0:R, 1:Z, 2:Lambda, 3:E, 4:p, 5:Mu, 6:pphi, 7:fff*fnrml, 8:psip, 9:phi
-		#See write_ep() subroutine for full details
-		MarkerData,Header = ReadFile_ASCII(Filename, 0, '2D', 'CSV')
-#		print np.asarray(MarkerData).shape
-
-
-		#Concatenate variables into KineticsData - Override KineticsData on first iteration
-		#KineticsData :: 2D Array of shape [variable,marker(n)]
-		if len(KineticsData) == 0: 
-			KineticsData = MarkerData
-		elif len(KineticsData) > 0: 
-			KineticsData = [KineticsData[x]+MarkerData[x] for x in range(0,len(KineticsData))]
-		#endif
-
-		#Print debug outputs to terminal if requested
-		if DebugMode == True: 
-			print( Filename.split('/')[-1] )
-			print( 'Kin Num Variables: '+str(len(KineticsData)) )
-			print( 'Kin Variable Length: '+str(len(KineticsData[0])) )
-			print( '' )
-		#endif
-	#endfor
-
-	return(KineticsData,Header)
 #enddef
 
 #=========================#
@@ -2223,7 +2269,7 @@ print(' |  \  /  |    /  ^  \  \   \/   /  |  |    |   (----` ')
 print(' |  |\/|  |   /  /_\  \  \      /   |  |     \   \     ')
 print(' |  |  |  |  /  _____  \  \    /    |  | .----)   |    ')
 print(' |__|  |__| /__/     \__\  \__/     |__| |_______/     ')
-print('                                                 v0.6.2')
+print('                                                 v0.6.3')
 print('-------------------------------------------------------')
 print('')
 print('The following diagnostics were requested:')
@@ -2477,7 +2523,7 @@ if savefig_1Denergy == True:
 		#Plot 1st derivative of energy for each harmonic component
 		for i in range(0,len(Energy_n)):
 			ax[1].plot(dEnergydt_Array[i][0],np.log10(dEnergydt_Array[i][1]), lw=2)
-			Legend.append( 'n_{tor} = '+str(i) )
+			Legend.append( 'n$_{tor}$ = '+str(i) )
 		#endfor
 		ImageOptions(fig,ax[1],Xlabel,Ylabel,'',Legend)
 
@@ -2524,7 +2570,6 @@ if savefig_1Denergy == True:
 #endif
 
 
-
 #====================================================================#
 				 	 	#SPECTRAL ENERGY TRENDS#
 #====================================================================#
@@ -2539,19 +2584,11 @@ if savefig_1Denergytrends == True:
 	dEnergydt_Array, d2Energydt2_Array = list(),list()
 	gamma_Array = list()
 
-	TimeArray_Lengths = list()
-	#For each detected simulation folder, record the KStep array length
-	#Smallest KStep range and directory index represents the minimum shared KStep range
-	for l in tqdm(range(0,len(Dir))):
-		#Extract Kstep [-], Time [ms] & toroidal harmonics from energy_n.txt
-		SEQArray, KStepArray, TimeArray, ntorArray = ExtractMEGA_DataRanges(Dir[l], DataFile='energy_n')
-		TimeArray_Lengths.append( len(TimeArray) )
-	#endfor
-	MinKStep = min(TimeArray_Lengths)						#Minimum shared KStep Array Length
-	MinKStep_DirIdx = TimeArray_Lengths.index(MinKStep)		#Folder Dir[Idx] of simulation with Minimum
+	#Extract maximum shared KStep (index, not value) and associated folder Dir[Idx]
+	MaxSharedKStep,MaxSharedDirIdx = ExtractMEGA_SharedDataRange(Dir)
 
-	#Extract Kstep [-], Time [ms] & toroidal harmonics from energy_n.txt with lowest kstep range
-	SEQArray, KStepArray, TimeArray, ntorArray = ExtractMEGA_DataRanges(Dir[MinKStep_DirIdx], DataFile='energy_n')
+	#Extract Kstep [-], Time [ms] & ntor arrays from energy_n.txt - use simulation with highest shared kstep range
+	SEQArray, KStepArray, TimeArray, ntorArray = ExtractMEGA_DataRanges(Dir[MaxSharedDirIdx], DataFile='energy_n')
 	DeltaKstep = KStepArray[1]-KStepArray[0]	#KStep Interval 		[-]
 	DeltaTime = TimeArray[1]-TimeArray[0]		#Time Interval 			[ms]
 	KStepMod = len(KStepArray)/len(SEQArray)	#KStep indices per SEQ 	[-]
@@ -2581,13 +2618,12 @@ if savefig_1Denergytrends == True:
 			SubString = DirString.split('_')[-1]
 			TrendAxis.append(SubString)
 
-			#Extract Energy_n outputs and header for plotting
-			#energy_n: [ntor][timestep]
+			#Extract Energy_n outputs for all ntor in current folder
+			#Energy_n: [ntor][timestep]
 			Energy_n,Header_n = ExtractMEGA_Energy(Dir[l],'energy_n')
-			Energy_n = Energy_n[2::]					#Remove KStep and Time arrays from array
-			for j in range(0,len(Energy_n)):
-				Energy_n[j] = Energy_n[j][0:MinKStep]	#Reduce KStep range to minimum shared range
-			#endfor
+			#EnergyProfile: [timestep]
+			EnergyProfile = Energy_n[i+2]					#Energy profile for ntor[i] (+2, skip Kstep/time)
+			EnergyProfile = EnergyProfile[0:MaxSharedKStep]	#Reduce KStep range to minimum shared range
 
 			#Extract normalisation factors for current simulation folder
 			Variables,Values,Units = ExtractMEGA_Normalisations(Dir[l])
@@ -2595,20 +2631,22 @@ if savefig_1Denergytrends == True:
 
 			#Compute 1st and 2nd energy derivatives and determine MHD linear growth rates
 			#Solves: Eend = Estart*exp{gamma*dt} where 2nd derivative is close to zero
-			gamma,dEdt,d2Edt2 = ComputeMHDGrowthRates(Energy_n[i],TimeArray)
+			gamma,dEdt,d2Edt2 = ComputeMHDGrowthRates(EnergyProfile,TimeArray)
 			#dEnergydt_Array, d2Energydt2_Array 3D arrays of shape: [SimFolder][ntor][kstep]
 			#gamma_Array 2D array of shape: [SimFolder][ntor]
 			dEnergydt_Array[i].append([dEdt]); d2Energydt2_Array[i].append([d2Edt2])
 			gamma_Array[i].append(gamma)
 
-			#==========##==========#
+			#============##============#
+			#Energy Profile Comparisons#
+			#============##============#
 
 			#Energy_n Ax[0] Title, Legend, Axis Labels etc...
 			Title = 'MHD Energy Evolution for ntor = '+str(i)+' \n '+DirString
 			Xlabel,Ylabel = '', 'Energy $\epsilon_{n}$ (Log$_{10}$) [-]'
 
 			#Plot total energy for each folder (for ntor[i])
-			ax[0].plot(TimeArray,np.log10(Energy_n[i]), lw=2)
+			ax[0].plot(TimeArray,np.log10(EnergyProfile), lw=2)
 			Legend0.append( SubString+': $\gamma'+'_{'+str(i)+'}$ = '+str(gamma)+' [s$^{-1}$]' )
 			#endfor
 			ImageOptions(fig,ax[0],Xlabel,Ylabel,Title,Legend0)
@@ -2629,6 +2667,8 @@ if savefig_1Denergytrends == True:
 		plt.close('all')
 	#endfor - ntor loop
 	
+	#==========##==========#
+	#Growth Rate Comparison#
 	#==========##==========#
 
 	#Create figure for energy_n growth rate comparison
@@ -2926,12 +2966,13 @@ if savefig_2Dequilibrium == True:
 		for i in tqdm(range(0,len(variables))):
 
 			#Create Variablelabel with units
-			VariableLabel = VariableLabelMaker(variables[i])
+			variable = variables[i]
+			VariableLabel = VariableLabelMaker(variable)
 
 			#Select variable and Merge 3D Data into 2D poloidal slice
-			#Image Shape: [lpsi][ltheta] ~~ [R][theta], like an onion (or ogre).
+			#PoloidalImage Shape: [lpsi][ltheta] ~~ [R][theta], like an onion (or ogre).
 			#i.e. Image[n][:] plots a full poloidal profile (clockwise from vertical) for R = Rho_pol[n]
-			Image = MergePoloidal(HarmonicsData,variables[i],ntorIdx)
+			PoloidalImage = Extract_PoloidalImage(HarmonicsData,variable,ntorIdx)
 
 			#Create figure and define Title, Legend, Axis Labels etc...
 			fig,ax = figure(image_aspectratio,1)
@@ -2940,8 +2981,8 @@ if savefig_2Dequilibrium == True:
 			Legend = list()
 
 			#Plot 2D poloidally resolved figure and beautify
-			im = ax.contourf(Crdr, Crdz, Image, 100); plt.axis('scaled')
-			im2 = ax.contour(Crdr, Crdz, Image, 20); plt.axis('scaled')
+			im = ax.contourf(Crdr, Crdz, PoloidalImage, 100); plt.axis('scaled')
+			im2 = ax.contour(Crdr, Crdz, PoloidalImage, 20); plt.axis('scaled')
 			cbar = Colourbar(ax,im,VariableLabel,5)
 			ImageOptions(fig,ax,Xlabel,Ylabel,Title,Legend)
 
@@ -2958,10 +2999,25 @@ if savefig_2Dequilibrium == True:
 			#SOMETHING TO MAKE THEM DIFFERENT FROM THE MOVIE PLOTS
 
 			#Save 2D poloidally resolved figure for current simulation
-			SaveString = variables[i]+'_n'+str(ntor)+'_t='+str(round(Time,3))+ext
+			SaveString = variable+'_n'+str(ntor)+'_t='+str(round(Time,3))+ext
 			plt.savefig(DirEquil2D+SaveString)
 #			plt.show()
 			plt.close('all')
+
+			#==========#
+
+			if write_ASCII == True:
+				#Create directory to hold ASCII data
+				DirASCII = CreateNewFolder(DirEquil2D,'2DEquil_Data/')
+
+				#Set ASCII data file name string and header
+				SaveString = variable+'_n'+str(ntor)+'_t='+str(round(Time,3))+'.dat'
+				Header = [VariableLabel,'   ', 'R',lpsi_res, 'theta', ltheta_res,  '\n']
+
+				#Write 1D data header, then 2D PoloidalImage
+				WriteFile_ASCII(Header, DirASCII+SaveString, 'w', 'RSV')
+				WriteFile_ASCII(PoloidalImage, DirASCII+SaveString, 'a', write_ASCIIFormat)
+			#endif
 		#endfor - Variable loop
 	#endfor - dir loop
 #endif
@@ -3032,7 +3088,7 @@ if savefig_2Dequilmovie == True:
 					DirMovie = CreateNewFolder(DirEquil2D,variables[j]+'_n'+str(ntor))
 
 					#Select variable and Merge 3D Data into 2D poloidal slice
-					Image = MergePoloidal(HarmonicsData,variables[j],ntorIdx)
+					Image = Extract_PoloidalImage(HarmonicsData,variables[j],ntorIdx)
 
 					#==========#
 
