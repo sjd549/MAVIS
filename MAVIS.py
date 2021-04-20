@@ -155,21 +155,21 @@ toroidalprofiles = []					#1D Toroidal Profiles (fixed rho_pol, theta) :: Toroid
 trendlocation = [] 						#Cell location For Trend Analysis [R,theta,phi], ([] = min/max)
 
 #Various Diagnostic Settings:
-setting_SEQ = [0,11]					#Simulation SEQ to load		- [Min,Max], [Int], [] to plot SEQ001
+setting_SEQ = [0,2]						#Simulation SEQ to load		- [Min,Max], [Int], [] to plot SEQ001
 setting_ntor = [0,-2]					#ntor range to plot 		- [Min,Max], [Int], [] to plot all
 setting_kstep = [00,40,5]				#kstep index range to plot 	- [Min,Max,Step], [Int], [] to plot all
 
 
 #Requested diagnostics and plotting routines:
-savefig_1Denergy = False					#Plot 1D MHD energies (1 Sim) 		(xxx.energy_p)	- Working
+savefig_1Denergy = False				#Plot 1D MHD energies (1 Sim) 		(xxx.energy_p)	- Working
 savefig_1Denergytrends = False			#Plot 1D MHD energies (multi-Sim) 	(xxx.energy_n)	- Working
 
 savefig_1Dequilibrium = False			#Plot 1D equilibrium profiles		(xxx.harmonics) - Working	-ASCII
-savefig_2Dequilibrium = False			#Plot 2D equilibrium figures		(xxx.harmonics)	- Working	-ASCII
-savefig_2Dequilmovie = False			#Plot 2D equilibrium movies			(xxx.harmonics)	- Working
+savefig_2Dequilibrium = False			#Plot 2D equilibrium figures		(xxx.harmonics)	- Working
+savefig_2Dequilmovie = False			#Plot 2D equilibrium movies			(xxx.harmonics)	- Working	-ASCII
 
 savefig_2Dcontinuum = False				#Plot 2D harmonic continuum		 	(xxx.harmonics)	- Working
-savefig_2Dspectral = True				#Plot 2D plasma response 			(xxx.harmonics)	- Working	-ASCII
+savefig_2Dspectral = False				#Plot 2D plasma response 			(xxx.harmonics)	- Working	-ASCII
 PROESvariable = 'prs'; QuickPROES = False
 
 savefig_1Dkinetics = False				#Plot 2D kinetic distributions	 	(gc_a_kstepxxx)	- Working	!NEED FUNCS
@@ -181,7 +181,7 @@ print_generaltrends = False				#Verbose Trend Outputs								- In Development
 
 
 #Write processed data to ASCII files:
-write_ASCII = True						#All diagnostic outputs written to ASCII.dat		- In Development
+write_ASCII = False						#All diagnostic outputs written to ASCII.dat		- In Development
 write_ASCIIFormat = 'RSV'				#Choose ASCII file output format ('RSV', 'CSV')		- In Development
 
 
@@ -220,11 +220,7 @@ cbaroverride = []
 #ALTER setting_kstep TO USE THE ACTUAL KSTEP VALUES AND MAKE A FUNCTION TO TRANSLATE INTO SEQ AND KSTEP INDEX RANGES
 #	Require making an icp.nam readin function and extracting all of the write steps and other inputs
 #	Require making an additional "kstep_translation" function where the input setting_kstep is 
-#	translated into an output set of kstep indices and associated SEQ indices
-#
-#savefig_2DEquilibrium NEEDS ALTERED TO SHOW ALL HARMONICS FOR A PARTICULAR TIME POINT
-#	This makes it different from the Equilmovie option and allows for a quick check of all harmonics
-#	ideally also add some white dotted lines showing where the 1D equils are taken from 
+#	translated into an output set of kstep indices and associated SEQ indices 
 #
 #REBRAND THE savefig_response DIAGNOSTIC INTO A savefig_PROES DIAGNOSTIC AND MAKE A "quickplot" OPTION
 #	Make the new function plot PROES plots for all requested variables, like HELENA
@@ -286,7 +282,7 @@ cbaroverride = []
 #
 # savefig_equilibrium/equilmovie 	OPTION TO PLOT DIFFERENT TOROIDAL ANGLES?
 #
-# savefig_equilibrium				OPTION TO PLOT 2D FLUX SURFACE FUNCTION?
+# savefig_inputs					OPTION TO PLOT INPUT 2D FLUX SURFACE FUNCTION AND RADIAL FITS
 
 
 #=====================================================================#
@@ -1726,7 +1722,8 @@ def ImageOptions(fig,ax='NaN',Xlabel='',Ylabel='',Title='',Legend=[]):
 
 	#Set title and legend if one is supplied.
 	if len(Title) > 0:
-		ax.set_title(Title, fontsize=14, y=1.03)
+		if '\n' in Title: ax.set_title(Title, fontsize=14, y=1.03)
+		else: ax.set_title(Title, fontsize=18, y=1.03)
 	if len(Legend) > 0:
 		ax.legend(Legend, fontsize=16, frameon=False)
 	#endif
@@ -2304,7 +2301,7 @@ print(' |  \  /  |    /  ^  \  \   \/   /  |  |    |   (----` ')
 print(' |  |\/|  |   /  /_\  \  \      /   |  |     \   \     ')
 print(' |  |  |  |  /  _____  \  \    /    |  | .----)   |    ')
 print(' |__|  |__| /__/     \__\  \__/     |__| |_______/     ')
-print('                                                 v0.6.4')
+print('                                                 v0.6.5')
 print('-------------------------------------------------------')
 print('')
 print('The following diagnostics were requested:')
@@ -2979,7 +2976,7 @@ if savefig_2Dequilibrium == True:
 		#DEVELOPMENT SETTINGS - all need looped over... - settings_inputs to be moved to switchboard
 		print Dir[l].split('/')[-2]
 		SEQ = setting_SEQ[1]				#requested SEQ file index (001 = 0)	!!! NEEDS A FUNCTION !!!
-		ntor = setting_ntor[1]				#requested ntor mode number			!!! NEEDS A FUNCTION !!!
+#		ntor = setting_ntor[1]				#requested ntor mode number			!!! NEEDS A FUNCTION !!!
 
 		#Create global 2D diagnostics folder and extract current simulation name
 		DirEquil2D = CreateNewFolder(Dir[l],'2DEquil_Plots/')
@@ -2993,14 +2990,11 @@ if savefig_2Dequilibrium == True:
 		KStepMod = len(KStepArray)/len(SEQArray)	#KStep indices per SEQ 	[-]
 		ntor_tot = ntorArray[2]						#Total number of positive & negative modes (Inc n=0)
 		ntor_pos = ntorArray[1]						#Number of positive modes (Ignoring n=0)
-		ntor0 = ntorArray[0]						#ntor = 0, baseline equilibrium data
-
-		#Extract toroidal mode number array index (ntorIdx) from requested mode number (ntor)
-		ntorIdx = Set_ntorIdx(ntor,ntorArray)
+		ntor0Idx = ntorArray[0]						#ntor = 0 index, contains (var0 + dvar) data
 
 		#Set Kstep ranges as requested - else default to max range
 		KStepRange,KStepStep = Set_KStepRange(KStepArray,setting_kstep)
-		KStepIdx = KStepRange[1]					#Requested KStep index	[-]
+		KStepIdx = KStepRange[1]-1					#Requested KStep index	[-]
 
 		#Set TimeIndex and employ to extract KStep and Time
 		IdxOffset = SEQ*KStepMod					#[-]
@@ -3016,7 +3010,7 @@ if savefig_2Dequilibrium == True:
 		#Extract data resolution and poloidal axes from repository .dat files
 		#DataShape contains data resolution of form: [mpol,ntor,lpsi,ltheta]
 		Crdr,Crdz = ExtractMEGA_PoloidalGrid(DirRepository,HarmonicsData)
-		DataShape = ExtractMEGA_DataShape(HarmonicsData)#; print DataShape
+		DataShape = ExtractMEGA_DataShape(HarmonicsData)
 		mpol_res = DataShape[0]; ntor_res = DataShape[1]
 		lpsi_res = DataShape[2]; ltheta_res = DataShape[3]
 
@@ -3027,55 +3021,81 @@ if savefig_2Dequilibrium == True:
 			variable = variables[i]
 			VariableLabel = VariableLabelMaker(variable)
 
-			#Select variable and Merge 3D Data into 2D poloidal slice
-			#PoloidalImage Shape: [lpsi][ltheta] ~~ [R][theta], like an onion (or ogre).
-			#i.e. Image[n][:] plots a full poloidal profile (clockwise from vertical) for R = Rho_pol[n]
-			PoloidalImage = Extract_PoloidalImage(HarmonicsData,variable,ntorIdx)
+			#Create fig of desired size - increasing Xlim with the number of harmonics
+			Xaspect, Yaspect = int(10*(float(ntor_tot)/1.75)), 10
+			fig,ax = figure(subplots=[1,ntor_tot], aspectratio=[Xaspect,Yaspect])
 
-			#Create figure and define Title, Legend, Axis Labels etc...
-			fig,ax = figure(subplots=[1,1], aspectratio=image_aspectratio)
-			Title = VariableLabel+', n='+str(ntor)+', t='+str(round(Time,3))+' ms \n Simulation: '+DirString
-			Xlabel,Ylabel = 'Major Radius $R$ [m]', 'Height $Z$ [m]'
-			Legend = list()
+			for j in range(0,ntor_tot):
 
-			#Plot 2D poloidally resolved figure and beautify
-			im = ax.contourf(Crdr, Crdz, PoloidalImage, 100); plt.axis('scaled')
-			im2 = ax.contour(Crdr, Crdz, PoloidalImage, 20); plt.axis('scaled')
-			cbar = Colourbar(ax,im,VariableLabel,5)
-			ImageOptions(fig,ax,Xlabel,Ylabel,Title,Legend)
+				#Set toroidal mode number array index (ntorIdx) and mode number (ntor)
+				ntor = -ntor_pos+j
+				ntorIdx = j
 
-			#OVERLAY 1D PROFILE OUTLINES ONTO THESE SINGLE KSTEP EQUIL IMAGES
-			#MAKES THEM USEFUL FOR QUICK DIAGNOSIS, OTHERWISE THEY SERVE LITTLE PURPOSE
-			#for i in range(0,len(radialprofiles)):
-				#Stuff
+				#Merge 3D Harmonics Data into 2D poloidal slice for variables[i]
+				#PoloidalImage Shape: [lpsi][ltheta] ~~ [R][theta], like an onion (or ogre).
+				#i.e. PoloidalImage[n][:] plots a full poloidal profile (clockwise from vertical) for R = Rho_pol[n]
+				PoloidalImage = Extract_PoloidalImage(HarmonicsData,variable,ntorIdx)
+
+				#Define Title, Legend, Axis Labels etc...
+				SupTitle = VariableLabel+', n='+str(ntor)+', t='+str(round(Time,3))+' ms \n Simulation: '+DirString
+				Xlabel,Ylabel = 'Major Radius $R$ [m]', 'Height $Z$ [m]'
+				Legend = list()
+
+				#Plot 2D poloidally resolved figure and beautify
+				im = ax[ntorIdx].contourf(Crdr, Crdz, PoloidalImage, 100)#; plt.axis('scaled')
+				im2 = ax[ntorIdx].contour(Crdr, Crdz, PoloidalImage, 20)#; plt.axis('scaled')
+
+				#Beautify plots - taking account of panel location
+				if ntorIdx == 0 and ntor_tot > 1: 						#If first panel with more panels to right
+					cbar = Colourbar(ax[ntorIdx],im,'',5)
+					ImageOptions(fig,ax[ntorIdx],Xlabel,Ylabel,'$n_{tor}$='+str(ntor),'')
+				elif ntorIdx == 0 and ntor_tot == 1:					#If first panel with no panels to right
+					cbar = Colourbar(ax[ntorIdx],im,'',5)
+	 				ax[ntorIdx].axes.get_yaxis().set_visible(False)
+					ImageOptions(fig,ax[ntorIdx],Xlabel,'','$n_{tor}$='+str(ntor),'')
+				elif ntorIdx > 0 and ntorIdx < ntor_tot-1: 				#If middle panel with more panels to right
+					cbar = Colourbar(ax[ntorIdx],im,'',5)
+	 				ax[ntorIdx].axes.get_yaxis().set_visible(False)
+					ImageOptions(fig,ax[ntorIdx],Xlabel,'','$n_{tor}$='+str(ntor),'')
+				elif ntorIdx == ntor_tot-1 and ntor_tot > 1:			#If last panel with more panels to left
+					cbar = Colourbar(ax[ntorIdx],im,VariableLabel,5)
+	 				ax[ntorIdx].axes.get_yaxis().set_visible(False)
+					ImageOptions(fig,ax[ntorIdx],Xlabel,'','$n_{tor}$='+str(ntor),'')
+				#endif
+
+				#OVERLAY 1D PROFILE OUTLINES ONTO THESE SINGLE KSTEP EQUIL IMAGES
+				#MAKES THEM USEFUL FOR QUICK DIAGNOSIS
+				#for i in range(0,len(radialprofiles)):
+					#Stuff
+				#endfor
+				#for i in range(0,len(poloidalprofiles)):
+					#Stuff
+				#endfor
+
 			#endfor
-			#for i in range(0,len(poloidalprofiles)):
-				#Stuff
-			#endfor
-#
-			#OR, MAKE THESE HAVE THE FULL RANGE OF MODE NUMBERS ON THE SAME FIGURE?
-			#SOMETHING TO MAKE THEM DIFFERENT FROM THE MOVIE PLOTS
 
 			#Save 2D poloidally resolved figure for current simulation
-			SaveString = variable+'_n'+str(ntor)+'_t='+str(round(Time,3))+ext
+			SaveString = variable+'_t='+str(round(Time,3))+ext
 			plt.savefig(DirEquil2D+SaveString)
 #			plt.show()
 			plt.close('all')
 
 			#==========#
 
-			if write_ASCII == True:
+#			TO BE UPDATED TO INCLUDE OUTPUTS FOR THE NTOR RANGE
+#			if write_ASCII == True:
 				#Create directory to hold ASCII data
-				DirASCII = CreateNewFolder(DirEquil2D,'2DEquil_Data/')
+#				DirASCII = CreateNewFolder(DirEquil2D,'2DEquil_Data/')
 
 				#Set ASCII data file name string and header
-				SaveString = variable+'_n'+str(ntor)+'_t='+str(round(Time,3))+'.dat'
-				Header = [VariableLabel,'   ', 'R',lpsi_res, 'theta', ltheta_res,  '\n']
+#				SaveString = variable+'_n'+str(ntor)+'_t='+str(round(Time,3))+'.dat'
+#				Header = [VariableLabel,'   ', 'R',lpsi_res, 'theta', ltheta_res,  '\n']
 
 				#Write 1D data header, then 2D PoloidalImage
-				WriteFile_ASCII(Header, DirASCII+SaveString, 'w', 'RSV')
-				WriteFile_ASCII(PoloidalImage, DirASCII+SaveString, 'a', write_ASCIIFormat)
+#				WriteFile_ASCII(Header, DirASCII+SaveString, 'w', 'RSV')
+#				WriteFile_ASCII(PoloidalImage, DirASCII+SaveString, 'a', write_ASCIIFormat)
 			#endif
+
 		#endfor - Variable loop
 	#endfor - dir loop
 #endif
@@ -3106,7 +3126,7 @@ if savefig_2Dequilmovie == True:
 		KStepMod = len(KStepArray)/len(SEQArray)	#KStep indices per SEQ 	[-]
 		ntor_tot = ntorArray[2]						#Total number of positive & negative modes (Inc n=0)
 		ntor_pos = ntorArray[1]						#Number of positive modes (Ignoring n=0)
-		ntor0 = ntorArray[0]						#ntor = 0, baseline equilibrium data
+		ntor0Idx = ntorArray[0]						#ntor = 0 index, contains (var0 + dvar) data
 
 		#Extract toroidal mode number array index (ntorIdx) from requested mode number (ntor)
 		ntorIdx = Set_ntorIdx(ntor,ntorArray)
@@ -3136,8 +3156,10 @@ if savefig_2Dequilmovie == True:
 
 				#Extract data resolution and poloidal axes from repository .dat files
 				#DataShape contains data resolution of form: [mpol,ntor,lpsi,ltheta]
-				DataShape = ExtractMEGA_DataShape(HarmonicsData)
 				Crdr,Crdz = ExtractMEGA_PoloidalGrid(DirRepository,HarmonicsData)
+				DataShape = ExtractMEGA_DataShape(HarmonicsData)
+				mpol_res = DataShape[0]; ntor_res = DataShape[1]
+				lpsi_res = DataShape[2]; ltheta_res = DataShape[3]
 
 				#For each requested variable at the current Kstep
 				for j in range(0,len(variables)):
@@ -3146,7 +3168,7 @@ if savefig_2Dequilmovie == True:
 					DirMovie = CreateNewFolder(DirEquil2D,variables[j]+'_n'+str(ntor))
 
 					#Select variable and Merge 3D Data into 2D poloidal slice
-					Image = Extract_PoloidalImage(HarmonicsData,variables[j],ntorIdx)
+					PoloidalImage = Extract_PoloidalImage(HarmonicsData,variables[j],ntorIdx)
 
 					#==========#
 
@@ -3160,8 +3182,8 @@ if savefig_2Dequilmovie == True:
 					Legend = list()
 
 					#Plot 2D poloidally resolved figure and beautify
-					im = ax.contourf(Crdr, Crdz, Image, 100); plt.axis('scaled')
-					im2 = ax.contour(Crdr, Crdz, Image, 20); plt.axis('scaled')
+					im = ax.contourf(Crdr, Crdz, PoloidalImage, 100); plt.axis('scaled')
+					im2 = ax.contour(Crdr, Crdz, PoloidalImage, 20); plt.axis('scaled')
 					cbar = Colourbar(ax,im,VariableLabel,5)
 					ImageOptions(fig,ax,Xlabel,Ylabel,Title,Legend)
 
@@ -3170,6 +3192,22 @@ if savefig_2Dequilmovie == True:
 					plt.savefig(DirMovie+SaveString)
 #					plt.show()
 					plt.close('all')
+
+					#==========#
+
+					if write_ASCII == True:
+						#Create directory to hold ASCII data
+						DirASCII = CreateNewFolder(DirEquil2D,'2DEquil_Data/')
+						DirASCII_Var = CreateNewFolder(DirASCII,variables[j]+'/')
+
+						#Set ASCII data file name string and header
+						SaveString = variables[j]+'_n'+str(ntor)+'_t='+str(round(Time,3))+'.dat'
+						Header = [VariableLabel,'   ', 'R',lpsi_res, 'theta', ltheta_res,  '\n']
+
+						#Write 1D data header, then 2D PoloidalImage
+						WriteFile_ASCII(Header, DirASCII_Var+SaveString, 'w', 'RSV')
+						WriteFile_ASCII(PoloidalImage, DirASCII_Var+SaveString, 'a', write_ASCIIFormat)
+					#endif
 				#endfor - Variable loop
 
 				#!!! AUTO CREATE MOVIES FOR EACH VARIABLE HERE !!!
