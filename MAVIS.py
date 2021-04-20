@@ -71,6 +71,7 @@ from scipy.io import FortranFile as ff
 from scipy.signal import savgol_filter
 from subprocess import Popen, PIPE
 from matplotlib import pyplot as plt
+from matplotlib import gridspec as gs
 from matplotlib import ticker
 from scipy import ndimage
 from tqdm import tqdm
@@ -146,29 +147,30 @@ Kin = ['R_gc','Z_gc','Phi_gc','p_gc','pphi_gc','mu_gc','E_gc','Lambda_gc','psip'
 #====================================================================#
 
 #Requested Variables and Plotting Locations:
-variables = Phys						#Requested variables to plot			#Phys+Kin
+variables = ['prs','brad','vrad']	#Phys						#Requested variables to plot			#Phys+Kin
 
 radialprofiles = [90,180]				#1D Radial Profiles (fixed theta, phi) :: Poloidal Angle [deg]
-poloidalprofiles = [0.2,0.4]			#1D Poloidal Profiles (fixed rho_pol, phi) :: Norm. Radius [-]
+poloidalprofiles = [0.8,0.9]				#1D Poloidal Profiles (fixed rho_pol, phi) :: Norm. Radius [-]
 toroidalprofiles = []					#1D Toroidal Profiles (fixed rho_pol, theta) :: Toroidal Angle [deg]
 trendlocation = [] 						#Cell location For Trend Analysis [R,theta,phi], ([] = min/max)
 
 #Various Diagnostic Settings:
-setting_SEQ = [0,0]						#Simulation SEQ to load		- [Min,Max], [Int], [] to plot SEQ001
-setting_ntor = [0,0]					#ntor range to plot 		- [Min,Max], [Int], [] to plot all
-setting_kstep = [0,0,1]				#kstep index range to plot 	- [Min,Max,Step], [Int], [] to plot all
+setting_SEQ = [0,11]					#Simulation SEQ to load		- [Min,Max], [Int], [] to plot SEQ001
+setting_ntor = [0,-2]					#ntor range to plot 		- [Min,Max], [Int], [] to plot all
+setting_kstep = [00,40,5]				#kstep index range to plot 	- [Min,Max,Step], [Int], [] to plot all
 
 
 #Requested diagnostics and plotting routines:
-savefig_1Denergy = False				#Plot 1D MHD energies (1 Sim) 		(xxx.energy_p)	- Working
+savefig_1Denergy = False					#Plot 1D MHD energies (1 Sim) 		(xxx.energy_p)	- Working
 savefig_1Denergytrends = False			#Plot 1D MHD energies (multi-Sim) 	(xxx.energy_n)	- Working
 
-savefig_1Dequilibrium = False			#Plot 1D equilibrium profiles		(xxx.harmonics) - Working
+savefig_1Dequilibrium = False			#Plot 1D equilibrium profiles		(xxx.harmonics) - Working	-ASCII
 savefig_2Dequilibrium = False			#Plot 2D equilibrium figures		(xxx.harmonics)	- Working	-ASCII
 savefig_2Dequilmovie = False			#Plot 2D equilibrium movies			(xxx.harmonics)	- Working
-savefig_2Dresponse = False				#Plot 2D plasma response 			(xxx.harmonics)	- Working
 
 savefig_2Dcontinuum = False				#Plot 2D harmonic continuum		 	(xxx.harmonics)	- Working
+savefig_2Dspectral = True				#Plot 2D plasma response 			(xxx.harmonics)	- Working	-ASCII
+PROESvariable = 'prs'; QuickPROES = False
 
 savefig_1Dkinetics = False				#Plot 2D kinetic distributions	 	(gc_a_kstepxxx)	- Working	!NEED FUNCS
 savefig_2Dkinetics = False				#Plot 1D kinetic distributions	 	(gc_a_kstepxxx)	- Working	!NEED FUNCS
@@ -215,21 +217,47 @@ cbaroverride = []
 
 #						IMMEDIATE TO DO LIST
 #
+#ALTER setting_kstep TO USE THE ACTUAL KSTEP VALUES AND MAKE A FUNCTION TO TRANSLATE INTO SEQ AND KSTEP INDEX RANGES
+#	Require making an icp.nam readin function and extracting all of the write steps and other inputs
+#	Require making an additional "kstep_translation" function where the input setting_kstep is 
+#	translated into an output set of kstep indices and associated SEQ indices
+#
+#savefig_2DEquilibrium NEEDS ALTERED TO SHOW ALL HARMONICS FOR A PARTICULAR TIME POINT
+#	This makes it different from the Equilmovie option and allows for a quick check of all harmonics
+#	ideally also add some white dotted lines showing where the 1D equils are taken from 
+#
+#REBRAND THE savefig_response DIAGNOSTIC INTO A savefig_PROES DIAGNOSTIC AND MAKE A "quickplot" OPTION
+#	Make the new function plot PROES plots for all requested variables, like HELENA
+#	quickplot disables the poloidal spectra, true by default, to save time.
+#
 #ADD DE-NORMALISATION FUNCTION IMMEDIATELY FOLLOWING DATA EXTRACTION FUNCTIONS - MOST SIMPLE APPROACH
 #CHECK ALL DIAGNOSTICS FOR ANY CURRENTLY APPLIED DE-NORMALISATION AND REMOVE IF POSSIBLE
-#Make an option in the low-level commands to apply de-normalisation - generally won't change
-#Tie this option to any other applicable function, e.g. variablelabelmaker, func(),
+#	Make an option in the low-level commands to apply de-normalisation - generally won't change
+#	Tie this option to any other applicable function, e.g. variablelabelmaker, func(),
 #
-#ADD ABILITY TO SAVE ASCII DATA FOR 2D IMAGES (PARTICULARILY PLASMA RESPONSE)
-#Added to Savefig_Equilibrium but needs fixing, save one copy of 2D axes in each folder by default.
-#Add to all other functions and save axes in each folder by default.
-#Need to save if variables are normalised or not in header, also maybe 'CSV', 'RSV'?
+#FIX KSTEPMOD CALCULATION - CURRENT CALCULATION ONLY WORKS IF KSTEP RANGE IS THE SAME FOR ALL SEQs
+#		KStepMod = len(KStepArray)/len(SEQArray)	#KStep indices per SEQ 	[-]
+#
+#ERROR WARNINGS FOR SEQ_RANGE AND KSTEP_RANGE IN THE INPUT DECK
+#
+#ADD SEPERATE OUTPUT FOLDERS FOR EACH VARIABLE FOR 1D EQUIL PROFILES - SAME AS 2D EQUIL PROFILES
+#	In general, I guess it's better to have folders of variables rather than folders of ntor
+#	There are more variables and fewer ntor, so each folder will have less 'clutter' that way.
 #
 #ADD DOTTED LINE OR SHADED AREA TO INDICATE SEQ NUMBERS IN THE ENERGY DIAGRAMS (AND JUST GENERALLY)
-#Use KStepMod as the KStepArray indices to apply the line, make an image_SEQline input for switchboard
+#	Use KStepMod as the KStepArray indices to apply the line, make an image_SEQline input for switchboard
 #
 #ADD DOTTED LINE TO 1D (2D?) EQUILIBRIUM IMAGES TO SHOW THE VACUUM MASK EXTENT
-#Will require a SEQ.in (.nam) readin function to work, would be quite useful to have anyway!
+#	Will require a SEQ.in (.nam) readin function to work, would be quite useful to have anyway!
+#
+#ADD ABILITY TO SAVE ASCII DATA FOR 2D IMAGES (PARTICULARILY PLASMA RESPONSE)
+#	Added to Savefig_Equilibrium but needs fixing, save one copy of 2D axes in each folder by default.
+#	Add to all other functions and save axes in each folder by default.
+#	Need to save if variables are normalised or not in header, also maybe 'CSV', 'RSV'?
+#
+#SPEED UP READ-IN OF LARGE DATA SETS AS MUCH AS POSSIBLE TO ENABLE FASTER RESPONSE CALCULATIONS
+#	Remove "While" in ReadMEGA_Harmonics() function, it currently repeats every previous KStep
+#	i.e. the current implimentation has to do KStep! (additive factorial) iterations.
 #
 
 
@@ -255,8 +283,6 @@ cbaroverride = []
 #Clean up the usage and definition of the unit normalisations as read-in from the MEGA file
 #
 #Extract lpsi and mpol from data without having to explicitly hard-code it (see Read_Harmonics function)
-#
-#Create an ImageExtent function to create normalised axes from data size
 #
 # savefig_equilibrium/equilmovie 	OPTION TO PLOT DIFFERENT TOROIDAL ANGLES?
 #
@@ -417,6 +443,7 @@ def WriteFile_ASCII(data,filename,structure='w',Orientation='CSV'):
 #Example: WriteFile_ASCII(Image, "Filename", 'w', 'CSV')
 
 	#Determine dimensionality of profile.
+	#If first dimension is a 1D list ==> 2D array
 	if isinstance(data[0], (list, np.ndarray) ) == True:
 		#Open new textfile and output 2D image data.
 		datafile = open(filename, structure)
@@ -429,7 +456,7 @@ def WriteFile_ASCII(data,filename,structure='w',Orientation='CSV'):
 		#endfor
 		datafile.close()
 
-	#Lowest dimention is scalar: ==> 1D array.
+	#If lowest dimention is scalar: ==> 1D array.
 	elif isinstance(data, (list, np.ndarray) ) == True:
 		#Open new textfile and output 2D image data.
 		datafile = open(filename, structure)
@@ -669,7 +696,7 @@ def Read_MEGAHarmonics(Filename,Variable,mpol,ntor,lpsi,kstep=np.nan):
 			#Always extract 1D Kstep and Time arrays, until the requested Kstep - Shape = Data.kst[Real]
 			if index >= 0:
 				Data.kst     = np.append(Data.kst,  RawData['kst'][0])
-				Data.time    = np.append(Data.time, RawData['t'][0])#*1e3/wa
+				Data.time    = np.append(Data.time, RawData['t'][0])		#Normalised to ion gyro freq (1e3/Omega_i)
 				#Print kstep for debug purposes if requested
 				if DebugMode == True: print(str(index)+'-'+str(Data.kst[index]))
 			#If index matches requested kstep, retrieve data for all variables and add to object
@@ -1642,7 +1669,7 @@ Matplotlib_GlobalOptions()									#Must be run before diagnostics
 #=========================#
 #=========================#
 
-def figure(aspectratio=[],subplots=[1,1],shareX=False,shareY=False):
+def figure(subplots=[1,1],gridspec=[],aspectratio=[],shareX=False,shareY=False):
 #Create figure and axes with variable aspect ratio, sub-plots and configurations.
 #Takes image aspect ratio [x,y], number of subplots [rows, columns] and row/column sharing boolians
 #Returns figure and axes seperately.
@@ -1663,6 +1690,14 @@ def figure(aspectratio=[],subplots=[1,1],shareX=False,shareY=False):
 	else:
 		fig, ax = plt.subplots(nrows=nRows,ncols=nCols,figsize=(10,10),sharex=shareX,sharey=shareY)
 	#endif
+
+	#if gridspec is supplied, set relative panel heights accordingly
+	if len(gridspec) > 0:
+		GridSpecArray = gs.GridSpec(subplots[0],subplots[1], height_ratios=gridspec)
+		for i in range(0,len(gridspec)): ax[i] = plt.subplot(GridSpecArray[i])
+		#endfor
+	#endif
+
 	return(fig,ax)
 #enddef
 
@@ -1993,10 +2028,10 @@ def ComputeTAEThresholds(HarmonicData,Harmonic,eps,Va,ax='NaN'):
 
 	#Extract required data
 	data = HarmonicsData.data
-	kmax = data.shape[0]
-	mpol = data.shape[1]
-	ntor = data.shape[2]
-	lpsi = data.shape[3]
+	kmax = data.shape[0]					#Maximum kstep of data
+	mpol = data.shape[1]					#Number of poloidal modes
+	ntor = data.shape[2]					#Number of toroidal modes
+	lpsi = data.shape[3]					#Radial Array Dimension [lpsi]
 
 	#Initiate TAE threshold arrays
 	UpperThresholds = list()
@@ -2004,14 +2039,14 @@ def ComputeTAEThresholds(HarmonicData,Harmonic,eps,Va,ax='NaN'):
 
 	#Extract rho_pol and safety factor arrays, and initiate empty threshold arrays
 	rho_pol = HarmonicsData.rho_pol
-	q = abs(HarmonicsData.q_psi)
-	K = np.zeros([lpsi,mpol])
+	q_psi = abs(HarmonicsData.q_psi)		#Safety Factor radial profile [lpsi]
+	K = np.zeros([lpsi,mpol])				#Initiate empty 'K' array
 
 	#Calculates the Alfven eigenmode thresholds for all simulated poloidal mode numbers
 	#PROVIDE SUMMARY OF MATHS AND ASSUMPTIONS 
 	#PROVIDE REFERENCE FOR THESE DERIVATION(S)
 	for m in range(0,mpol):
-		K[:,m] = (m-abs(Harmonic)*q)/(q*R0)
+		K[:,m] = (m-abs(Harmonic)*q_psi)/(q_psi*R0)
 	#endfor
 	for m in range(0,mpol-1,1):
 		diff  = np.sqrt(((K[:,m]**2-K[:,m+1]**2)**2+4*eps**2*K[:,m]**2*K[:,m+1]**2)) 
@@ -2269,7 +2304,7 @@ print(' |  \  /  |    /  ^  \  \   \/   /  |  |    |   (----` ')
 print(' |  |\/|  |   /  /_\  \  \      /   |  |     \   \     ')
 print(' |  |  |  |  /  _____  \  \    /    |  | .----)   |    ')
 print(' |__|  |__| /__/     \__\  \__/     |__| |_______/     ')
-print('                                                 v0.6.3')
+print('                                                 v0.6.4')
 print('-------------------------------------------------------')
 print('')
 print('The following diagnostics were requested:')
@@ -2281,9 +2316,9 @@ if True in [savefig_1Dequilibrium]:
 if True in [savefig_2Dequilibrium,savefig_2Dequilmovie]:
 	print('# 2D Equilibrium Analysis')
 if True in [savefig_2Dcontinuum]:
+	print('# 2D Continuum Analysis')
+if True in [savefig_2Dspectral]:
 	print('# 2D Spectral Analysis')
-if True in [savefig_2Dresponse]:
-	print('# 2D Plasma Response Analysis')
 if True in [savefig_1Dkinetics,savefig_2Dkinetics]:
 	print('# Kinetic Distribution Analysis')
 print('-----------------------------------------')
@@ -2501,7 +2536,7 @@ if savefig_1Denergy == True:
 		#==========##==========#
 
 		#Create figure for energy_n outputs
-		fig,ax = figure(image_aspectratio,[2,1])
+		fig,ax = figure(subplots=[2,1], aspectratio=image_aspectratio)
 
 		#Energy_n Ax[0] Title, Legend, Axis Labels etc...
 		Title = 'Spectrally Resolved Energy Evolution for \n '+DirString
@@ -2536,7 +2571,7 @@ if savefig_1Denergy == True:
 		#==========##==========#
 
 		#Create figure for energy_phys outputs
-		fig,ax = figure(image_aspectratio,[3,1])
+		fig,ax = figure(subplots=[3,1], aspectratio=image_aspectratio)
 
 		#Energy_phys[0,1,2] Title, Legend, Axis Labels etc...
 		Title = 'Spectrally Integrated Energy Evolution for \n '+DirString
@@ -2600,7 +2635,7 @@ if savefig_1Denergytrends == True:
 	for i in range(0,ntor_pos+1):
 
 		#Create figure for energy_n trend comparison
-		fig,ax = figure(image_aspectratio,[2,1])
+		fig,ax = figure(subplots=[2,1], aspectratio=image_aspectratio)
 
 		#Append new dimension to lists used when comparing growth rates
 		dEnergydt_Array.append([]), d2Energydt2_Array.append([])
@@ -2622,7 +2657,7 @@ if savefig_1Denergytrends == True:
 			#Energy_n: [ntor][timestep]
 			Energy_n,Header_n = ExtractMEGA_Energy(Dir[l],'energy_n')
 			#EnergyProfile: [timestep]
-			EnergyProfile = Energy_n[i+2]					#Energy profile for ntor[i] (+2, skip Kstep/time)
+			EnergyProfile = Energy_n[i+2]					#Energy profile for ntor[i] (i+2, skips Kstep/time)
 			EnergyProfile = EnergyProfile[0:MaxSharedKStep]	#Reduce KStep range to minimum shared range
 
 			#Extract normalisation factors for current simulation folder
@@ -2672,7 +2707,7 @@ if savefig_1Denergytrends == True:
 	#==========##==========#
 
 	#Create figure for energy_n growth rate comparison
-	fig,ax = figure(image_aspectratio,[1,1])
+	fig,ax = figure(subplots=[1,1], aspectratio=image_aspectratio)
 
 	#Energy_n Ax[0] Title, Legend, Axis Labels etc...
 	Title = 'Linear Growth Rate $\gamma$ Comparison for \n '+DirString
@@ -2801,6 +2836,60 @@ if savefig_1Dequilibrium == True:
 			VariableLabel = VariableLabelMaker(variables[i])
 
 			#==========##===========#
+			#	 RADIAL PROFILES	#
+			#==========##===========#
+			if len(radialprofiles) > 0:
+
+				#Create new folder to store radial profiles
+				DirEquilRadial = CreateNewFolder(DirEquil1D,'Radial_Profiles/')
+
+				#Create figure and define Title, Legend, Axis Labels etc...
+				fig,ax = figure(subplots=[1,1], aspectratio=image_aspectratio)
+				ntorString = ', n='+str(ntor); mpolString=', m='+str(-mpol_res+1)+','+str(mpol_res-1)
+				TimeString = ', t='+str(round(Time,3))+' ms'
+				Title = VariableLabel+ntorString+mpolString+TimeString+' \n Simulation: '+DirString
+				Xlabel,Ylabel = 'Radius $R$ [m]', VariableLabel
+				Legend = list()
+
+				#Plot 1D radially resolved profiles for current simulation folder
+				#Radial profiles employ fixed poloidal (theta) and toroidal (phi) angles
+				for j in range(0,len(radialprofiles)):
+
+					#Define poloidal angle theta and append to legend list
+					theta = radialprofiles[j]
+					Legend.append('$\\theta$ = '+str(theta)+'$^{\circ}$')
+
+					#Extract radially resolved profile and plot
+					#RadialProfile has origin at Rgeo, extending at angle theta clockwise to vertical
+					RadialProfile = Extract_RadialProfile(HarmonicsData,variables[i],ntorIdx,theta)
+					ax.plot(rho_pol,RadialProfile, lw=2)
+
+					#Save ASCII data to sub-folder
+					if write_ASCII == True:
+						#Create directory to hold ASCII data
+						DirASCII = CreateNewFolder(DirEquilRadial,'1DEquil_Data/')
+
+						#Set ASCII data file name string and header
+						SaveString = variables[i]+'_n'+str(ntor)+'_theta='+str(theta)+'_t='+str(round(Time,3))+'.dat'
+						Header = [VariableLabel,'   ', '@theta=',theta,'[Deg]', '   R',lpsi_res,  '\n']
+
+						#Write 1D data header, then 2D PoloidalImage
+						WriteFile_ASCII(Header, DirASCII+SaveString, 'w', 'RSV')
+						WriteFile_ASCII(RadialProfile, DirASCII+SaveString, 'a', write_ASCIIFormat)
+					#endif
+				#endfor
+
+				#Beautify 1D equilibrium profiles figure
+				ImageOptions(fig,ax,Xlabel,Ylabel,Title,Legend)
+
+				#Save radial equilibrium profiles for current simulation folder
+				SaveString = variables[i]+'_Radial_n'+str(ntor)+'_t='+str(round(Time,3))+ext
+				plt.savefig(DirEquilRadial+SaveString)
+#				plt.show()
+				plt.close('all')
+			#end - radial profile branch
+
+			#==========##===========#
 			#	POLOIDAL PROFILES	#
 			#==========##===========#
 			if len(poloidalprofiles) > 0:
@@ -2809,7 +2898,7 @@ if savefig_1Dequilibrium == True:
 				DirEquilPoloidal = CreateNewFolder(DirEquil1D,'Poloidal_Profiles/')
 
 				#Create figure and define Title, Legend, Axis Labels etc...
-				fig,ax = figure(image_aspectratio,1)
+				fig,ax = figure(subplots=[1,1], aspectratio=image_aspectratio)
 				ntorString = ', n='+str(ntor); mpolString=', m='+str(-mpol_res+1)+','+str(mpol_res-1)
 				TimeString = ', t='+str(round(Time,3))+' ms'
 				Title = VariableLabel+ntorString+mpolString+TimeString+' \n Simulation: '+DirString
@@ -2835,62 +2924,31 @@ if savefig_1Dequilibrium == True:
 					ax.plot(ThetaAxis,ThetaProfile, lw=2)
 
 					#Save ASCII data to sub-folder
-#					Write_data_to_file(ThetaAxis, ThetaProfile)			### TO BE ADDED ###
+					if write_ASCII == True:
+						#Create directory to hold ASCII data
+						DirASCII = CreateNewFolder(DirEquilPoloidal,'1DEquil_Data/')
+
+						#Set ASCII data file name string and header
+						SaveString = variables[i]+'_n'+str(ntor)+'_R='+str(Radius)+'_t='+str(round(Time,3))+'.dat'
+						Header = [VariableLabel,'   ', '@R=',Radius, 'rho_pol', '   theta', ltheta_res,  '\n']
+
+						#Write 1D data header, then 2D PoloidalImage
+						WriteFile_ASCII(Header, DirASCII+SaveString, 'w', 'RSV')
+						WriteFile_ASCII(ThetaProfile, DirASCII+SaveString, 'a', write_ASCIIFormat)
+					#endif
 				#endfor
 
 				#Beautify 1D equilibrium profiles figure
 				ImageOptions(fig,ax,Xlabel,Ylabel,Title,Legend)
 				ax.xaxis.set_major_locator(ticker.MultipleLocator(60))
+				ax.set_xlim(0,360)
 
 				#Save poloidal equilibrium profiles for current simulation folder
 				SaveString = variables[i]+'_Poloidal_n'+str(ntor)+'_t='+str(round(Time,3))+ext
 				plt.savefig(DirEquilPoloidal+SaveString)
 #				plt.show()
 				plt.close('all')
-			#endif - poloidal profile loop
-
-			#==========##===========#
-			#	 RADIAL PROFILES	#
-			#==========##===========#
-			if len(radialprofiles) > 0:
-
-				#Create new folder to store radial profiles
-				DirEquilRadial = CreateNewFolder(DirEquil1D,'Radial_Profiles/')
-
-				#Create figure and define Title, Legend, Axis Labels etc...
-				fig,ax = figure(image_aspectratio,1)
-				ntorString = ', n='+str(ntor); mpolString=', m='+str(-mpol_res+1)+','+str(mpol_res-1)
-				TimeString = ', t='+str(round(Time,3))+' ms'
-				Title = VariableLabel+ntorString+mpolString+TimeString+' \n Simulation: '+DirString
-				Xlabel,Ylabel = 'Radius $R$ [m]', VariableLabel
-				Legend = list()
-
-				#Plot 1D radially resolved profiles for current simulation folder
-				#Radial profiles employ fixed poloidal (theta) and toroidal (phi) angles
-				for j in range(0,len(radialprofiles)):
-
-					#Define poloidal angle theta and append to legend list
-					theta = radialprofiles[j]
-					Legend.append('$\\theta$ = '+str(theta)+'$^{\circ}$')
-
-					#Extract radially resolved profile and plot
-					#RadialProfile has origin at Rgeo, extending at angle theta clockwise to vertical
-					RadialProfile = Extract_RadialProfile(HarmonicsData,variables[i],ntorIdx,theta)
-					ax.plot(rho_pol,RadialProfile, lw=2)
-
-					#Save ASCII data to sub-folder
-#					Write_data_to_file(rho_pol, RadialProfile)			### TO BE ADDED ###
-				#endfor
-
-				#Beautify 1D equilibrium profiles figure
-				ImageOptions(fig,ax,Xlabel,Ylabel,Title,Legend)
-
-				#Save radial equilibrium profiles for current simulation folder
-				SaveString = variables[i]+'_Radial_n'+str(ntor)+'_t='+str(round(Time,3))+ext
-				plt.savefig(DirEquilRadial+SaveString)
-#				plt.show()
-				plt.close('all')
-			#endif - radial profile loop
+			#endif - poloidal profile branch
 		#endfor	- variable loop
 	#endfor	- dir loop
 #endif
@@ -2975,7 +3033,7 @@ if savefig_2Dequilibrium == True:
 			PoloidalImage = Extract_PoloidalImage(HarmonicsData,variable,ntorIdx)
 
 			#Create figure and define Title, Legend, Axis Labels etc...
-			fig,ax = figure(image_aspectratio,1)
+			fig,ax = figure(subplots=[1,1], aspectratio=image_aspectratio)
 			Title = VariableLabel+', n='+str(ntor)+', t='+str(round(Time,3))+' ms \n Simulation: '+DirString
 			Xlabel,Ylabel = 'Major Radius $R$ [m]', 'Height $Z$ [m]'
 			Legend = list()
@@ -3093,7 +3151,7 @@ if savefig_2Dequilmovie == True:
 					#==========#
 
 					#Create figure and define Title, Legend, Axis Labels etc...
-					fig,ax = figure(image_aspectratio,1)
+					fig,ax = figure(subplots=[1,1], aspectratio=image_aspectratio)
 
 					#Extract Variablelabel and define figure texts
 					VariableLabel = VariableLabelMaker(variables[j])
@@ -3166,14 +3224,14 @@ if any([savefig_2Dequilibrium,savefig_2Dequilmovie]) == True:
 
 
 #====================================================================#
-					 #PLASMA RESPONSE DIAGNOSTICS#
+			 #TEMPORALLY/SPECTRALLY RESOLVED DIAGNOSTICS#
 #====================================================================#
 
 #====================================================================#
-					 #POLOIDAL RESPONSE ANALYSIS#
+					 #POLOIDAL SPECTRUM ANALYSIS#
 #====================================================================#
 
-if savefig_2Dresponse == True:
+if savefig_2Dspectral == True:
 
 	#For each detected simulation folder
 	for l in range(0,len(Dir)):
@@ -3181,15 +3239,15 @@ if savefig_2Dresponse == True:
 		#DEVELOPMENT SETTINGS - all need looped over... - settings_inputs to be moved to switchboard
 		print Dir[l].split('/')[-2]
 		ntor = setting_ntor[1]				#requested ntor mode number			!!! NEEDS A FUNCTION !!!
-		variable = 'brad'					#requested response variable 		!!! Need to impliment vrad etc...
+		variable = PROESvariable			#requested response variable 		!!! Need to impliment vrad etc...
 
 		#Initiate any required lists
 		DataAmpPROES_pol,DataAmpPROES_rad = list(),list()
 		XaxisPROES = list()
 
 		#Create global 2D diagnostics folder and extract current simulation name
-		DirResponse = CreateNewFolder(Dir[l],'2DResponse_Plots/')			#Response Folder
-		DirResponse_ntor = CreateNewFolder(DirResponse,'ntor='+str(ntor))	#Toroidal Mode Folder	
+		DirSpectral = CreateNewFolder(Dir[l],'2DSpectral_Plots/')						#Spatio-Temporal Folder
+		DirSpectral_ntor = CreateNewFolder(DirSpectral,variable+'_ntor='+str(ntor))		#Spatio-Temporal Images Folder	
 		DirString = Dir[l].split('/')[-2]									#Full Simulation Name
 		SubString = DirString.split('_')[-1]								#Simulation Nickname
 
@@ -3202,6 +3260,12 @@ if savefig_2Dresponse == True:
 		ntor_pos = ntorArray[1]						#Number of positive modes (Ignoring n=0)
 		ntor0 = ntorArray[0]						#ntor = 0, baseline equilibrium data
 
+		#Extract Energy_n outputs and header for plotting
+		#energy_n: [ntor][timestep]
+		Energy_n,Header_n = ExtractMEGA_Energy(Dir[l],'energy_n')
+		Energy_TimeArray = Energy_n[1]				#Extract full time array [ms] for plotting
+		Energy_n = Energy_n[2::]					#Remove KStep and Time arrays from array
+
 		#Extract toroidal mode number array index (ntorIdx) from requested mode number (ntor)
 		ntorIdx = Set_ntorIdx(ntor,ntorArray)
 
@@ -3209,15 +3273,16 @@ if savefig_2Dresponse == True:
 		KStepRange,KStepStep = Set_KStepRange(KStepArray,setting_kstep)
 		SEQRange = Set_SEQRange(setting_SEQ)
 
+
 		#Extract Variablelabel for chosen variable
 		VariableLabel = VariableLabelMaker(variable,Units='Perturbation [-]')
 
-		for j in range(SEQRange[0],SEQRange[1]):
+		for j in tqdm( range(SEQRange[0],SEQRange[1])  ):
 			#Set SEQIndex for current simulation folder
 			SEQ = j
 
 			#Extract and plot data for each timestep
-			for i in tqdm( range(KStepRange[0],KStepRange[1],KStepStep) ):
+			for i in range(KStepRange[0],KStepRange[1],KStepStep):
 
 				#Set TimeIndex and employ to extract KStep and Time
 				KStepIdx = i								#[-]
@@ -3259,28 +3324,40 @@ if savefig_2Dresponse == True:
 				Xaxis =	[x-int(mpol_res-1) for x in range(0,2*mpol_res-1,1)]	#Poloidal Mode Numbers	[mpolAxis] 
 				Yaxis = HarmonicsData.rho_pol									#Radial Location		[lpsiAxis]
 
-				#Create figure and define Title, Legend, Axis Labels etc...
-				fig,ax = figure(image_aspectratio,1)
-				Title = 'Plasma Response: n='+str(ntor)+', m='+str(-mpol_res+1)+','+str(mpol_res-1)+', t='+str(round(Time,3))+' [ms] \n Simulation: '+DirString
-				Xlabel,Ylabel = 'Poloidal Harmonic $m_{pol}$ [-]', 'Radial Magnetic Coordinate $\\rho_{pol}$ [-]'
-				Legend = list()
+				#If QuickPROES not used, plot a poloidal spectrum for each kstep value
+				if QuickPROES == False:
+					#Create figure and define Title, Legend, Axis Labels etc...
+					AspectRatio = [image_aspectratio[0],image_aspectratio[1]*1.25]
+					fig,ax = figure(subplots=[2,1], gridspec=[2,1], aspectratio=AspectRatio)
 
-				#Plot poloidal response spectrum figure (R,mpol)
-				extent = [Xaxis[0],Xaxis[-1], Yaxis[0],Yaxis[-1]]						#[mpolAxis, lpsiAxis]
-				im = ax.imshow(Image, extent=extent, aspect='auto', origin='bottom')	#Image orientated [Y,X]
-				co = ax.contour(Image, extent=extent, origin='lower', levels=10)		#Image orientated [Y,X]
-#				im = ax.contourf(Xaxis, Yaxis, Image, 50)
-				res = ax.plot(-ntor*q_psi, rho_pol, 'w--', lw=2)
-				cbar = Colourbar(ax,im,VariableLabel,5)
-				#####
-				ImageOptions(fig,ax,Xlabel,Ylabel,Title,Legend)
-				ax.set_xlim(image_mpolcrop[0],image_mpolcrop[1])
+					#Plot poloidal spectrum figure (R,mpol)
+					extent = [Xaxis[0],Xaxis[-1], Yaxis[0],Yaxis[-1]]						#[mpolAxis, lpsiAxis]
+					im = ax[0].imshow(Image, extent=extent, aspect='auto', origin='bottom')	#Image orientated [Y,X]
+					co = ax[0].contour(Image, extent=extent, origin='lower', levels=10)		#Image orientated [Y,X]
+#					im = ax.contourf(Xaxis, Yaxis, Image, 50)
+					res = ax[0].plot(-ntor*q_psi, rho_pol, 'w--', lw=2)
+					cbar = Colourbar(ax[0],im,VariableLabel,5)
+					#####
+					Title = 'Poloidal Spectrum: n='+str(ntor)+', m='+str(-mpol_res+1)+','+str(mpol_res-1)+', t='+str(round(Time,3))+' [ms] \n Simulation: '+DirString
+					Xlabel,Ylabel = 'Poloidal Harmonic $m_{pol}$ [-]', 'Radial Magnetic Coordinate $\\rho_{pol}$ [-]'
+					ImageOptions(fig,ax[0],Xlabel,Ylabel,Title,'')
+					ax[0].set_xlim(image_mpolcrop[0],image_mpolcrop[1])
 
-				#Save poloidal response figure for current SEQ and Kstep
-				SaveString = 'PlasmaResponse_'+variable+'_n'+str(ntor)+'_kstep'+str('%07.f'%KStep)+ext
-				plt.savefig(DirResponse_ntor+SaveString)
-#				plt.show()
-				plt.close('all')
+					#Plot total energy for each harmonic component
+					ax[1].plot(Energy_TimeArray,np.log10(Energy_n[ntorIdx]), lw=2)
+					ax[1].axvline(TimeArray[KStepIdx+IdxOffset],0,1)
+					cbar = InvisibleColourbar(ax[1])
+					###
+					Xlabel,Ylabel = 'Time [ms]', '$n_{tor}$ Mode Energy [-]'
+					Legend = ['n$_{tor}$ = '+str(ntor)]
+					ImageOptions(fig,ax[1],Xlabel,Ylabel,'',Legend)
+
+					#Save poloidal spectrum figure for current SEQ and Kstep
+					SaveString = 'PoloidalSpectrum_'+variable+'_n'+str(ntor)+'_kstep'+str('%07.f'%KStep)+ext
+					plt.savefig(DirSpectral_ntor+SaveString)
+#					plt.show()
+					plt.close('all')
+				#endif
 
 				#==========##==========#
 				#==========##==========#
@@ -3318,7 +3395,7 @@ if savefig_2Dresponse == True:
 		#	TEMPORALLY RESOLVED PROFILES	#
 		#================##=================#
 
-		#Plot spatio-temporally resolved plasma response figures
+		#Plot spatio-temporally resolved poloidal spectrum figures
 		if len(XaxisPROES) > 1:
 
 			#Create 'PROES-like' Image array, rotated such that time is on X-axis.
@@ -3332,35 +3409,13 @@ if savefig_2Dresponse == True:
 
 			#==========##==========#
 
-			#Poloidially resolved 'PROES-like' figure: Title, Legend, Axis Labels etc...
-			fig,ax = figure(image_aspectratio,1)
-			Title = 'Plasma Response: n='+str(ntor)+', m='+str(-mpol_res+1)+','+str(mpol_res-1)+', t='+str(round(Time,3))+' [ms] \n Simulation: '+DirString
-			Xlabel,Ylabel = 'Time $t$ [ms]', 'Poloidal Harmonic $m_{pol}$ [-]'
-			Legend = list()
-
-			#Plot temporally resolved, radially collapsed, response figure (R,time)
-			im = ax.imshow(PROESImage_pol, extent=extent_pol, aspect='auto', origin='bottom')	#Image orientated [Y,X]
-			co = ax.contour(PROESImage_pol, extent=extent_pol, origin='lower', levels=20)		#Image orientated [Y,X]
-#			im = plt.contourf(XaxisPROES, Xaxis, PROESImage_pol, 50)
-			cbar = Colourbar(ax,im,VariableLabel,5)
-			ImageOptions(fig,ax,Xlabel,Ylabel,Title,Legend)
-			ax.set_ylim(image_mpolcrop[0],image_mpolcrop[1])
-
-			#Save temporal response figure for current simulation directory
-			SaveString = 'PoloidalResponse_'+variable+'_n'+str(ntor)+'_t='+str(round(Time,3))+ext
-			plt.savefig(DirResponse+SaveString)
-#			plt.show()
-			plt.close('all')
-
-			#==========##==========#
-
 			#Radially resolved 'PROES-like' figure: Title, Legend, Axis Labels etc...
-			fig,ax = figure(image_aspectratio,1)
-			Title = 'Plasma Response: n='+str(ntor)+', m='+str(-mpol_res+1)+','+str(mpol_res-1)+', t='+str(round(Time,3))+' [ms] \n Simulation: '+DirString
+			fig,ax = figure(subplots=[1,1], aspectratio=image_aspectratio)
+			Title = 'Poloidally Collapsed: n='+str(ntor)+', m='+str(-mpol_res+1)+','+str(mpol_res-1)+', t='+str(round(Time,3))+' [ms] \n Simulation: '+DirString
 			Xlabel,Ylabel = 'Time $t$ [ms]', 'Radial Magnetic Coordinate $\\rho_{pol}$ [-]'
 			Legend = list()
 
-			#Plot temporally resolved, poloidally collapsed, response figure (R,time)
+			#Plot temporally resolved, poloidally collapsed, figure (R,time)
 			im = ax.imshow(PROESImage_rad, extent=extent_rad, aspect='auto', origin='bottom')	#Image orientated [Y,X]
 			co = ax.contour(PROESImage_rad, extent=extent_rad, origin='lower', levels=20)		#Image orientated [Y,X]
 #			im = plt.contourf(XaxisPROES, Yaxis, PROESImage_rad, 50)
@@ -3368,11 +3423,52 @@ if savefig_2Dresponse == True:
 			ImageOptions(fig,ax,Xlabel,Ylabel,Title,Legend)
 			ax.set_ylim(0,1)									#ax.set_ylim(image_rhocrop[0],image_rhocrop[1])
 
-			#Save temporal response figure for current simulation directory
-			SaveString = 'RadialResponse_'+variable+'_n'+str(ntor)+'_t='+str(round(Time,3))+ext
-			plt.savefig(DirResponse+SaveString)
+			#Save temporal spectrum figure for current simulation directory
+			SaveString = 'RadialSpectrum_'+variable+'_n'+str(ntor)+'_t='+str(round(Time,3))+ext
+			plt.savefig(DirSpectral+SaveString)
 #			plt.show()
 			plt.close('all')
+
+			#==========##==========#
+
+			#Poloidially resolved 'PROES-like' figure: Title, Legend, Axis Labels etc...
+			fig,ax = figure(subplots=[1,1], aspectratio=image_aspectratio)
+			Title = 'Radially Collapsed: n='+str(ntor)+', m='+str(-mpol_res+1)+','+str(mpol_res-1)+', t='+str(round(Time,3))+' [ms] \n Simulation: '+DirString
+			Xlabel,Ylabel = 'Time $t$ [ms]', 'Poloidal Harmonic $m_{pol}$ [-]'
+			Legend = list()
+
+			#Plot temporally resolved, radially collapsed, figure (R,time)
+			im = ax.imshow(PROESImage_pol, extent=extent_pol, aspect='auto', origin='bottom')	#Image orientated [Y,X]
+			co = ax.contour(PROESImage_pol, extent=extent_pol, origin='lower', levels=20)		#Image orientated [Y,X]
+#			im = plt.contourf(XaxisPROES, Xaxis, PROESImage_pol, 50)
+			cbar = Colourbar(ax,im,VariableLabel,5)
+			ImageOptions(fig,ax,Xlabel,Ylabel,Title,Legend)
+			ax.set_ylim(image_mpolcrop[0],image_mpolcrop[1])
+
+			#Save temporal spectrum figure for current simulation directory
+			SaveString = 'PoloidalSpectrum_'+variable+'_n'+str(ntor)+'_t='+str(round(Time,3))+ext
+			plt.savefig(DirSpectral+SaveString)
+#			plt.show()
+			plt.close('all')
+
+			#==========##==========#
+			#==========##==========#
+
+			if write_ASCII == True:
+				DirASCII = CreateNewFolder(DirSpectral,"Spectral_Data")		#Spatio-Temporal Data Folder
+
+				#Write 1D data header, then 2D Radially resolved Spatio-Temporal Image
+				SaveString = 'RadialSpectrum_'+variable+'_n'+str(ntor)+'_t='+str(round(Time,3))+'.dat'
+				Header = [VariableLabel,'   ', 'time',extent_rad[0],extent_rad[1], 'rho_pol',extent_rad[2],extent_rad[3], '\n']
+				WriteFile_ASCII(Header, DirASCII+SaveString, 'w', 'RSV')
+				WriteFile_ASCII(PROESImage_rad, DirASCII+SaveString, 'a', write_ASCIIFormat)
+
+				#Write 1D data header, then 2D Poloidally resolved Spatio-Temporal Image
+				SaveString = 'PoloidalSpectrum_'+variable+'_n'+str(ntor)+'_t='+str(round(Time,3))+'.dat'
+				Header = [VariableLabel,'   ', 'time',extent_pol[0],extent_pol[1], 'mpol',extent_pol[2],extent_pol[3], '\n']
+				WriteFile_ASCII(Header, DirASCII+SaveString, 'w', 'RSV')
+				WriteFile_ASCII(PROESImage_pol, DirASCII+SaveString, 'a', write_ASCIIFormat)
+			#endif
 		#endif - PROES plotting branch
 	#endfor - Dir loop
 #endif - Diag loop
@@ -3381,10 +3477,10 @@ if savefig_2Dresponse == True:
 #==========##==========##==========#
 #==========##==========##==========#
 
-if any([savefig_2Dresponse]) == True:
-	print '------------------------------------'
-	print '2D Plasma Response Analysis Complete'
-	print '------------------------------------'
+if any([savefig_2Dspectral]) == True:
+	print '--------------------------------------'
+	print '2D Poloidal Spectrum Analysis Complete'
+	print '--------------------------------------'
 #endif
 
 #====================================================================#
@@ -3440,7 +3536,7 @@ if savefig_2Dcontinuum == True:
 		variable = 'bphi'				#requested response variable 		!!! Need to impliment btheta, vrad etc...
 
 		#Create global 2D diagnostics folder and extract current simulation name
-		DirContinuum = CreateNewFolder(Dir[l],'2Dcontinuum_Plots/')
+		DirContinuum = CreateNewFolder(Dir[l],'2DContinuum_Plots/')
 		DirString = Dir[l].split('/')[-2]
 		SubString = DirString.split('_')[-1]
 
@@ -3483,17 +3579,15 @@ if savefig_2Dcontinuum == True:
 		mpol, ntor = DataShape[0], DataShape[1]
 		lpsi, ltheta = DataShape[2], DataShape[3]
 		kmax, dt = DataShape[4], (TimeArray[1]-TimeArray[0])
-		ntor2 = int(0.5*(ntor-1))					#Positive ntor (excluding n=0)
 
 
 
 		#BELOW TO STILL BE TRANSLATED
-		#ALSO NEED TO ADD COLOURBAR TO THE FOURIER PLOTS!!!
-		print kmax, mpol, ntor, lpsi, ntor2
+		print kmax, mpol, ntor, lpsi
 
 		#Sum Re component of toroidal (n) and poloidal (m) modes for all ksteps
 		vcos = list()
-		for n in range(0,ntor2):
+		for n in range(0,ntor_tot):
 			vcos.append( np.zeros([]) )				
 			for m in range(0,mpol):						#Data structure: [kstep][mpol][ntor][lpsi][Re/Im] 
 				vcos[n] = vcos[n] + Data[:,m,n,:,0]		#vcos structure: [ntor][kstep][lpsi]
@@ -3509,7 +3603,7 @@ if savefig_2Dcontinuum == True:
 
 		vcos_fft,vcos_len = list(),list()
 		#Extract fourier components from vcos
-		for n in range(0,ntor2):
+		for n in range(0,ntor_tot):
 			vcos_fft.append( np.fft.fft(vcos[n],axis=0) )	#Take fourier components of variable
 		  	vcos_fft[n][0,:] = vcos_fft[n][0,:]*0.0			#Discard imaginary components 					???
 			vcos_len.append( int(len(vcos_fft[n])/2)-1 )	#Determine lowpass filter frequency threshold 	???
@@ -3519,18 +3613,18 @@ if savefig_2Dcontinuum == True:
 		#==========##==========#
 
 		#Create fig of desired size - increasing Xlim with the number of harmonics
-		Xlim,Ylim = int(10*(float(ntor_pos)/1.75)), 12
-		fig,ax = figure([Xlim,Ylim],[2,ntor2])
+		Xaspect, Yaspect = int(10*(float(ntor)/1.75)), 12
+		fig,ax = figure(subplot=[2,ntor_tot], aspectratio=[Xaspect,Yaspect])
 
 		#For each toroidal harmonic:
-		for i in range(0,ntor2):
+		for i in range(0,ntor_tot):
 
 			#Temporal evolution plotted on the top row (row 0)
-			if ntor2 == 1: subfig = ax[0]
-			elif ntor2 > 1: subfig = ax[0,i]
+			if ntor_tot == 1: subfig = ax[0]
+			elif ntor_tot > 1: subfig = ax[0,i]
 			#endif
 
-			Harmonic = -ntor2+i									# Why is ntor reversed?
+			Harmonic = -ntor_pos+i
 			#Construct temporal figure axes and meshgrid (not used)
 			Xaxis = rho_pol										#[-]
 			Yaxis = TimeArray									#[ms]
@@ -3542,18 +3636,18 @@ if savefig_2Dcontinuum == True:
 			co = subfig.contour(vcos[i], extent=extent, levels=10)
 			
 			#Add colourbar and beautify plot - taking account of panel location
-			if i == 0 and ntor2 > 1: 					#If first panel with more panels to right
+			if i == 0 and ntor_tot > 1: 					#If first panel with more panels to right
 				ImageOptions(fig,subfig,'','Time [ms]','n='+str(Harmonic),'')
  				im.axes.get_xaxis().set_visible(False)
-			elif i == 0 and ntor2 == 1:					#If first panel with no panels to right
+			elif i == 0 and ntor_tot == 1:					#If first panel with no panels to right
 				cbar = Colourbar(subfig,im,VariableLabel,5)
 				ImageOptions(fig,subfig,'','Time [ms]','n='+str(Harmonic),'')
  				im.axes.get_xaxis().set_visible(False)
-			elif i > 0 and i < ntor2-1: 				#If middle panel with more panels to right
+			elif i > 0 and i < ntor_tot-1: 					#If middle panel with more panels to right
 				ImageOptions(fig,subfig,'','','n='+str(Harmonic),'')
  				im.axes.get_xaxis().set_visible(False)
  				im.axes.get_yaxis().set_visible(False)
-			elif i == ntor2-1 and ntor2 > 1:			#If last panel with more panels to left
+			elif i == ntor_tot-1 and ntor_tot > 1:			#If last panel with more panels to left
 				cbar = Colourbar(subfig,im,VariableLabel,5)
 				ImageOptions(fig,subfig,'','','n='+str(Harmonic),'')
  				im.axes.get_xaxis().set_visible(False)
@@ -3563,8 +3657,8 @@ if savefig_2Dcontinuum == True:
 			#==========#
 
 			#Alfven continuum (Fourier) analysis plotted on the bottom row (row 1)
-			if ntor2 == 1: subfig = ax[1]
-			elif ntor2 > 1: subfig = ax[1,i]
+			if ntor_tot == 1: subfig = ax[1]
+			elif ntor_tot > 1: subfig = ax[1,i]
 
 			#Construct frequency figure axes and meshgrid (not used)
 			Xaxis = rho_pol										#[-]
@@ -3577,15 +3671,15 @@ if savefig_2Dcontinuum == True:
 			co = subfig.contour(real(vcos_fft[i]), extent=extent, levels=10)
 
 			#Add colourbar and beautify plot - taking account of panel location
-			if i == 0 and ntor2 > 1: 					#If first panel with more panels to right
+			if i == 0 and ntor_tot > 1: 					#If first panel with more panels to right
 				ImageOptions(fig,subfig,'Radius $R$','Frequency [kHz]','','')
-			elif i == 0 and ntor2 == 1:					#If first panel with no panels to right
+			elif i == 0 and ntor_tot == 1:					#If first panel with no panels to right
 				cbar = Colourbar(subfig,im,VariableLabel,5)
 				ImageOptions(fig,subfig,'Radius $R$','Frequency [kHz]','','')
-			elif i > 0 and i < ntor2-1:   				#If middle panel with more panels to right
+			elif i > 0 and i < ntor_tot-1:   				#If middle panel with more panels to right
 				ImageOptions(fig,subfig,'Radius $R$','','','')
  				im.axes.get_yaxis().set_visible(False)
-			elif i == ntor2-1 and ntor2 > 1:			#If last panel with more panels to left
+			elif i == ntor_tot-1 and ntor_tot > 1:			#If last panel with more panels to left
 				cbar = Colourbar(subfig,im,VariableLabel,5)
 				ImageOptions(fig,subfig,'Radius $R$','','','')
  				im.axes.get_yaxis().set_visible(False)
@@ -3678,7 +3772,7 @@ if savefig_1Dkinetics == True:
 		KineticPROES = list()
 
 		#Initiate figure and set axes
-		fig,ax = figure(image_aspectratio,1)
+		fig,ax = figure(subplots=[1,1], aspectratio=image_aspectratio)
 		Xlabel,Ylabel = 'Energy $\epsilon_{i}$ [keV]', 'Ion Energy Distribution Function $f(\epsilon_{i})$ [-]'
 		Legend = list()
 
@@ -3720,7 +3814,7 @@ if savefig_1Dkinetics == True:
 			MeanArray,ModeArray = list(),list()
 
 			#Initiate figure and set axes
-			fig,ax = figure(image_aspectratio,1)
+			fig,ax = figure(subplots=[1,1], aspectratio=image_aspectratio)
 			Xlabel,Ylabel = 'Energy $\epsilon_{i}$ [keV]','Time $t$ [ms]'
 			Legend = list()
 
@@ -3742,9 +3836,9 @@ if savefig_2Dkinetics == True:
 	#DEVELOPMENT SETTINGS - settings_inputs to be moved to switchboard
 	print Dir[l].split('/')[-2]
 	nBins = 100					#Kinetics Histogram Bins		- Move to Low-Level Inputs
-	KStepMin = 200000				#KStepMin						- Automate readin - Use Switchboard?
-	KStepMax = 400000			#KStepMax						- Automate readin - Use Switchboard?
-	KWep = 10000				#Write_ep save interval (kwep)	- Automate readin - Use Switchboard?
+	KStepMin = 000000			#KStepMin						- Automate readin - Use Switchboard?
+	KStepMax = 200000			#KStepMax						- Automate readin - Use Switchboard?
+	KWep = 100000				#Write_ep save interval (kwep)	- Automate readin - Use icp.nam readin function?
 	KMarker = 1					#Marker file readin interval	- Move to Low-Level Inputs
 
 
@@ -3770,8 +3864,8 @@ if savefig_2Dkinetics == True:
 			KineticsData,Header_Kin = ExtractMEGA_Markers(Dir[l],KStep,KMarker)
 
 			#Select variables to be plotted (X,Y axis)
-			XData = KineticsData[0]				# [3] 'E_gc'	[Typically Spatial Variable]
-			YData = KineticsData[6]				# [6] 'pphi_gc'	[Typically Physical Variable]
+			XData = KineticsData[6]				# [6] 'pphi_gc'	[Typically Spatial Variable]
+			YData = KineticsData[0]				# [3] 'E_gc'	[Typically Physical Variable]
 
 			#Extract min/max values and create histogram ranges
 			Xmin,Xmax = min(XData), max(XData)
@@ -3801,13 +3895,13 @@ if savefig_2Dkinetics == True:
 			if DebugMode == True: print( "1D IEDF Integral: ",str(sum(HistData1D)) )
 
 			#Initiate figure and set axes
-			fig,ax = figure(image_aspectratio,[2,1],shareX=True)
+			fig,ax = figure(subplots=[2,1], aspectratio=image_aspectratio, shareX=True)
 #			Title = VariableLabels[j]+', ntor='+str(ntor)+', t='+str(Time)+' \n Simulation: '+DirString
 			Title = 'Kinetic Markers, Kstep='+str(i)+' \n Simulation: '+DirString
 #			Xlabel,Ylabel = 'Energy $\epsilon_{i}$ [keV]','Angular Momentum $p_{\phi}$ \n [kg m${^2}$ s$^{-1}$]'
-			Xlabel,Ylabel = 'Radius R','Angular Momentum $p_{\phi}$ \n [kg m${^2}$ s$^{-1}$]'
-#			Xlabel,Ylabel = 'Radius R','Energy $\epsilon_{i}$ [keV]'
-#			Xlabel,Ylabel = 'Radius R','Height Z'
+#			Xlabel,Ylabel = 'Canonical Momentum $p_{\phi}$ \n [kg m${^2}$ s$^{-1}$]','Radius $R$ [m]'
+			Xlabel,Ylabel = 'Energy $\epsilon_{i}$ [keV]','Radius $R$ [m]'
+#			Xlabel,Ylabel = 'Height $Z$ [m]','Radius $R$ [m]'
 			Legend = list()
 
 			#Plot 2D toroidally resolved IEDF
