@@ -129,7 +129,7 @@ Kin = ['R_gc','Z_gc','Phi_gc','p_gc','pphi_gc','mu_gc','E_gc','Lambda_gc','psip'
 
 #===== AUG#34570 =====#
 #radialprofiles = [90,180]
-#poloidalprofiles = [0.65]
+#poloidalprofiles = [0.20,0.40,0.65]
 #toroidalprofiles = []
 #trendlocation = []
 
@@ -149,13 +149,13 @@ Kin = ['R_gc','Z_gc','Phi_gc','p_gc','pphi_gc','mu_gc','E_gc','Lambda_gc','psip'
 #Requested Variables and Plotting Locations:
 variables = ['prs','brad','vrad']	#Phys						#Requested variables to plot			#Phys+Kin
 
-radialprofiles = []				#1D Radial Profiles (fixed theta, phi) :: Poloidal Angle [deg]
-poloidalprofiles = [0.65]			#1D Poloidal Profiles (fixed rho_pol, phi) :: Norm. Radius [-]
+radialprofiles = []						#1D Radial Profiles (fixed theta, phi) :: Poloidal Angle [deg]
+poloidalprofiles = [0.20,0.40,0.65]			#1D Poloidal Profiles (fixed rho_pol, phi) :: Norm. Radius [-]
 toroidalprofiles = []					#1D Toroidal Profiles (fixed rho_pol, theta) :: Toroidal Angle [deg]
 trendlocation = [] 						#Cell location For Trend Analysis [R,theta,phi], ([] = min/max)
 
 #Various Diagnostic Settings:
-setting_SEQ = [0,4]					#Simulation SEQ to load		- [Min,Max], [Int], [] to plot SEQ001
+setting_SEQ = [0,14]					#Simulation SEQ to load		- [Min,Max], [Int], [] to plot SEQ001
 setting_ntor = [0,-2]					#ntor range to plot 		- [Min,Max], [Int], [] to plot all
 setting_kstep = [00,40,5]				#kstep index range to plot 	- [Min,Max,Step], [Int], [] to plot all
 
@@ -166,7 +166,7 @@ savefig_1Denergytrends = False			#Plot 1D MHD energies (multi-Sim) 	(xxx.energy_
 
 savefig_1Dequilibrium = True			#Plot 1D radial/poloidal profiles	(xxx.harmonics) - Working	-ASCII
 savefig_2Dequilibrium = False			#Plot 2D poloidal x-sections		(xxx.harmonics)	- Working
-savefig_2Dequilmovie = False				#Plot 2D poloidal x-section movies	(xxx.harmonics)	- Working	-ASCII
+savefig_2Dequilmovie = False			#Plot 2D poloidal x-section movies	(xxx.harmonics)	- Working	-ASCII
 
 savefig_2Dcontinuum = False				#Plot 2D harmonic continuum		 	(xxx.harmonics)	- Working
 savefig_2Dpolspectrum = False			#Plot 2D poloidal spectra 			(xxx.harmonics)	- Working	-ASCII
@@ -879,30 +879,53 @@ def ExtractMEGA_DataShape(HarmonicsData):
 #ntor = number of toroidal harmonics considered 	#[int]		- low-pass filter limited?
 #
 
+	#==========#	#==========#	#==========#
+
 	#Compare if HarmonicsData contains any of the requested variables by name (attribute)
 	#N.B. Python 3.7.x objects seem to initiate with 31 generic attributes by default.
-	DataAttributes = dir(HarmonicsData)
-	Intersection = set(variables).intersection(set(DataAttributes))
+#	DataAttributes = dir(HarmonicsData)
+#	Intersection = set(variables).intersection(set(DataAttributes))		
 
 	#Extract data array sizes for a 4D (temporally resolved) HarmonicsData object
 	#Object created using: ExtractMEGA_Harmonics(Dir[l],'brad',ntor_tot)
-	if len(Intersection) == 0:
-		kstep_res = HarmonicsData.data.shape[0]		#kstep resolution
-		mpol_res = HarmonicsData.data.shape[1]		#mpol resolution
-		ntor_res = HarmonicsData.data.shape[2]		#ntor resolution
-		lpsi_res = HarmonicsData.data.shape[3]		#lpsi resolution
-		ltheta_res = 256							#ltheta resolution 	#!!!!!!!
+#	if len(Intersection) == 0:
+#		kstep_res = HarmonicsData.data.shape[0]		#kstep resolution
+#		mpol_res = HarmonicsData.data.shape[1]		#mpol resolution
+#		ntor_res = HarmonicsData.data.shape[2]		#ntor resolution
+#		lpsi_res = HarmonicsData.data.shape[3]		#lpsi resolution
+#		ltheta_res = 256							#ltheta resolution 	#!!!!!!!
 	#endif
 
 	#Extract data array sizes for a 3D (single kstep) HarmonicsData object
 	#NOTE, this assumes brad is an attribute within HarmonicsData - need a 'generic' attribute tag if possible
 	#Object created using: ExtractMEGA_Harmonics(Dir[l],'All',ntor_tot,KstepIndex,SEQ)
-	if len(Intersection) >= 1:
+#	if len(Intersection) >= 1:
+#		mpol_res = HarmonicsData.brad.shape[0]		#mpol resolution
+#		ntor_res = HarmonicsData.brad.shape[1]		#ntor resolution
+#		lpsi_res = HarmonicsData.brad.shape[2]		#lpsi resolution
+#		ltheta_res = 256							#ltheta resolution 	#!!!!!!!
+	#endif
+
+	#==========#	#==========#	#==========#
+
+	#Extract data array sizes for a 4D (temporally resolved) HarmonicsData object
+	#Object created using: ExtractMEGA_Harmonics(Dir[l],'brad',ntor_tot)
+	try:
+		kstep_res = HarmonicsData.data.shape[0]		#kstep resolution
+		mpol_res = HarmonicsData.data.shape[1]		#mpol resolution
+		ntor_res = HarmonicsData.data.shape[2]		#ntor resolution
+		lpsi_res = HarmonicsData.data.shape[3]		#lpsi resolution
+		ltheta_res = 256							#ltheta resolution 	#!!!!!!!
+
+	#Extract data array sizes for a 3D (single kstep) HarmonicsData object
+	#NOTE, this assumes brad is an attribute within HarmonicsData - need a 'generic' attribute tag if possible
+	#Object created using: ExtractMEGA_Harmonics(Dir[l],'All',ntor_tot,KstepIndex,SEQ)
+	except:
 		mpol_res = HarmonicsData.brad.shape[0]		#mpol resolution
 		ntor_res = HarmonicsData.brad.shape[1]		#ntor resolution
 		lpsi_res = HarmonicsData.brad.shape[2]		#lpsi resolution
 		ltheta_res = 256							#ltheta resolution 	#!!!!!!!
-	#endif
+	#endtry
 
 	#DataShapes contains HarmonicsData resolutions of form: [mpol,ntor,lpsi,ltheta]	[kstep] <-- optional
 	try: DataShapes = [mpol_res,ntor_res,lpsi_res,ltheta_res,kstep_res]
@@ -1021,13 +1044,14 @@ def ExtractMEGA_SharedDataRange(DirList):
 #=========================#
 
 def ExtractMEGA_PoloidalGrid(Dir,HarmonicsData):
-#Extracts data resolution from HarmonicsData and poloidal axes from repository .dat files
+#Extracts poloidal axes from repository .dat files using harmonics data resolution
 #Inputs: HarmonicsData object of shape [mpol][ntor][lpsi][A/B], Repository directory
-#Returns: GridResolutions of shape [mpol,ntor,lpsi,ltheta] and crdr, crdz poloidal axes
-#Example: GridRes,crdr,crdz = ExtractMEGA_PoloidalGrid('Repository',HarmonicsData):
+#Returns: Radial (crdr) and axial (crdz) magnetic axes
+#Example: crdr,crdz = ExtractMEGA_PoloidalGrid('Repository',HarmonicsData):
 
 	#Extract data shape from supplied data object
 	DataShape = ExtractMEGA_DataShape(HarmonicsData)
+
 	mpol_res = DataShape[0]
 	ntor_res = DataShape[1]
 	lpsi_res = DataShape[2]
@@ -2776,6 +2800,12 @@ if any([savefig_1Denergy,savefig_1Denergytrends]) == True:
 
 
 
+
+
+
+
+
+
 #====================================================================#
 					   #EQUILIBRIUM DIAGNOSTICS#
 #====================================================================#
@@ -2807,14 +2837,14 @@ if savefig_1Dequilibrium == True:
 		KStepMod = len(KStepArray)/len(SEQArray)	#KStep indices per SEQ 	[-]
 		ntor_tot = ntorArray[2]						#Total number of positive & negative modes (Inc n=0)
 		ntor_pos = ntorArray[1]						#Number of positive modes (Ignoring n=0)
-		ntor0 = ntorArray[0]						#ntor = 0, baseline equilibrium data
+		ntor0Idx = ntorArray[0]						#ntor = 0 index, contains (var0 + dvar) data
 
 		#Extract toroidal mode number array index (ntorIdx) from requested mode number (ntor)
 		ntorIdx = Set_ntorIdx(ntor,ntorArray)
 
 		#Set Kstep ranges as requested - else default to max range
 		KStepRange,KStepStep = Set_KStepRange(KStepArray,setting_kstep)
-		KStepIdx = KStepRange[1]					#Requested KStep index	[-]
+		KStepIdx = KStepRange[1]-1					#Requested KStep index	[-]
 
 		#Set TimeIndex and employ to extract KStep and Time
 		IdxOffset = SEQ*KStepMod					#[-]
@@ -2831,7 +2861,7 @@ if savefig_1Dequilibrium == True:
 		#Extract data resolution and poloidal axes from repository .dat files
 		#DataShape contains data resolution of form: [mpol,ntor,lpsi,ltheta]
 		Crdr,Crdz = ExtractMEGA_PoloidalGrid(DirRepository,HarmonicsData)
-		DataShape = ExtractMEGA_DataShape(HarmonicsData)#; print DataShape
+		DataShape = ExtractMEGA_DataShape(HarmonicsData)
 		mpol_res = DataShape[0]; ntor_res = DataShape[1]
 		lpsi_res = DataShape[2]; ltheta_res = DataShape[3]
 
