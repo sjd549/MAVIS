@@ -128,14 +128,14 @@ Kin = ['R_gc','Z_gc','Phi_gc','p_gc','pphi_gc','mu_gc','E_gc','Lambda_gc','psip'
 #Common Diagnostic Settings:
 
 #===== AUG#34570 =====#
-#radialprofiles = [90,120,130]
-#poloidalprofiles = []
+#radialprofiles = [90,180]
+#poloidalprofiles = [0.65]
 #toroidalprofiles = []
 #trendlocation = []
 
-#setting_SEQ = [0,0]
-#setting_ntor = [0,2]
-#setting_kstep = [002,003]
+#setting_SEQ = [0,1]
+#setting_ntor = [0,-2]
+#setting_kstep = [00,40,5]
 
 ####################
 
@@ -149,13 +149,13 @@ Kin = ['R_gc','Z_gc','Phi_gc','p_gc','pphi_gc','mu_gc','E_gc','Lambda_gc','psip'
 #Requested Variables and Plotting Locations:
 variables = ['prs','brad','vrad']	#Phys						#Requested variables to plot			#Phys+Kin
 
-radialprofiles = [90,180]				#1D Radial Profiles (fixed theta, phi) :: Poloidal Angle [deg]
-poloidalprofiles = [0.8,0.9]				#1D Poloidal Profiles (fixed rho_pol, phi) :: Norm. Radius [-]
+radialprofiles = []				#1D Radial Profiles (fixed theta, phi) :: Poloidal Angle [deg]
+poloidalprofiles = [0.65]			#1D Poloidal Profiles (fixed rho_pol, phi) :: Norm. Radius [-]
 toroidalprofiles = []					#1D Toroidal Profiles (fixed rho_pol, theta) :: Toroidal Angle [deg]
 trendlocation = [] 						#Cell location For Trend Analysis [R,theta,phi], ([] = min/max)
 
 #Various Diagnostic Settings:
-setting_SEQ = [0,2]						#Simulation SEQ to load		- [Min,Max], [Int], [] to plot SEQ001
+setting_SEQ = [0,4]					#Simulation SEQ to load		- [Min,Max], [Int], [] to plot SEQ001
 setting_ntor = [0,-2]					#ntor range to plot 		- [Min,Max], [Int], [] to plot all
 setting_kstep = [00,40,5]				#kstep index range to plot 	- [Min,Max,Step], [Int], [] to plot all
 
@@ -164,13 +164,14 @@ setting_kstep = [00,40,5]				#kstep index range to plot 	- [Min,Max,Step], [Int]
 savefig_1Denergy = False				#Plot 1D MHD energies (1 Sim) 		(xxx.energy_p)	- Working
 savefig_1Denergytrends = False			#Plot 1D MHD energies (multi-Sim) 	(xxx.energy_n)	- Working
 
-savefig_1Dequilibrium = False			#Plot 1D equilibrium profiles		(xxx.harmonics) - Working	-ASCII
-savefig_2Dequilibrium = False			#Plot 2D equilibrium figures		(xxx.harmonics)	- Working
-savefig_2Dequilmovie = False			#Plot 2D equilibrium movies			(xxx.harmonics)	- Working	-ASCII
+savefig_1Dequilibrium = True			#Plot 1D radial/poloidal profiles	(xxx.harmonics) - Working	-ASCII
+savefig_2Dequilibrium = False			#Plot 2D poloidal x-sections		(xxx.harmonics)	- Working
+savefig_2Dequilmovie = False				#Plot 2D poloidal x-section movies	(xxx.harmonics)	- Working	-ASCII
 
 savefig_2Dcontinuum = False				#Plot 2D harmonic continuum		 	(xxx.harmonics)	- Working
-savefig_2Dspectral = False				#Plot 2D plasma response 			(xxx.harmonics)	- Working	-ASCII
-PROESvariable = 'prs'; QuickPROES = False
+savefig_2Dpolspectrum = False			#Plot 2D poloidal spectra 			(xxx.harmonics)	- Working	-ASCII
+SpectralVariable = 'vrad'; QuickPROES = False
+ContinuumVariable = 'vrad'
 
 savefig_1Dkinetics = False				#Plot 2D kinetic distributions	 	(gc_a_kstepxxx)	- Working	!NEED FUNCS
 savefig_2Dkinetics = False				#Plot 1D kinetic distributions	 	(gc_a_kstepxxx)	- Working	!NEED FUNCS
@@ -215,16 +216,37 @@ cbaroverride = []
 #=====================================================================#
 
 
-#						IMMEDIATE TO DO LIST
+
+#============================#
+#        ####TODO####        #
+#============================#
+#
+#NEED TO ADD ENERGY PROFILE SUBPLOT TO THE EQUILMOVIE FIGURES
+#	This needs to be an optional extra for both the spectral and equilibrium movie figures
+#
+#NEED TO ADD VARIABLE LOOP TO THE savefig_spectral DIAGNOSTIC
+#	Loop over all regular variables by default
+#
+#NEED TO MAKE savefig_continuum AND savefig_equilibrium BOTH USE THE setting_ntor RANGE WHEN PLOTTING
+#	Same applies to all the other switchboard ranges which are currently fudged
+#
+#ADD A SEQ.nam READIN FUNCTION USING LAMBDA FUNCTIONS
+#	Should read each line and assign main variables (removing any trailing ! or !!! comments)
+#
+#ADD DOTTED LINE TO 1D (2D?) EQUILIBRIUM IMAGES TO SHOW THE VACUUM MASK EXTENT
+#	Will require a SEQ.in (.nam) readin function to work, would be quite useful to have anyway!
+#
+#ADD ONE COPY OF 2D AXES TO ASCII FOLDERS BY DEFAULT AND HOMOGONIZE THE HEADER STRUCTURE
+#	Need to save if variables are normalised or not in header, also maybe 'CSV', 'RSV'?
+#
+#ADD OPTION TO PLOT INPUT 2D FLUX SURFACE FUNCTION AND RADIAL FITS
+#  	savefig_gfilefits --> output all figures into the pre-existing 'equil' folder
+#
 #
 #ALTER setting_kstep TO USE THE ACTUAL KSTEP VALUES AND MAKE A FUNCTION TO TRANSLATE INTO SEQ AND KSTEP INDEX RANGES
 #	Require making an icp.nam readin function and extracting all of the write steps and other inputs
 #	Require making an additional "kstep_translation" function where the input setting_kstep is 
 #	translated into an output set of kstep indices and associated SEQ indices 
-#
-#REBRAND THE savefig_response DIAGNOSTIC INTO A savefig_PROES DIAGNOSTIC AND MAKE A "quickplot" OPTION
-#	Make the new function plot PROES plots for all requested variables, like HELENA
-#	quickplot disables the poloidal spectra, true by default, to save time.
 #
 #ADD DE-NORMALISATION FUNCTION IMMEDIATELY FOLLOWING DATA EXTRACTION FUNCTIONS - MOST SIMPLE APPROACH
 #CHECK ALL DIAGNOSTICS FOR ANY CURRENTLY APPLIED DE-NORMALISATION AND REMOVE IF POSSIBLE
@@ -236,6 +258,10 @@ cbaroverride = []
 #
 #ERROR WARNINGS FOR SEQ_RANGE AND KSTEP_RANGE IN THE INPUT DECK
 #
+#SPEED UP READ-IN OF LARGE DATA SETS AS MUCH AS POSSIBLE TO ENABLE FASTER RESPONSE CALCULATIONS
+#	Remove "While" in ReadMEGA_Harmonics() function, it currently repeats every previous KStep
+#	i.e. the current implimentation has to do KStep! (additive factorial) iterations.
+#
 #ADD SEPERATE OUTPUT FOLDERS FOR EACH VARIABLE FOR 1D EQUIL PROFILES - SAME AS 2D EQUIL PROFILES
 #	In general, I guess it's better to have folders of variables rather than folders of ntor
 #	There are more variables and fewer ntor, so each folder will have less 'clutter' that way.
@@ -243,24 +269,9 @@ cbaroverride = []
 #ADD DOTTED LINE OR SHADED AREA TO INDICATE SEQ NUMBERS IN THE ENERGY DIAGRAMS (AND JUST GENERALLY)
 #	Use KStepMod as the KStepArray indices to apply the line, make an image_SEQline input for switchboard
 #
-#ADD DOTTED LINE TO 1D (2D?) EQUILIBRIUM IMAGES TO SHOW THE VACUUM MASK EXTENT
-#	Will require a SEQ.in (.nam) readin function to work, would be quite useful to have anyway!
 #
-#ADD ABILITY TO SAVE ASCII DATA FOR 2D IMAGES (PARTICULARILY PLASMA RESPONSE)
-#	Added to Savefig_Equilibrium but needs fixing, save one copy of 2D axes in each folder by default.
-#	Add to all other functions and save axes in each folder by default.
-#	Need to save if variables are normalised or not in header, also maybe 'CSV', 'RSV'?
 #
-#SPEED UP READ-IN OF LARGE DATA SETS AS MUCH AS POSSIBLE TO ENABLE FASTER RESPONSE CALCULATIONS
-#	Remove "While" in ReadMEGA_Harmonics() function, it currently repeats every previous KStep
-#	i.e. the current implimentation has to do KStep! (additive factorial) iterations.
 #
-
-
-#============================#
-#        ####TODO####        #
-#============================#
-
 #
 #FIX ISSUE WHERE "outputdata is referenced before assignment" IF FILENAME HAS [] or {} IN IT
 #Issue arises in ExtractMEGA_Energy (and others) where glob.glob() can't handle brackets in file directory 
@@ -282,7 +293,6 @@ cbaroverride = []
 #
 # savefig_equilibrium/equilmovie 	OPTION TO PLOT DIFFERENT TOROIDAL ANGLES?
 #
-# savefig_inputs					OPTION TO PLOT INPUT 2D FLUX SURFACE FUNCTION AND RADIAL FITS
 
 
 #=====================================================================#
@@ -2301,7 +2311,7 @@ print(' |  \  /  |    /  ^  \  \   \/   /  |  |    |   (----` ')
 print(' |  |\/|  |   /  /_\  \  \      /   |  |     \   \     ')
 print(' |  |  |  |  /  _____  \  \    /    |  | .----)   |    ')
 print(' |__|  |__| /__/     \__\  \__/     |__| |_______/     ')
-print('                                                 v0.6.5')
+print('                                                 v0.6.6')
 print('-------------------------------------------------------')
 print('')
 print('The following diagnostics were requested:')
@@ -2314,7 +2324,7 @@ if True in [savefig_2Dequilibrium,savefig_2Dequilmovie]:
 	print('# 2D Equilibrium Analysis')
 if True in [savefig_2Dcontinuum]:
 	print('# 2D Continuum Analysis')
-if True in [savefig_2Dspectral]:
+if True in [savefig_2Dpolspectrum]:
 	print('# 2D Spectral Analysis')
 if True in [savefig_1Dkinetics,savefig_2Dkinetics]:
 	print('# Kinetic Distribution Analysis')
@@ -3269,7 +3279,7 @@ if any([savefig_2Dequilibrium,savefig_2Dequilmovie]) == True:
 					 #POLOIDAL SPECTRUM ANALYSIS#
 #====================================================================#
 
-if savefig_2Dspectral == True:
+if savefig_2Dpolspectrum == True:
 
 	#For each detected simulation folder
 	for l in range(0,len(Dir)):
@@ -3277,7 +3287,7 @@ if savefig_2Dspectral == True:
 		#DEVELOPMENT SETTINGS - all need looped over... - settings_inputs to be moved to switchboard
 		print Dir[l].split('/')[-2]
 		ntor = setting_ntor[1]				#requested ntor mode number			!!! NEEDS A FUNCTION !!!
-		variable = PROESvariable			#requested response variable 		!!! Need to impliment vrad etc...
+		variable = SpectralVariable			#requested response variable 		!!! Need to impliment vrad etc...
 
 		#Initiate any required lists
 		DataAmpPROES_pol,DataAmpPROES_rad = list(),list()
@@ -3515,7 +3525,7 @@ if savefig_2Dspectral == True:
 #==========##==========##==========#
 #==========##==========##==========#
 
-if any([savefig_2Dspectral]) == True:
+if any([savefig_2Dpolspectrum]) == True:
 	print '--------------------------------------'
 	print '2D Poloidal Spectrum Analysis Complete'
 	print '--------------------------------------'
@@ -3571,7 +3581,7 @@ if savefig_2Dcontinuum == True:
 		print Dir[l].split('/')[-2]
 		SEQ = setting_SEQ[1]			#requested SEQ file index (001 = 0)	!!! NEEDS A FUNCTION !!!
 		ntor = setting_ntor[1]			#requested ntor mode number			!!! NEEDS A FUNCTION !!!
-		variable = 'bphi'				#requested response variable 		!!! Need to impliment btheta, vrad etc...
+		variable = ContinuumVariable	#requested continuum variable 		!!! Need to impliment btheta, bphi etc...
 
 		#Create global 2D diagnostics folder and extract current simulation name
 		DirContinuum = CreateNewFolder(Dir[l],'2DContinuum_Plots/')
@@ -3652,7 +3662,7 @@ if savefig_2Dcontinuum == True:
 
 		#Create fig of desired size - increasing Xlim with the number of harmonics
 		Xaspect, Yaspect = int(10*(float(ntor)/1.75)), 12
-		fig,ax = figure(subplot=[2,ntor_tot], aspectratio=[Xaspect,Yaspect])
+		fig,ax = figure(subplots=[2,ntor_tot], aspectratio=[Xaspect,Yaspect])
 
 		#For each toroidal harmonic:
 		for i in range(0,ntor_tot):
