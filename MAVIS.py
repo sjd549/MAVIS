@@ -158,7 +158,7 @@ trendlocation = [] 						#Cell location For Trend Analysis [R,theta,phi], ([] = 
 #Various Diagnostic Settings:
 setting_SEQ = [0,14]					#Simulation SEQ to load		- [Min,Max], [Int], [] to plot SEQ001
 setting_ntor = [0,-2]					#ntor range to plot 		- [Min,Max], [Int], [] to plot all
-setting_kstep = [00,40,5]				#kstep index range to plot 	- [Min,Max,Step], [Int], [] to plot all
+setting_kstep = [00,40,1]				#kstep index range to plot 	- [Min,Max,Step], [Int], [] to plot all
 
 
 #Requested diagnostics and plotting routines:
@@ -166,12 +166,12 @@ savefig_1Denergy = False				#Plot 1D MHD energies (1 Sim) 		(xxx.energy_p)	- Wor
 savefig_1Denergytrends = False			#Plot 1D MHD energies (multi-Sim) 	(xxx.energy_n)	- Working
 
 savefig_1Dequilibrium = False			#Plot 1D radial/poloidal profiles	(xxx.harmonics) - Working	-ASCII
-savefig_2Dequilibrium = False			#Plot 2D poloidal x-sections		(xxx.harmonics)	- Working
-savefig_2Dequilmovie = False			#Plot 2D poloidal x-section movies	(xxx.harmonics)	- Working	-ASCII
+savefig_2Dequilibrium = True			#Plot 2D poloidal x-sections		(xxx.harmonics)	- Working
+savefig_2Dequilmovie = True			#Plot 2D poloidal x-section movies	(xxx.harmonics)	- Working	-ASCII
 
 savefig_2Dcontinuum = False				#Plot 2D harmonic continuum		 	(xxx.harmonics)	- Working
-savefig_2Dpolspectrum = True			#Plot 2D poloidal spectra 			(xxx.harmonics)	- Working	-ASCII
-SpectralVariable = 'prs'; QuickPROES = False
+savefig_2Dpolspectrum = False			#Plot 2D poloidal spectra 			(xxx.harmonics)	- Working	-ASCII
+SpectralVariable = 'brad'; QuickPROES = False
 ContinuumVariable = 'vrad'
 
 savefig_1Dkinetics = False				#Plot 1D kinetic distributions	 	(gc_a_kstepxxx)	- Working	!NEED FUNCS
@@ -222,14 +222,23 @@ cbaroverride = []
 #        ####TODO####        #
 #============================#
 #
-#NEED TO CHECK Z-AXIS ON 2D POLOIDAL CROSS-SECTION FIGURES
-#	At the moment, this axis starts at "Z=0.0", but should be aligned such that Z_mag corresponds to the real Z_mag
-#	This will require knowing how the R,Z poloidal axes are generated and being able to generate new ones on-the-fly
+#FINISH THE DENORMALISATION ROUTINES IN ExtractMEGA_Harmonics() SUBROUTINE
+#	Need to know how to denormalise each one, also needs a denormalisation toggle in the switchboard
+#	Tie this option to any other applicable function, e.g. variablelabelmaker, etc...
+#	Needs testing for all diagnostics and any special cases identified
+#
+#ADD A POLOIDAL HARMONIC 1D PLOTTER (see Liu2010, 2016 papers for examples)
+#	This will need to be able to select a poloidal harmonic range and compare between sim folders
+#	This will be a critical diagnostic tool for isolating MHD plasma response from Kinetic plasma response
+#
+#FINISH ExtractMEGA_moments() SUBROUTINE AND ADD MOMENTS DIAGNOSTICS
+#	Ideally each existing diagnostic would be able to use either moments OR harmonics
+#	If the above is impossible, create copies of existing diagnostics using same flags
 #
 #NEED TO ADD ENERGY PROFILE SUBPLOT TO THE EQUILMOVIE FIGURES
 #	This needs to be an optional extra for both the spectral and equilibrium movie figures
 #
-#NEED TO ADD VARIABLE LOOP TO THE savefig_spectral DIAGNOSTIC
+#NEED TO ADD VARIABLE LOOP TO THE savefig_polspectrum DIAGNOSTIC
 #	Loop over all regular variables by default
 #
 #NEED TO MAKE savefig_continuum AND savefig_equilibrium BOTH USE THE setting_ntor RANGE WHEN PLOTTING
@@ -248,15 +257,12 @@ cbaroverride = []
 #  	savefig_gfilefits --> output all figures into the pre-existing 'equil' folder
 #
 #
+#
+#
 #ALTER setting_kstep TO USE THE ACTUAL KSTEP VALUES AND MAKE A FUNCTION TO TRANSLATE INTO SEQ AND KSTEP INDEX RANGES
 #	Require making an icp.nam readin function and extracting all of the write steps and other inputs
 #	Require making an additional "kstep_translation" function where the input setting_kstep is 
 #	translated into an output set of kstep indices and associated SEQ indices 
-#
-#ADD DE-NORMALISATION FUNCTION IMMEDIATELY FOLLOWING DATA EXTRACTION FUNCTIONS - MOST SIMPLE APPROACH
-#CHECK ALL DIAGNOSTICS FOR ANY CURRENTLY APPLIED DE-NORMALISATION AND REMOVE IF POSSIBLE
-#	Make an option in the low-level commands to apply de-normalisation - generally won't change
-#	Tie this option to any other applicable function, e.g. variablelabelmaker, func(),
 #
 #FIX KSTEPMOD CALCULATION - CURRENT CALCULATION ONLY WORKS IF KSTEP RANGE IS THE SAME FOR ALL SEQs
 #		KStepMod = len(KStepArray)/len(SEQArray)	#KStep indices per SEQ 	[-]
@@ -266,6 +272,8 @@ cbaroverride = []
 #SPEED UP READ-IN OF LARGE DATA SETS AS MUCH AS POSSIBLE TO ENABLE FASTER RESPONSE CALCULATIONS
 #	Remove "While" in ReadMEGA_Harmonics() function, it currently repeats every previous KStep
 #	i.e. the current implimentation has to do KStep! (additive factorial) iterations.
+#	Stop reading in the Crdr and Crdz axes on each loop, this is wasteful
+#		Note for above, read these axes from the psi.dat file OR from seperatrix file (update icp.com to copy)
 #
 #ADD SEPERATE OUTPUT FOLDERS FOR EACH VARIABLE FOR 1D EQUIL PROFILES - SAME AS 2D EQUIL PROFILES
 #	In general, I guess it's better to have folders of variables rather than folders of ntor
@@ -274,29 +282,22 @@ cbaroverride = []
 #ADD DOTTED LINE OR SHADED AREA TO INDICATE SEQ NUMBERS IN THE ENERGY DIAGRAMS (AND JUST GENERALLY)
 #	Use KStepMod as the KStepArray indices to apply the line, make an image_SEQline input for switchboard
 #
-#
-#
-#
-#
 #FIX ISSUE WHERE "outputdata is referenced before assignment" IF FILENAME HAS [] or {} IN IT
-#Issue arises in ExtractMEGA_Energy (and others) where glob.glob() can't handle brackets in file directory 
+#	Issue arises in ExtractMEGA_Energy (and others) where glob.glob() can't handle brackets in file directory 
 #
 #ADD rhocrop, thetacrop, mpolcrop, ntorcrop OPTIONS TO ALL APPLICABLE DIAGNOSTICS
-#Will require a cropping function which considers any image rotation and corrects for zero crop input '[]'
+#	Will require a cropping function which considers any image rotation and corrects for zero crop input '[]'
 #
 #ADD INFORMATION REGARDING SIMULATION RESOLUTION SEQ, KSTEP, ETC... BELOW MAVIS SPLASH
 #
 #ADD OPTION TO HOMOGONISE THE COLOURBAR FOR ALL MOVIES (EQUIL / RESPONSE / KINETIC)
 #
 #ADD GEQDSK READ AND WRITE FUNCTIONS (WITH OPTIONS FOR MEGA / FIESTA FORMATS)
-#Create a new diagnostic (savefig_simsetup) which plots gfile inputs for analysis
-#
-#Enable choice of normalised or non-normalised units in the 1D and 2D plotting routines
-#Clean up the usage and definition of the unit normalisations as read-in from the MEGA file
+#	Create a new diagnostic (savefig_simsetup) which plots gfile inputs for analysis
 #
 #Extract lpsi and mpol from data without having to explicitly hard-code it (see Read_Harmonics function)
 #
-# savefig_equilibrium/equilmovie 	OPTION TO PLOT DIFFERENT TOROIDAL ANGLES?
+#ADD OPTION TO PLOT DIFFERENT TOROIDAL ANGLES
 #
 
 
@@ -1054,6 +1055,10 @@ def ExtractMEGA_PoloidalGrid(Dir,HarmonicsData):
 #Returns: Radial (crdr) and axial (crdz) magnetic axes
 #Example: crdr,crdz = ExtractMEGA_PoloidalGrid('Repository',HarmonicsData):
 
+	#NOTE	:: NEED TO EXTRACT DATA FROM SEPERATRIX FILE AND COMPARE TO Crdr and Crdz ARRAYS
+	#		:: CAN ALSO EXTRACT FROM psi.dat FILE, WHICH SHOULD CONTAIN grrsim4 ARRAYS (If I remember correctly)
+	#		:: SEE toMEGA.f OUTPUT FILES FOR FURTHER DETAILS
+
 	#Extract data shape from supplied data object
 	DataShape = ExtractMEGA_DataShape(HarmonicsData)
 
@@ -1205,7 +1210,7 @@ def ExtractMEGA_Harmonics(Dir,Variable,ntor,kstep=np.nan,SEQ=0,Dimension='1D'):
 #	elif isinstance(kstep, int) and isinstance(SEQ, int):
 	elif Dimension == '3D': 
 		#Object Shape: HarmonicsData[mpol][ntor][lpsi][A/B]
-		Variable = 'NaN'		#Variable is a dummy input here - Not used.
+		Variable = 'NaN'		#Variable is not used in extraction of 3D data, but is required for denormalisation
 		HarmonicData = Read_MEGAHarmonics(DataFiles[SEQ],Variable,mpol,ntor,lpsi,kstep)
 	#endif
 
@@ -1222,7 +1227,7 @@ def ExtractMEGA_Harmonics(Dir,Variable,ntor,kstep=np.nan,SEQ=0,Dimension='1D'):
 
 		#Concatenate data from all SEQs into one continuous array for each variable within HarmonicData object
 		for i in range(0,len(HarmonicData)-1):
-			pop = HarmonicData.pop(1)										#'Pops' and removes 1st SEQ data array
+			pop = HarmonicData.pop(1)										#'Pops' and removes 1st SEQ data array index
 			HarmonicData[0].kst  = np.append(HarmonicData[0].kst, pop.kst)	#Appends to zero'th SEQ data array
 			HarmonicData[0].time = np.append(HarmonicData[0].time, pop.time)
 			HarmonicData[0].data = np.concatenate((HarmonicData[0].data, pop.data))
@@ -1233,7 +1238,7 @@ def ExtractMEGA_Harmonics(Dir,Variable,ntor,kstep=np.nan,SEQ=0,Dimension='1D'):
 	#=====#=====#	#=====#=====#
 
 	DenormaliseAtReadin = True
-	#De-normalise data if requested
+	#De-normalise data if requested			# TO BE COMPLETED - MAY MOVE INTO EXTRACT FUNCTION???
 	if DenormaliseAtReadin == True:
 
 		#Remove '/data/' from directory --> Dir now points to simulation root folder
@@ -1242,21 +1247,55 @@ def ExtractMEGA_Harmonics(Dir,Variable,ntor,kstep=np.nan,SEQ=0,Dimension='1D'):
 		#This is disgusting and I apologize to anyone who has to read this...
 
 		#Extract relevant normalisation factors for current simulation folder
-		Variables,Values,Units = ExtractMEGA_Normalisations(NormDir)
-		AlfvenVelocity = Values[Variables.index('Alfven velocity')] 	#B0/np.sqrt(4e-7*np.pi*IonDensity*m_D)
-		IonGyroFreq = Values[Variables.index('D gyro frequency')]		#
-		IonDensity = Values[Variables.index('Bulk density')]			#
-		B0 = Values[Variables.index('Mag.fld. at axis')]				#
-		R0 = Values[Variables.index('raxis')]							#
-		m_D = 3.34e-27													#
-		eps = 0.5/R0													#
+		NormVariables,NormValues,NormUnits = ExtractMEGA_Normalisations(NormDir)
+
+		RMax = NormValues[NormVariables.index('right')]							#	Update to right_sim
+		RMin = NormValues[NormVariables.index('left')]							#	Update to left_sim
+		Raxis = NormValues[NormVariables.index('raxis')]						#
+		Rlen = NormValues[NormVariables.index('rleng')]							#
+
+		ZMax = NormValues[NormVariables.index('top_sim')]						#
+		ZMin = NormValues[NormVariables.index('bottom_sim')]					#
+		Zaxis = NormValues[NormVariables.index('zaxis')]						#
+		Zlen = NormValues[NormVariables.index('zleng')]							#
+
+		AlfvenVelocity = NormValues[NormVariables.index('Alfven velocity')] 	#B0/np.sqrt(4e-7*np.pi*IonDensity*m_D)
+		IonGyroFreq = NormValues[NormVariables.index('D gyro frequency')]		#
+		IonDensity = NormValues[NormVariables.index('Bulk density')]			#
+		B0 = NormValues[NormVariables.index('Mag.fld. at axis')]				#
+
+		Mass_Deuterium = 3.34e-27												#
+		eps = 0.5/Raxis															#
+
+		#=====#=====#
+
+#		Phys = ['vrad','vtheta','vphi','brad','btheta','bphi','erad','etheta','ephi','prs','rho']
+#		Kin = ['dns_a','mom_a', 'ppara_a','pperp_a','qpara_a','qperp_a']
 
 		#Denormalise temporal and spatial axes
 		HarmonicData.kst = HarmonicData.kst								# [-]
 		HarmonicData.time = HarmonicData.time * (1e3/IonGyroFreq)		# [ms]
 
-		#Denormalise all variables
-		# TO BE COMPLETED - MAY MOVE INTO EXTRACT FUNCTION???
+		#Denormalise all variables		# TO BE COMPLETED
+		try: 
+			HarmonicData.brad = HarmonicData.brad*B0*1000			# [mT]
+			HarmonicData.btheta = HarmonicData.btheta*B0*1000		# [mT]
+			HarmonicData.bphi = HarmonicData.bphi*B0*1000			# [mT]
+
+			HarmonicData.erad = HarmonicData.erad*1.0				# WHAT IS E-FIELD NORMALISED TO
+			HarmonicData.etheta = HarmonicData.etheta*1.0			# WHAT IS E-FIELD NORMALISED TO
+			HarmonicData.ephi = HarmonicData.ephi*1.0				# WHAT IS E-FIELD NORMALISED TO
+
+			HarmonicData.vrad = HarmonicData.vrad*1.0				# WHAT IS VELOCITY NORMALISED TO
+			HarmonicData.vtheta = HarmonicData.vtheta*1.0			# WHAT IS VELOCITY NORMALISED TO
+			HarmonicData.vphi = HarmonicData.vphi*1.0				# WHAT IS VELOCITY NORMALISED TO		
+
+			HarmonicData.rho = HarmonicData.rho*IonDensity			# [m-3]
+			HarmonicData.prs = HarmonicData.prs*1.0					# WHAT IS PRESSURE NORMALISED TO
+		except: 
+			NormFactor = 1.0	#NEED TO DETERMINE THIS FROM DATA VARIABLE
+			HarmonicData.data = HarmonicData.data*NormFactor			# [-]
+		#endtry
 	#endif
 
 
@@ -1909,42 +1948,42 @@ def VariableLabelMaker(variables,Units=[]):
 
 		#Explicit MHD fieldss
 		elif variables[i] == 'brad':
-			Variable = 'Radial B-field $B_{r}$'
-			VariableUnit = '[T]'
+			Variable = 'Radial B-field Perturbation $\delta B_{r}$'
+			VariableUnit = '[mT]'
 		elif variables[i] == 'btheta':
-			Variable = 'Poloidal B-field $B_{\\theta}$'
-			VariableUnit = '[T]'
+			Variable = 'Poloidal B-field Perturbation $\delta B_{\\theta}$'
+			VariableUnit = '[mT]'
 		elif variables[i] == 'bphi':
-			Variable = 'Toroidal B-field $B_{\phi}$'
-			VariableUnit = '[T]'
+			Variable = 'Toroidal B-field Perturbation $\delta B_{\phi}$'
+			VariableUnit = '[mT]'
 		elif variables[i] == 'erad':
-			Variable = 'Radial E-field $E_{r}$'
+			Variable = 'Radial E-field Perturbation $\delta E_{r}$'
 			VariableUnit = '[V m$^{-1}$]'
 		elif variables[i] == 'etheta':
-			Variable = 'Poloidal E-field $E_{\\theta}$'
+			Variable = 'Poloidal E-field Perturbation $\delta E_{\\theta}$'
 			VariableUnit = '[V m$^{-1}$]'
 		elif variables[i] == 'ephi':
-			Variable = 'Toroidal E-field $E_{\phi}$'
+			Variable = 'Toroidal E-field Perturbation $\delta E_{\phi}$'
 			VariableUnit = '[V m$^{-1}$]'
 		#endif
 
 		#Explicit MHD Velocities
 		elif variables[i] == 'vrad':
-			Variable = 'Radial Velocity $v_{r}$'				#Momentum?
+			Variable = 'Radial Velocity Perturbation $\delta v_{r}$'				#Momentum?
 			VariableUnit = '[m s$^{-1}$]'
 		elif variables[i] == 'vtheta':
-			Variable = 'Poloidal Velocity $v_{\\theta}$'		#Momentum?
+			Variable = 'Poloidal Velocity Perturbation $\delta v_{\\theta}$'		#Momentum?
 			VariableUnit = '[m s$^{-1}$]'
 		elif variables[i] == 'vphi':
-			Variable = 'Toroidal Velocity $v_{\phi}$'			#Momentum?
+			Variable = 'Toroidal Velocity Perturbation $\delta v_{\phi}$'			#Momentum?
 			VariableUnit = '[m s$^{-1}$]'
 
 		#Explicit MHD Densities and Pressures
 		elif variables[i] == 'rho':
-			Variable = 'Plasma Density $n_{e}$'
+			Variable = 'Plasma Density Perturbation $\delta \n_{e}$'
 			VariableUnit = '[m$^{-3}$]'
 		elif variables[i] == 'prs':
-			Variable = 'Pressure $P_{rs}$'
+			Variable = 'Pressure Perturbation $\delta P_{rs}$'
 			VariableUnit = '[Pa]'
 
 		#Explicit Fast Particle Momentum
@@ -2338,7 +2377,7 @@ print(' |  \  /  |    /  ^  \  \   \/   /  |  |    |   (----` ')
 print(' |  |\/|  |   /  /_\  \  \      /   |  |     \   \     ')
 print(' |  |  |  |  /  _____  \  \    /    |  | .----)   |    ')
 print(' |__|  |__| /__/     \__\  \__/     |__| |_______/     ')
-print('                                                 v0.6.6')
+print('                                                 v0.6.7')
 print('-------------------------------------------------------')
 print('')
 print('The following diagnostics were requested:')
@@ -3050,12 +3089,19 @@ if savefig_2Dequilibrium == True:
 		#HarmonicsData.Variables[i]: [3D Array] of shape [mpol][ntor][lpsi][A/B] for a single kstep
 		HarmonicsData = ExtractMEGA_Harmonics(Dir[l],'All',ntor_tot,KStepIdx,SEQ,'3D')
 
+		#Extract relevant spatial normalisation factors
+		NormVariables,NormValues,NormUnits = ExtractMEGA_Normalisations(Dir[l])
+		ZMin = NormValues[NormVariables.index('bottom_sim')]; ZMax = NormValues[NormVariables.index('top_sim')]
+		Zgeo = NormValues[NormVariables.index('zaxis')]; Rgeo = NormValues[NormVariables.index('raxis')]
+
 		#Extract data resolution and poloidal axes from repository .dat files
 		#DataShape contains data resolution of form: [mpol,ntor,lpsi,ltheta]
 		Crdr,Crdz = ExtractMEGA_PoloidalGrid(DirRepository,HarmonicsData)
+		Crdz = [Crdz[x]+ZMin for x in range(0,len(Crdz))]		#Offset vertical axis such that Z0 = Zgeo
 		DataShape = ExtractMEGA_DataShape(HarmonicsData)
 		mpol_res = DataShape[0]; ntor_res = DataShape[1]
 		lpsi_res = DataShape[2]; ltheta_res = DataShape[3]
+
 
 		#For each requested variable
 		for i in tqdm(range(0,len(variables))):
@@ -3178,6 +3224,12 @@ if savefig_2Dequilmovie == True:
 		KStepRange,KStepStep = Set_KStepRange(KStepArray,setting_kstep)
 		SEQRange = Set_SEQRange(setting_SEQ)
 
+		#Extract relevant spatial normalisation factors
+		NormVariables,NormValues,NormUnits = ExtractMEGA_Normalisations(Dir[l])
+		ZMin = NormValues[NormVariables.index('bottom_sim')]; ZMax = NormValues[NormVariables.index('top_sim')]
+		Zgeo = NormValues[NormVariables.index('zaxis')]; Rgeo = NormValues[NormVariables.index('raxis')]
+
+
 		for j in range(SEQRange[0],SEQRange[1]):
 			#Set SEQIndex for current simulation folder
 			SEQ = j
@@ -3200,6 +3252,7 @@ if savefig_2Dequilmovie == True:
 				#Extract data resolution and poloidal axes from repository .dat files
 				#DataShape contains data resolution of form: [mpol,ntor,lpsi,ltheta]
 				Crdr,Crdz = ExtractMEGA_PoloidalGrid(DirRepository,HarmonicsData)
+				Crdz = [Crdz[x]+ZMin for x in range(0,len(Crdz))]		#Offset vertical axis such that Z0 = Zgeo
 				DataShape = ExtractMEGA_DataShape(HarmonicsData)
 				mpol_res = DataShape[0]; ntor_res = DataShape[1]
 				lpsi_res = DataShape[2]; ltheta_res = DataShape[3]
@@ -3356,7 +3409,7 @@ if savefig_2Dpolspectrum == True:
 
 
 		#Extract Variablelabel for chosen variable
-		VariableLabel = VariableLabelMaker(variable,Units='Perturbation [-]')
+		VariableLabel = VariableLabelMaker(variable)			#Units='Perturbation [-]'
 
 		for j in tqdm( range(SEQRange[0],SEQRange[1])  ):
 			#Set SEQIndex for current simulation folder
@@ -3430,7 +3483,7 @@ if savefig_2Dpolspectrum == True:
 					ax[1].axvline(TimeArray[KStepIdx+IdxOffset],0,1)
 					cbar = InvisibleColourbar(ax[1])
 					###
-					Xlabel,Ylabel = 'Time [ms]', '$n_{tor}$ Mode Energy [-]'
+					Xlabel,Ylabel = 'Time [ms]', 'Mode Energy $n_{tor}$ [-]'
 					Legend = ['n$_{tor}$ = '+str(ntor)]
 					ImageOptions(fig,ax[1],Xlabel,Ylabel,'',Legend)
 
