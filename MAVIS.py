@@ -147,7 +147,8 @@ Kin = ['R_gc','Z_gc','Phi_gc','p_gc','pphi_gc','mu_gc','E_gc','Lambda_gc','psip'
 #====================================================================#
 
 #Requested Variables and Plotting Locations:
-variables = ['prs','brad','vrad']	#Phys						#Requested variables to plot			#Phys+Kin
+variables = ['prs','brad','vrad']		#Requested variables to plot
+#['dns_a','mom_a', 'ppara_a','pperp_a']	#Phys
 
 radialprofiles = []						#1D Radial Profiles (fixed theta, phi) :: Poloidal Angle [deg]
 poloidalprofiles = [0.20,0.40,0.65]			#1D Poloidal Profiles (fixed rho_pol, phi) :: Norm. Radius [-]
@@ -164,17 +165,17 @@ setting_kstep = [00,40,5]				#kstep index range to plot 	- [Min,Max,Step], [Int]
 savefig_1Denergy = False				#Plot 1D MHD energies (1 Sim) 		(xxx.energy_p)	- Working
 savefig_1Denergytrends = False			#Plot 1D MHD energies (multi-Sim) 	(xxx.energy_n)	- Working
 
-savefig_1Dequilibrium = True			#Plot 1D radial/poloidal profiles	(xxx.harmonics) - Working	-ASCII
+savefig_1Dequilibrium = False			#Plot 1D radial/poloidal profiles	(xxx.harmonics) - Working	-ASCII
 savefig_2Dequilibrium = False			#Plot 2D poloidal x-sections		(xxx.harmonics)	- Working
 savefig_2Dequilmovie = False			#Plot 2D poloidal x-section movies	(xxx.harmonics)	- Working	-ASCII
 
 savefig_2Dcontinuum = False				#Plot 2D harmonic continuum		 	(xxx.harmonics)	- Working
-savefig_2Dpolspectrum = False			#Plot 2D poloidal spectra 			(xxx.harmonics)	- Working	-ASCII
-SpectralVariable = 'vrad'; QuickPROES = False
+savefig_2Dpolspectrum = True			#Plot 2D poloidal spectra 			(xxx.harmonics)	- Working	-ASCII
+SpectralVariable = 'prs'; QuickPROES = False
 ContinuumVariable = 'vrad'
 
-savefig_1Dkinetics = False				#Plot 2D kinetic distributions	 	(gc_a_kstepxxx)	- Working	!NEED FUNCS
-savefig_2Dkinetics = False				#Plot 1D kinetic distributions	 	(gc_a_kstepxxx)	- Working	!NEED FUNCS
+savefig_1Dkinetics = False				#Plot 1D kinetic distributions	 	(gc_a_kstepxxx)	- Working	!NEED FUNCS
+savefig_2Dkinetics = False				#Plot 2D kinetic distributions	 	(gc_a_kstepxxx)	- Working	!NEED FUNCS
 
 
 #Requested diagnostic terminal outputs:
@@ -182,7 +183,7 @@ print_generaltrends = False				#Verbose Trend Outputs								- In Development
 
 
 #Write processed data to ASCII files:
-write_ASCII = False						#All diagnostic outputs written to ASCII.dat		- In Development
+write_ASCII = True						#All diagnostic outputs written to ASCII.dat		- In Development
 write_ASCIIFormat = 'RSV'				#Choose ASCII file output format ('RSV', 'CSV')		- In Development
 
 
@@ -220,6 +221,10 @@ cbaroverride = []
 #============================#
 #        ####TODO####        #
 #============================#
+#
+#NEED TO CHECK Z-AXIS ON 2D POLOIDAL CROSS-SECTION FIGURES
+#	At the moment, this axis starts at "Z=0.0", but should be aligned such that Z_mag corresponds to the real Z_mag
+#	This will require knowing how the R,Z poloidal axes are generated and being able to generate new ones on-the-fly
 #
 #NEED TO ADD ENERGY PROFILE SUBPLOT TO THE EQUILMOVIE FIGURES
 #	This needs to be an optional extra for both the spectral and equilibrium movie figures
@@ -1305,10 +1310,10 @@ def ExtractMEGA_Markers(Dir,KStep,MarkerFileStep=1):
 		exit()
 	#endif
 
-	#Cycle through all marker files and read data
+	#Cycle through all marker output files (nfiles = ncores) for the current KStep and read data
 	for j in tqdm( range(0,len(MarkerFiles),MarkerFileStep) ):
 
-		#Set current marker output file
+		#Set current marker output file	(j = core number)
 		Filename = MarkerFiles[j]
 
 		#Read marker data for current NCore output file
@@ -1319,10 +1324,10 @@ def ExtractMEGA_Markers(Dir,KStep,MarkerFileStep=1):
 #		print np.asarray(MarkerData).shape
 
 
-		#Concatenate variables into KineticsData - Override KineticsData on first iteration
+		#Concatenate MarkerData from all cores into KineticsData for each timestep
 		#KineticsData :: 2D Array of shape [variable,marker(n)]
 		if len(KineticsData) == 0: 
-			KineticsData = MarkerData
+			KineticsData = MarkerData					#Initiate KineticsData array on first iteration
 		elif len(KineticsData) > 0: 
 			KineticsData = [KineticsData[x]+MarkerData[x] for x in range(0,len(KineticsData))]
 		#endif
@@ -1703,7 +1708,7 @@ def figure(subplots=[1,1],gridspec=[],aspectratio=[],shareX=False,shareY=False):
 #Create figure and axes with variable aspect ratio, sub-plots and configurations.
 #Takes image aspect ratio [x,y], number of subplots [rows, columns] and row/column sharing boolians
 #Returns figure and axes seperately.
-#Example: fig,ax = figure(image_aspectratio,[1,1],shareX=False,shareY=False)
+#Example: fig,ax = figure([2,1],[1,1],image_aspectratio,shareX=False,shareY=False)
 
 	#If integer subplot supplied, convert to list.
 	if isinstance(subplots,int) == True: 
@@ -1722,6 +1727,7 @@ def figure(subplots=[1,1],gridspec=[],aspectratio=[],shareX=False,shareY=False):
 	#endif
 
 	#if gridspec is supplied, set relative panel heights accordingly
+	#Panel heights are defined relative to gridspec index [1]
 	if len(gridspec) > 0:
 		GridSpecArray = gs.GridSpec(subplots[0],subplots[1], height_ratios=gridspec)
 		for i in range(0,len(gridspec)): ax[i] = plt.subplot(GridSpecArray[i])
@@ -1892,10 +1898,10 @@ def VariableLabelMaker(variables,Units=[]):
 		
 		#Explicit Axes
 		elif variables[i] == 'r_psi':
-			Variable = '$r_{\psi}$'					# UNKNOWN VARIABLE
+			Variable = 'Radial flux surface $r_{\psi}$'					# Check this?   sqrt(r_psi) = rho_pol (I think...)
 			VariableUnit = '[-]'
 		elif variables[i] == 'gpsi_nrm':
-			Variable = '$g_{psi}$ norm'				# UNKNOWN VARIABLE
+			Variable = '$g_{psi}$ norm'									# UNKNOWN VARIABLE
 			VariableUnit = '[-]'
 		elif variables[i] == 'q_psi':
 			Variable = 'Safety Factor $q_{\psi}$'
@@ -1943,25 +1949,22 @@ def VariableLabelMaker(variables,Units=[]):
 
 		#Explicit Fast Particle Momentum
 		elif variables[i] == 'mom_a':
-			Variable = 'Fast Ion Momentum P$_{kin}$'
+			Variable = 'Fast Ion Momentum p$_{FI}$'
 			VariableUnit = '[kg m s$^{-1}$]'
 		elif variables[i] == 'dns_a':
-			Variable = 'Fast Ion dns$_{a}$'				# UNKNOWN VARIABLE - KINETICS
-			VariableUnit = '[-]'
-		elif variables[i] == 'dns_a':
-			Variable = 'Fast Ion dns$_{a}$'				# UNKNOWN VARIABLE - KINETICS
+			Variable = 'Fast Ion density n$_{FI}$'
 			VariableUnit = '[-]'
 		elif variables[i] == 'ppara_a':
-			Variable = 'Fast Ion ppara$_{a}$'			# UNKNOWN VARIABLE - KINETICS
+			Variable = 'Fast ion para. momentum ppara$_{FI}$'
 			VariableUnit = '[-]'
 		elif variables[i] == 'pperp_a':
-			Variable = 'Fast Ion pperp$_{a}$'			# UNKNOWN VARIABLE - KINETICS
+			Variable = 'Fast Ion perp. momentum pperp$_{FI}$'
 			VariableUnit = '[-]'
 		elif variables[i] == 'qpara_a':
-			Variable = 'Fast Ion qpara$_{a}$'			# UNKNOWN VARIABLE - KINETICS
+			Variable = 'Fast Ion para. charge qpara$_{FI}$'
 			VariableUnit = '[-]'
 		elif variables[i] == 'qperp_a':
-			Variable = 'Fast Ion qperp$_{a}$'			# UNKNOWN VARIABLE - KINETICS
+			Variable = 'Fast Ion perp. charge qperp$_{FI}$'
 			VariableUnit = '[-]'
 
 		#Default if no fitting variable found.
@@ -3400,7 +3403,7 @@ if savefig_2Dpolspectrum == True:
 				#Image is of shape: [lpsi][2*mpol+1]	(i.e. Image is orientated [Y,X])
 				Image = DataAmp.transpose()
 				Xaxis =	[x-int(mpol_res-1) for x in range(0,2*mpol_res-1,1)]	#Poloidal Mode Numbers	[mpolAxis] 
-				Yaxis = HarmonicsData.rho_pol									#Radial Location		[lpsiAxis]
+				Yaxis = rho_pol													#Radial Location		[lpsiAxis]
 
 				#If QuickPROES not used, plot a poloidal spectrum for each kstep value
 				if QuickPROES == False:
@@ -3421,8 +3424,9 @@ if savefig_2Dpolspectrum == True:
 					ImageOptions(fig,ax[0],Xlabel,Ylabel,Title,'')
 					ax[0].set_xlim(image_mpolcrop[0],image_mpolcrop[1])
 
-					#Plot total energy for each harmonic component
-					ax[1].plot(Energy_TimeArray,np.log10(Energy_n[ntorIdx]), lw=2)
+					#Plot total energy for each harmonic component (where "except:" accounts for energy_n -n values)
+					try: ax[1].plot(Energy_TimeArray,np.log10(Energy_n[ntorIdx]), lw=2)
+					except: ax[1].plot(Energy_TimeArray,np.log10(Energy_n[ntorIdx-ntor_pos]), lw=2)
 					ax[1].axvline(TimeArray[KStepIdx+IdxOffset],0,1)
 					cbar = InvisibleColourbar(ax[1])
 					###
@@ -3435,6 +3439,20 @@ if savefig_2Dpolspectrum == True:
 					plt.savefig(DirSpectral_ntor+SaveString)
 #					plt.show()
 					plt.close('all')
+
+					if write_ASCII == True:
+						DirASCII = CreateNewFolder(DirSpectral_ntor,"ASCII_Data")			#Spatio-Temporal Data Folder
+						
+						#Save Yaxis (rho_pol) and safety factor for future plotting
+						WriteFile_ASCII(rho_pol, DirASCII+'rho_pol', 'w', write_ASCIIFormat)
+						WriteFile_ASCII(q_psi, DirASCII+'q_psi', 'w', write_ASCIIFormat)
+
+						#Write 1D data header, then 2D Radially resolved Spatio-Temporal Image
+						SaveString = 'PolSpectrum_'+variable+'_n'+str(ntor)+'_t='+str(round(Time,3))+'.dat'
+						Header = [VariableLabel,'   ', 'mpol',extent[0],extent[1], 'rho_pol',extent[2],extent[3], '\n']
+						WriteFile_ASCII(Header, DirASCII+SaveString, 'w', 'RSV')
+						WriteFile_ASCII(Image, DirASCII+SaveString, 'a', write_ASCIIFormat)
+					#endif
 				#endif
 
 				#==========##==========#
@@ -3533,7 +3551,7 @@ if savefig_2Dpolspectrum == True:
 			#==========##==========#
 
 			if write_ASCII == True:
-				DirASCII = CreateNewFolder(DirSpectral,"Spectral_Data")		#Spatio-Temporal Data Folder
+				DirASCII = CreateNewFolder(DirSpectral,"ASCII_Data")		#Spatio-Temporal Data Folder
 
 				#Write 1D data header, then 2D Radially resolved Spatio-Temporal Image
 				SaveString = 'RadialSpectrum_'+variable+'_n'+str(ntor)+'_t='+str(round(Time,3))+'.dat'
@@ -3610,7 +3628,7 @@ if savefig_2Dcontinuum == True:
 		#DEVELOPMENT SETTINGS - all need looped over... - settings_inputs to be moved to switchboard
 		print Dir[l].split('/')[-2]
 		SEQ = setting_SEQ[1]			#requested SEQ file index (001 = 0)	!!! NEEDS A FUNCTION !!!
-		ntor = setting_ntor[1]			#requested ntor mode number			!!! NEEDS A FUNCTION !!!
+#		ntor = setting_ntor[1]			#requested ntor mode number			!!! NEEDS A FUNCTION !!!
 		variable = ContinuumVariable	#requested continuum variable 		!!! Need to impliment btheta, bphi etc...
 
 		#Create global 2D diagnostics folder and extract current simulation name
@@ -3628,7 +3646,7 @@ if savefig_2Dcontinuum == True:
 		ntor0 = ntorArray[0]						#ntor = 0, baseline equilibrium data
 
 		#Extract toroidal mode number array index (ntorIdx) from requested mode number (ntor)
-		ntorIdx = Set_ntorIdx(ntor,ntorArray)
+#		ntorIdx = Set_ntorIdx(ntor,ntorArray)
 
 		#Extract Variablelabel for chosen variable
 		VariableLabel = VariableLabelMaker(variable,Units=' \n Perturbation [-]')
@@ -3659,8 +3677,16 @@ if savefig_2Dcontinuum == True:
 		kmax, dt = DataShape[4], (TimeArray[1]-TimeArray[0])
 
 
+		#TO DO 	::
+			#	:: CHECK THE RHO POL X-AXIS HAS BEEN APPLIED CORRECTLY, MAY BE rho_pol = sqrt(MEGA(Rho_pol))		???
+			#	:: ENABLE SELECTION OF VARIABLES TO BE PLOTTED - UPDATE TITLE AND SAVESTRING ACCORDINGLY
+			#	:: ENABLE SELECTION OF TOROIDAL MODE NUMBERS TO BE PLOTTED - UPDATE TITLE ACCORDINGLY
+			#	:: COMPUTE A 'GROWTH' FUNCTION AND HAVE A TOGGLEABLE SCALING SUCH THAT THE PERTURBATIONS ARE 'FLAT' (PABLO)
+			#	:: ENABLE FOURIER TRANSFORM TO BE PERFORMED OVER A USER-DEFINED TIMESCALE
+			#	:: UPDATE THE ComputeTAEThresholds() FUNCTION WITH COMMENTS, CITATIONS, AND CHECK MATHS				(PABLO)
+			#	:: TRANSLATE AND COMMENT ANY REMAINING ORIGINAL JAVI CODE BELOW
+			#	::
 
-		#BELOW TO STILL BE TRANSLATED
 		print kmax, mpol, ntor, lpsi
 
 		#Sum Re component of toroidal (n) and poloidal (m) modes for all ksteps
@@ -3715,18 +3741,20 @@ if savefig_2Dcontinuum == True:
 			
 			#Add colourbar and beautify plot - taking account of panel location
 			if i == 0 and ntor_tot > 1: 					#If first panel with more panels to right
+				cbar = Colourbar(subfig,im,'',5)
 				ImageOptions(fig,subfig,'','Time [ms]','n='+str(Harmonic),'')
  				im.axes.get_xaxis().set_visible(False)
 			elif i == 0 and ntor_tot == 1:					#If first panel with no panels to right
-				cbar = Colourbar(subfig,im,VariableLabel,5)
+				cbar = Colourbar(subfig,im,VariableLabel,5)	#Single Panel colourbar (for reference)
 				ImageOptions(fig,subfig,'','Time [ms]','n='+str(Harmonic),'')
  				im.axes.get_xaxis().set_visible(False)
 			elif i > 0 and i < ntor_tot-1: 					#If middle panel with more panels to right
+				cbar = Colourbar(subfig,im,'',5)
 				ImageOptions(fig,subfig,'','','n='+str(Harmonic),'')
  				im.axes.get_xaxis().set_visible(False)
  				im.axes.get_yaxis().set_visible(False)
 			elif i == ntor_tot-1 and ntor_tot > 1:			#If last panel with more panels to left
-				cbar = Colourbar(subfig,im,VariableLabel,5)
+				cbar = Colourbar(subfig,im,VariableLabel,5)	#Right-most colourbar (for reference)
 				ImageOptions(fig,subfig,'','','n='+str(Harmonic),'')
  				im.axes.get_xaxis().set_visible(False)
  				im.axes.get_yaxis().set_visible(False)
@@ -3750,16 +3778,18 @@ if savefig_2Dcontinuum == True:
 
 			#Add colourbar and beautify plot - taking account of panel location
 			if i == 0 and ntor_tot > 1: 					#If first panel with more panels to right
-				ImageOptions(fig,subfig,'Radius $R$','Frequency [kHz]','','')
+				cbar = Colourbar(subfig,im,'',5)
+				ImageOptions(fig,subfig,'Normalised Minor Radius $\\rho_{pol}$','Frequency [kHz]','','')
 			elif i == 0 and ntor_tot == 1:					#If first panel with no panels to right
-				cbar = Colourbar(subfig,im,VariableLabel,5)
-				ImageOptions(fig,subfig,'Radius $R$','Frequency [kHz]','','')
+				cbar = Colourbar(subfig,im,VariableLabel,5)	#Single Panel colourbar (for reference)
+				ImageOptions(fig,subfig,'Normalised Minor Radius $\\rho_{pol}$','Frequency [kHz]','','')
 			elif i > 0 and i < ntor_tot-1:   				#If middle panel with more panels to right
-				ImageOptions(fig,subfig,'Radius $R$','','','')
+				cbar = Colourbar(subfig,im,'',5)
+				ImageOptions(fig,subfig,'Normalised Minor Radius $\\rho_{pol}$','','','')
  				im.axes.get_yaxis().set_visible(False)
 			elif i == ntor_tot-1 and ntor_tot > 1:			#If last panel with more panels to left
-				cbar = Colourbar(subfig,im,VariableLabel,5)
-				ImageOptions(fig,subfig,'Radius $R$','','','')
+				cbar = Colourbar(subfig,im,VariableLabel,5) #Right-most colourbar (for reference)
+				ImageOptions(fig,subfig,'Normalised Minor Radius $\\rho_{pol}$','','','')
  				im.axes.get_yaxis().set_visible(False)
 			#endif
 			subfig.set_ylim([0,200])
@@ -3768,8 +3798,12 @@ if savefig_2Dcontinuum == True:
 			UpperThresholds,LowerThresholds = ComputeTAEThresholds(HarmonicsData,Harmonic,eps,AlfvenVelocity,subfig)
 		#endfor
 
-		#Save 2D harmonics figure for current simulation
-		plt.savefig(DirContinuum+'ContinuumAnalysis_'+SubString+ext)
+		#Minimise spacing between subplots (Spacing may need to be a function of ntor_tot)
+		plt.subplots_adjust(wspace=0.2, hspace=0.1)
+
+		#Save continuum figure for variable[j] and simulation folder [l]
+		SaveString = variable+'_Continuum_'+SubString+ext
+		plt.savefig(DirContinuum+SaveString)
 #		plt.show()
 		plt.close('all')
 	#endfor
@@ -3913,12 +3947,16 @@ if savefig_2Dkinetics == True:
 
 	#DEVELOPMENT SETTINGS - settings_inputs to be moved to switchboard
 	print Dir[l].split('/')[-2]
+	KMarker = 1					#Marker file readin interval	- Move to Low-Level Inputs
 	nBins = 100					#Kinetics Histogram Bins		- Move to Low-Level Inputs
 	KStepMin = 000000			#KStepMin						- Automate readin - Use Switchboard?
-	KStepMax = 200000			#KStepMax						- Automate readin - Use Switchboard?
+	KStepMax = 3000000			#KStepMax						- Automate readin - Use Switchboard?
 	KWep = 100000				#Write_ep save interval (kwep)	- Automate readin - Use icp.nam readin function?
-	KMarker = 1					#Marker file readin interval	- Move to Low-Level Inputs
 
+	Labels = ['Radius $R$ [m]','Height $Z$ [m]','pitch angle $\lambda = \\frac{v_{para}}{v}$ [-]','Energy $\epsilon_{i}$ [keV]','Momentum $p$ \n [kg m${^2}$ s$^{-1}$]','Magnetic Moment $\mu$ [N m T$^{-1}$]','Canonical Momentum $p_{\phi}$ \n [kg m${^2}$ s$^{-1}$]','fff*fnrml [-]','psip [-]','Toroidal Angle $\phi$ [Rads]']
+	#N.B. Magnetic moment units: '[A m$^{2}$]', '[J T$^{-1}$]', '[N m T$^{-1}$]'
+	#Uppercase Lambda: 'Lambda $\Lambda = \\frac{\mu B}{E}$ [-]'
+	#lower lambda = v_para / velocity    ==  	pitch angle
 
 	#Cycle through all simulation folders
 	for l in range(0,len(Dir)):
@@ -3936,14 +3974,25 @@ if savefig_2Dkinetics == True:
 
 			#Set current KStep
 			KStep = i
+
 			#Concatenate variables into KineticsData - Override KineticsData on first iteration
 			#KineticsData :: 2D Array of shape [variable,marker(n)]
-			#Variables :: R, Z, Lambda, E, p, Mu, pphi, fff*fnrml, psip, phi
+			#Variables :: 0:R, 1:Z, 2:lambda, 3:E, 4:p, 5:Mu, 6:pphi, 7:fff*fnrml, 8:psip, 9:phi
 			KineticsData,Header_Kin = ExtractMEGA_Markers(Dir[l],KStep,KMarker)
 
 			#Select variables to be plotted (X,Y axis)
-			XData = KineticsData[6]				# [6] 'pphi_gc'	[Typically Spatial Variable]
-			YData = KineticsData[0]				# [3] 'E_gc'	[Typically Physical Variable]
+			#Note: "Fast-Ion phase space" refers to plotting Energy vs Canonical Momentum (Y, X)
+			XData = KineticsData[0]				# [6] 'pphi_gc'	[Typically Physical Variable]		[3],[6]
+			YData = KineticsData[1]				# [3] 'E_gc'	[Typically Spatial Variable]		[0],[1],[9]
+			MarkerWeight = KineticsData[7]
+
+			Xlabel = Labels[0]	# Temporary fudge
+			Ylabel = Labels[1]	# Temporary fudge
+
+			#	Not sure what this is, but Javi plotted them...
+			#	Lambda1 = 2.1*KineticsData[5,:]/(KineticsData[3,:]*1.6e-16)
+			# 	HistData2D,XAxis2D,YAxis2D = np.histogram2d(KineticsData[6,:], Lambda1, bins=(XRange,YRange)) 
+			# 	HistData2D,XAxis2D,YAxis2D = np.histogram2d(KineticsData[3,:], Lambda1, bins=(XRange,YRange))
 
 			#Extract min/max values and create histogram ranges
 			Xmin,Xmax = min(XData), max(XData)
@@ -3953,10 +4002,16 @@ if savefig_2Dkinetics == True:
 
 			#Select 2D variables to be plotted (X,Y) and histogram over supplied ranges
 			HistData2D,XAxis2D,YAxis2D = np.histogram2d(XData,YData, bins=(XRange,YRange))
-			extent = [min(XAxis2D),max(XAxis2D), min(YAxis2D),max(YAxis2D)]				#USE FIXED FULL RANGE
+			HistData2D = np.rot90(HistData2D,1)									#1 is pointy side down, 3 is pointy side up
+#			extent = [XAxis2D[0],XAxis2D[-1], YAxis2D[0],YAxis2D[-1]]			#Axes are orientation dependant
+			extent = [min(XAxis2D),max(XAxis2D), min(YAxis2D),max(YAxis2D)]		#Axes are orientation indepdenent (ish)
 
 			#Select 1D variable to be plotted (X axis) and histogram into nBins
-			HistData1D,XAxis1D = np.histogram(XData, bins=nBins)
+			XHistData1D,XAxis1D = np.histogram(XData, bins=nBins)
+
+			#Select 1D variable to be plotted (Y axis) and histogram into nBins
+			YHistData1D,YAxis1D = np.histogram(YData, bins=nBins)
+
 
 			#Normalise 2D distribution function
 			HistSum2D = sum(sum(HistData2D)); NormFactor2D = HistSum2D
@@ -3967,41 +4022,81 @@ if savefig_2Dkinetics == True:
 			#endfor
 			if DebugMode == True: print( "2D IEDF Integral: ",str(sum(HistData2D)) )
 
-			#Normalise 1D distribution function
-			HistSum1D = sum(HistData1D); NormFactor1D = HistSum1D
-			HistData1D = [float(HistData1D[x])/float(NormFactor1D) for x in range(0,len(HistData1D))]
-			if DebugMode == True: print( "1D IEDF Integral: ",str(sum(HistData1D)) )
+			#Normalise 1D (X axis) distribution function
+			XHistSum1D = sum(XHistData1D); XNormFactor1D = XHistSum1D
+			XHistData1D = [float(XHistData1D[x])/float(XNormFactor1D) for x in range(0,len(XHistData1D))]
+			if DebugMode == True: print( "X 1D IEDF Integral: ",str(sum(XHistData1D)) )
 
-			#Initiate figure and set axes
-			fig,ax = figure(subplots=[2,1], aspectratio=image_aspectratio, shareX=True)
-#			Title = VariableLabels[j]+', ntor='+str(ntor)+', t='+str(Time)+' \n Simulation: '+DirString
-			Title = 'Kinetic Markers, Kstep='+str(i)+' \n Simulation: '+DirString
-#			Xlabel,Ylabel = 'Energy $\epsilon_{i}$ [keV]','Angular Momentum $p_{\phi}$ \n [kg m${^2}$ s$^{-1}$]'
-#			Xlabel,Ylabel = 'Canonical Momentum $p_{\phi}$ \n [kg m${^2}$ s$^{-1}$]','Radius $R$ [m]'
-			Xlabel,Ylabel = 'Energy $\epsilon_{i}$ [keV]','Radius $R$ [m]'
-#			Xlabel,Ylabel = 'Height $Z$ [m]','Radius $R$ [m]'
+			#Normalise 1D (Y axis) distribution function
+			YHistSum1D = sum(YHistData1D); YNormFactor1D = YHistSum1D
+			YHistData1D = [float(YHistData1D[x])/float(YNormFactor1D) for y in range(0,len(YHistData1D))]
+			if DebugMode == True: print( "Y 1D IEDF Integral: ",str(sum(YHistData1D)) )
+
+			#==========#
+
+			fig,ax = figure(subplots=[1,1], aspectratio=image_aspectratio)	
+
+#			Title = VariableLabels[j]+', t='+str(Time)+' \n Simulation: '+DirString
+			Title = 'Kinetic Markers, Kstep='+str(KStep).zfill(7)+' \n Simulation: '+DirString
+#			Xlabel,Ylabel = 'Energy $\epsilon_{i}$ [keV]','Canonical Momentum $p_{\phi}$ \n [kg m${^2}$ s$^{-1}$]'
 			Legend = list()
 
 			#Plot 2D toroidally resolved IEDF
-			im1 = ax[0].imshow(HistData2D.T, extent=extent, aspect='auto')
-#			ln1 = ax[0].plot(XAxis,np.zeros(len(XAxis)), 'r--', lw=2)
-			cbar1 = Colourbar(ax[0],im1,'IEDF $f(\epsilon_{i})$ [-]',5)
-			ImageOptions(fig,ax[0],'',Ylabel,Title,Legend)
-			
-			#Plot 1D toroidally integrated IEDF								
-			im2 = ax[1].plot(XAxis1D[0:-1], HistData1D, lw=2)
-			cbar2 = InvisibleColourbar(ax[1])
-			ImageOptions(fig,ax[1],Xlabel,'IEDF $f(\epsilon_{i})$ [-]','',Legend)
-			ax[1].set_xlim(min(XAxis1D),max(XAxis1D))									#USE FIXED FULL RANGE
+			im1 = ax.imshow(HistData2D, extent=extent, aspect='auto')
+			cbar1 = Colourbar(ax,im1,'Marker Count [normalised]',5)
+			ImageOptions(fig,ax,Xlabel,Ylabel,Title,Legend)
+			ax.set_xlim(1.2,max(XAxis1D))
+			ax.set_ylim(min(YAxis1D),max(YAxis1D))
+
+
+			if True == False:
+				#Initiate figure and set axes
+				fig,ax = figure(subplots=[2,1], aspectratio=image_aspectratio, shareX=True)	
+
+	#			Title = VariableLabels[j]+', t='+str(Time)+' \n Simulation: '+DirString
+				Title = 'Kinetic Markers, Kstep='+str(KStep).zfill(7)+' \n Simulation: '+DirString
+	#			Xlabel,Ylabel = 'Energy $\epsilon_{i}$ [keV]','Canonical Momentum $p_{\phi}$ \n [kg m${^2}$ s$^{-1}$]'
+				Legend = list()
+
+				#Plot 2D toroidally resolved IEDF
+				im1 = ax[0].imshow(HistData2D, extent=extent, aspect='auto')
+				cbar1 = Colourbar(ax[0],im1,'IEDF $f(\epsilon_{i})$ [-]',5)
+				ImageOptions(fig,ax[0],'',Ylabel,Title,Legend)
+				ax[0].set_xlim(min(XAxis1D),max(XAxis1D))								#USE FIXED FULL RANGE
+				ax[0].set_ylim(min(YAxis1D),max(YAxis1D))								#USE FIXED FULL RANGE
+				
+				#Plot 1D Y-axis integrated IEDF		(i.e. Y-axis collapsed into 1D)						
+				im2 = ax[1].plot(XAxis1D[0:-1], XHistData1D, lw=2)
+				cbar2 = InvisibleColourbar(ax[1])
+				ImageOptions(fig,ax[1],Xlabel,'IEDF $f(\epsilon_{i})$ [-]','',Legend)
+				ax[1].set_xlim(min(XAxis1D),max(XAxis1D))								#USE FIXED FULL RANGE
+			#endif
 
 			#Save temporal response figure for current simulation directory
-			SaveString = 'Kinetics_'+str(i)+'_'+ext
+			SaveString = 'Kinetics_kstep'+str(KStep).zfill(7)+ext
 			plt.savefig(DirKinetics+SaveString)
 #			plt.show()
 			plt.close('all')
-		#endfor
-	#endfor
-#endif
+
+			#==========#
+
+			if write_ASCII == True:
+				#Create directory to hold ASCII data
+				DirASCII = CreateNewFolder(DirKinetics,'Kinetics_Data/')
+#				DirASCII_Var = CreateNewFolder(DirASCII,variables[j]+'/')
+
+				#Set ASCII data file name string and header
+#				SaveString = variables[j]+'_n'+str(ntor)+'_t='+str(round(Time,3))+'.dat'
+				SaveString = 'kstep='+str(KStep).zfill(7)+'.dat'
+				Header = ['VariableLabel','   ', 'X',[Xmin,Xmax], 'Y', [Ymin,Ymax],  '\n']
+
+				#Write 1D data header, then 2D PoloidalImage
+				WriteFile_ASCII(Header, DirASCII+SaveString, 'w', 'RSV')
+				WriteFile_ASCII(HistData2D.T, DirASCII+SaveString, 'a', write_ASCIIFormat)
+			#endif
+		#endfor - kstep loop
+	#endfor - simulation folder loop
+#endif - Diagnostic loop
 
 #==========##==========##==========#
 #==========##==========##==========#
@@ -4080,6 +4175,52 @@ exit()
 
 # UNUSED OR OUTDATED SNIPPITS OF CODE ARE STORED HERE.
 
+
+
+
+#=========================#
+#=========================#
+
+			#DOUBLE 1D HISTOGRAM WITH 2x2 FIGURE PLOT FOR savefig_2Dkinetics DIAGNOSTIC
+
+KineticSubplots = False
+if KineticSubplots == True:
+	#Initiate figure and set axes
+	fig,ax = figure(subplots=[2,2], aspectratio=image_aspectratio)		#shareX=True
+	ax[1,1].axis('off')		
+
+#	Title = VariableLabels[j]+', t='+str(Time)+' \n Simulation: '+DirString
+	Title = 'Kinetic Markers, Kstep='+str(KStep).zfill(7)+' \n Simulation: '+DirString
+#	Xlabel,Ylabel = 'Energy $\epsilon_{i}$ [keV]','Canonical Momentum $p_{\phi}$ \n [kg m${^2}$ s$^{-1}$]'
+	Legend = list()
+
+	#Set global figure options
+	fig.suptitle(Title, y=1.01)
+
+	#Plot 2D toroidally resolved IEDF
+	im1 = ax[0,0].imshow(HistData2D, extent=extent, aspect='auto')
+#	ln1 = ax[0,0].plot(XAxis,np.zeros(len(XAxis)), 'r--', lw=2)
+	cbar1 = Colourbar(ax[0,0],im1,'IEDF $f(\epsilon_{i})$ [-]',5)
+	ImageOptions(fig,ax[0,0],'',Xlabel,'',Legend)
+	
+	#Plot 1D Y-axis integrated IEDF		(i.e. Y-axis collapsed into 1D)						
+	im2 = ax[1,0].plot(XAxis1D[0:-1], XHistData1D, lw=2)
+	cbar2 = InvisibleColourbar(ax[1,0])
+	ImageOptions(fig,ax[1,0],Ylabel,'IEDF $f(\epsilon_{i})$ [-]','',Legend)
+	ax[1,0].set_xlim(min(XAxis1D),max(XAxis1D))									#USE FIXED FULL RANGE
+	
+	#Plot 1D X-axis integrated IEDF		(i.e. X-axis collapsed into 1D)					
+	im3 = ax[0,1].plot(YHistData1D, YAxis1D[0:-1],  lw=2)
+	cbar3 = InvisibleColourbar(ax[0,1])
+	ImageOptions(fig,ax[0,1],'IEDF $f(\epsilon_{i})$ [-]','','',Legend)
+	ax[0,1].set_ylim(min(YAxis1D),max(YAxis1D))									#USE FIXED FULL RANGE
+#endif
+
+#Save temporal response figure for current simulation directory
+SaveString = 'Kinetics_kstep'+str(KStep).zfill(7)+ext
+plt.savefig(DirKinetics+SaveString)
+#			plt.show()
+plt.close('all')
 
 #=========================#
 #=========================#
