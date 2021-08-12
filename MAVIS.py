@@ -118,7 +118,7 @@ Glob_SavWindow, Glob_SavPolyOrder = 25, 3	#Window > FeatureSize, Polyorder ~= Sm
 Ctrl = ['kst','t']
 Axes = ['r_psi','gpsi_nrm','q_psi']
 Phys = ['vrad','vtheta','vphi','brad','btheta','bphi','erad','etheta','ephi','prs','rho','dns_a','mom_a', 'ppara_a','pperp_a','qpara_a','qperp_a']
-Kin = ['R_gc','Z_gc','Phi_gc','p_gc','pphi_gc','mu_gc','E_gc','Lambda_gc','psip','ffff']
+Kin = ['R_gc','Z_gc','Phi_gc','p_gc','pphi_gc','etot_gc','mu_gc','lambda_gc','clambda_gc','psip','n_gc']
 
 #Archived variable sets
 #Phys = []
@@ -147,23 +147,23 @@ Kin = ['R_gc','Z_gc','Phi_gc','p_gc','pphi_gc','mu_gc','E_gc','Lambda_gc','psip'
 #====================================================================#
 
 #Requested Variables and Plotting Locations:
-variables = ['prs','brad','vrad']		#Requested variables to plot
-#['dns_a','mom_a', 'ppara_a','pperp_a']	#Phys
+variables = Phys						#Requested Harmonic/Moments variables to plot
+#['prs','brad','vrad'] #['dns_a','mom_a', 'ppara_a','pperp_a']
 
-radialprofiles = []						#1D Radial Profiles (fixed theta, phi) :: Poloidal Angle [deg]
-poloidalprofiles = [0.20,0.40,0.65]			#1D Poloidal Profiles (fixed rho_pol, phi) :: Norm. Radius [-]
+radialprofiles = [90]					#1D Radial Profiles (fixed theta, phi) :: Poloidal Angle [deg]
+poloidalprofiles = []#[0.20,0.40,0.65]	#1D Poloidal Profiles (fixed rho_pol, phi) :: Norm. Radius [-]
 toroidalprofiles = []					#1D Toroidal Profiles (fixed rho_pol, theta) :: Toroidal Angle [deg]
 trendlocation = [] 						#Cell location For Trend Analysis [R,theta,phi], ([] = min/max)
 
 #Various Diagnostic Settings:
 setting_SEQ = [0,0]						#Simulation SEQ to load		- [Min,Max], [Int], [0,0] = SEQ001
-setting_ntor = [0,-2]					#ntor range to plot 		- [Min,Max], [Int], [] to plot all
-setting_kstep = [00,60,5]				#kstep index range to plot 	- [Min,Max,Step], [Int], [] to plot all
+setting_ntor = [0,0]					#ntor range to plot 		- [Min,Max], [Int], [] to plot all
+setting_kstep = [0,1,1]					#kstep index range to plot 	- [Min,Max,Step], [Int], [] to plot all
 
 
 #Requested diagnostics and plotting routines:
-savefig_1Denergy = False				#Plot 1D MHD energies (1 Sim) 		(xxx.energy_p)	- Working
-savefig_1Denergytrends = False			#Plot 1D MHD energies (multi-Sim) 	(xxx.energy_n)	- Working
+savefig_1Denergy = True				#Plot 1D MHD energies (1 Sim) 		(xxx.energy_p)	- Working
+savefig_1Denergytrends = True			#Plot 1D MHD energies (multi-Sim) 	(xxx.energy_n)	- Working
 
 savefig_1Dequilibrium = False			#Plot 1D radial/poloidal profiles	(xxx.harmonics) - Working	-ASCII
 savefig_2Dequilibrium = False			#Plot 2D poloidal x-sections		(xxx.harmonics)	- Working
@@ -173,11 +173,11 @@ savefig_2Dcontinuum = False				#Plot 2D harmonic continuum		 	(xxx.harmonics)	- 
 savefig_2Dpolspectrum = False			#Plot 2D poloidal spectra 			(xxx.harmonics)	- Working	-ASCII
 #NOTE: Add optional correction to polspectrum so image is always plotted with positive harmonics
 #	   Also check that polspectra perform correct integration through all toroidal harmonics...
-SpectralVariable = 'brad'; QuickPROES = False
-ContinuumVariable = 'vrad'
+SpectralVariable = 'brad'; QuickPROES = False		#Link this to 'variables'
+ContinuumVariable = 'vrad'							#Link this to 'variables'
 
 savefig_1Dkinetics = False				#Plot 1D kinetic distributions	 	(gc_a_kstepxxx)	- Working	!NEED FUNCS
-savefig_2Dkinetics = True				#Plot 2D kinetic distributions	 	(gc_a_kstepxxx)	- Working	!NEED FUNCS
+savefig_2Dkinetics = False				#Plot 2D kinetic distributions	 	(gc_a_kstepxxx)	- Working	!NEED FUNCS
 
 
 #Requested diagnostic terminal outputs:
@@ -1030,7 +1030,7 @@ def ExtractMEGA_DataRanges(Dir, DataFile='energy_n'):
 #=========================#
 #=========================#
 
-def ExtractMEGA_SharedDataRange(DirList):
+def ExtractMEGA_MaxSharedKStep(DirList):
 #Determines the maximum shared KStepArray length between all simulation folders
 #Returns max shared KStep index and associated Dir index for the relevant simulation folder
 #Inputs:
@@ -1038,24 +1038,61 @@ def ExtractMEGA_SharedDataRange(DirList):
 #Outputs:
 #	MaxSharedKStep - 0D Scalar indicating the maximum shared KStep array length
 #	MaxSharedDirIdx - 0D Scalar indicating the Dir[Idx] for the smallest simulation folder
-#Example: MaxSharedKStep,MaxSharedDirIdx = ExtractMEGA_SharedDataRange(Dir[l])
+#Example: MaxSharedKStep,MaxSharedDirIdx = ExtractMEGA_MaxSharedKStep(Dir[l])
 
 	#Initiate any required lists
-	TimeArray_Lengths = list()
+	KStepRanges_Array = list()
 
 	#For each detected simulation folder, record the KStep array length
 	for l in range(0,len(DirList)):
 
 		#Extract Kstep [-], Time [ms] & toroidal harmonics from energy_n.txt
 		SEQArray, KStepArray, TimeArray, ntorArray = ExtractMEGA_DataRanges(Dir[l], DataFile='energy_n')
-		TimeArray_Lengths.append( len(TimeArray) )
+		#KStepArray 1D Data Structure: [Kstep]
+		KStepRanges_Array.append( len(KStepArray) )
 	#endfor
 
 	#Extract the minimum shared TimeArray length and associated Dir Array index
-	MaxSharedKStep = min(TimeArray_Lengths)						#Maximum shared KStep array length
-	MaxSharedDirIdx = TimeArray_Lengths.index(MaxSharedKStep)	#Dir[Idx] of simulation with minimum length
+	MaxSharedKStep = min(KStepRanges_Array)						#Maximum shared KStep array length
+	MaxSharedDirIdx = KStepRanges_Array.index(MaxSharedKStep)	#Dir[Idx] of simulation with minimum length
 	
 	return(MaxSharedKStep, MaxSharedDirIdx)
+#enddef
+
+#=========================#
+#=========================#
+
+def ExtractMEGA_MaxSharedntor(DirList):
+#Determines the maximum shared toroidal harmonic (ntor) range between all simulation folders
+#Returns max shared ntor range associated Dir index for the relevant simulation folder
+#Inputs:
+#	DirList - 1D string array containing all simulation folder root directories
+#Outputs:
+#	MaxSharedntor - 0D Scalar indicating the maximum shared ntor range
+#	MaxSharedDirIdx - 0D Scalar indicating the Dir[Idx] for the smallest simulation folder
+#Example: MaxSharedntor,MaxSharedDirIdx = ExtractMEGA_MaxSharedntor(Dir[l])
+
+# NOTE :: Only compares maximum NUMBER of toroidal modes, doesn't compare the mode numbers themselves
+#		: E.g. A simulation containing ntor = 1,2,3,4 will look the "same" as ntor = 2,4,6,8
+#		: This needs addressed by extracting the toroidal modes and performing an minimum shared interval.
+
+	#Initiate any required lists
+	ntorRanges_Array = list()
+
+	#For each detected simulation folder, record the KStep array length
+	for l in range(0,len(DirList)):
+
+		#Extract Kstep [-], Time [ms] & toroidal harmonics from energy_n.txt
+		SEQArray, KStepArray, TimeArray, ntorArray = ExtractMEGA_DataRanges(Dir[l], DataFile='energy_n')
+		#ntorArray 0D Data Structure: [ntor0,ntor_pos,ntor_tot]
+		ntorRanges_Array.append( ntorArray[2] )
+	#endfor
+
+	#Extract the minimum shared TimeArray length and associated Dir Array index
+	MaxSharedntor = min(ntorRanges_Array)						#Maximum shared ntor range	(Only compares total number)
+	MaxSharedDirIdx = ntorRanges_Array.index(MaxSharedntor)		#Dir[Idx] of simulation with minimum ntor range
+	
+	return(MaxSharedntor, MaxSharedDirIdx)
 #enddef
 
 #=========================#
@@ -2585,12 +2622,14 @@ if savefig_1Denergy == True:
 
 		#Extract Kstep [-], Time [ms] & toroidal harmonics from energy_n.txt
 		SEQArray, KStepArray, TimeArray, ntorArray = ExtractMEGA_DataRanges(Dir[l], DataFile='energy_n')
-		DeltaKstep = KStepArray[1]-KStepArray[0]	#KStep Interval 		[-]
-		DeltaTime = TimeArray[1]-TimeArray[0]		#Time Interval 			[ms]
-		KStepMod = len(KStepArray)/len(SEQArray)	#KStep indices per SEQ 	[-]
-		ntor_tot = ntorArray[2]						#Total number of positive & negative modes (Inc n=0)
-		ntor_pos = ntorArray[1]						#Number of positive modes (Ignoring n=0)
-		ntor0 = ntorArray[0]						#ntor = 0, baseline equilibrium data
+		try: DeltaKstep = KStepArray[1]-KStepArray[0]	#KStep Interval 		[-]
+		except: DeltaKstep = KStepArray[0]
+		try: DeltaTime = TimeArray[1]-TimeArray[0]		#Time Interval 			[ms]
+		except: DeltaTime = TimeArray[0]
+		KStepMod = len(KStepArray)/len(SEQArray)		#KStep indices per SEQ 	[-]
+		ntor_tot = ntorArray[2]							#Num. positive & negative toroidal modes (Including n=0)
+		ntor_pos = ntorArray[1]							#Num. Positive toroidal modes 			 (Ignoring n=0)
+		ntor0 = ntorArray[0]							#Index of ntor = 0 			(baseline equilibrium data)
 
 		#Extract Energy_n outputs and header for plotting
 		#energy_n: [ntor][timestep]
@@ -2703,17 +2742,15 @@ if savefig_1Denergytrends == True:
 	dEnergydt_Array, d2Energydt2_Array = list(),list()
 	gamma_Array = list()
 
-	#Extract maximum shared KStep (index, not value) and associated folder Dir[Idx]
-	MaxSharedKStep,MaxSharedDirIdx = ExtractMEGA_SharedDataRange(Dir)
+	#Determine maximum shared toroidal mode (ntor) range and associated folder index (Dir[MaxSharedDirIdx])
+#	MaxSharedKStep,MaxSharedDirIdx = ExtractMEGA_MaxSharedKStep(Dir)
+	MaxSharedntor,MaxSharedDirIdx = ExtractMEGA_MaxSharedntor(Dir)
 
-	#Extract Kstep [-], Time [ms] & ntor arrays from energy_n.txt - use simulation with highest shared kstep range
-	SEQArray, KStepArray, TimeArray, ntorArray = ExtractMEGA_DataRanges(Dir[MaxSharedDirIdx], DataFile='energy_n')
-	DeltaKstep = KStepArray[1]-KStepArray[0]	#KStep Interval 		[-]
-	DeltaTime = TimeArray[1]-TimeArray[0]		#Time Interval 			[ms]
-	KStepMod = len(KStepArray)/len(SEQArray)	#KStep indices per SEQ 	[-]
-	ntor_tot = ntorArray[2]						#Total number of positive & negative modes (Inc n=0)
-	ntor_pos = ntorArray[1]						#Number of positive modes (Ignoring n=0)
-	ntor0 = ntorArray[0]						#ntor = 0, baseline equilibrium data
+	#Extract ntor array from energy_n.txt - use simulation folder with the highest shared kstep range
+	ntorArray = ExtractMEGA_DataRanges(Dir[MaxSharedDirIdx], DataFile='energy_n')[3]
+	ntor_tot = ntorArray[2]							#Num. positive & negative toroidal modes (Including n=0)
+	ntor_pos = ntorArray[1]							#Num. Positive toroidal modes 			 (Ignoring n=0)
+	ntor0 = ntorArray[0]							#Index of ntor = 0 			(baseline equilibrium data)
 
 	#For each toroidal mode number
 	for i in range(0,ntor_pos+1):
@@ -2737,12 +2774,22 @@ if savefig_1Denergytrends == True:
 			SubString = DirString.split('_')[-1]
 			TrendAxis.append(SubString)
 
+			#Extract SEQArray [-], KstepArray [-] and timeArray [ms] for the current simulation folder 'l'
+			SEQArray = ExtractMEGA_DataRanges(Dir[l], DataFile='energy_n')[0]
+			KStepArray = ExtractMEGA_DataRanges(Dir[l], DataFile='energy_n')[1]
+			TimeArray = ExtractMEGA_DataRanges(Dir[l], DataFile='energy_n')[2]
+			try: DeltaKstep = KStepArray[1]-KStepArray[0]	#KStep Interval 		[-]
+			except: DeltaKstep = KStepArray[0]
+			try: DeltaTime = TimeArray[1]-TimeArray[0]		#Time Interval 			[ms]
+			except: DeltaTime = TimeArray[0]
+			KStepMod = len(KStepArray)/len(SEQArray)		#KStep indices per SEQ 	[-]
+
 			#Extract Energy_n outputs for all ntor in current folder
 			#Energy_n: [ntor][timestep]
 			Energy_n,Header_n = ExtractMEGA_Energy(Dir[l],'energy_n')
 			#EnergyProfile: [timestep]
-			EnergyProfile = Energy_n[i+2]					#Energy profile for ntor[i] (i+2, skips Kstep/time)
-			EnergyProfile = EnergyProfile[0:MaxSharedKStep]	#Reduce KStep range to minimum shared range
+			EnergyProfile = Energy_n[i+2]					#Remove KStep and Time arrays from ntor(i) array
+#			EnergyProfile = EnergyProfile[0:MaxSharedKStep]	#Reduce KStep range to maximum shared range
 
 			#Extract normalisation factors for current simulation folder
 			Variables,Values,Units = ExtractMEGA_Normalisations(Dir[l])
@@ -2901,12 +2948,14 @@ if False == True:
 
 			#Extract Kstep [-] & Time [ms] arrays from SEQ.harmonics & toroidal harmonics from energy_n.txt
 			SEQArray, KStepArray, TimeArray, ntorArray = ExtractMEGA_DataRanges(Dir[l], DataFile='harmonics')
-			DeltaKstep = KStepArray[1]-KStepArray[0]	#KStep Interval 		[-]
-			DeltaTime = TimeArray[1]-TimeArray[0]		#Time Interval 			[ms]
-			KStepMod = len(KStepArray)/len(SEQArray)	#KStep indices per SEQ 	[-]
-			ntor_tot = ntorArray[2]						#Total number of positive & negative modes (Inc n=0)
-			ntor_pos = ntorArray[1]						#Number of positive modes (Ignoring n=0)
-			ntor0Idx = ntorArray[0]						#ntor = 0 index, contains (var0 + dvar) data
+			try: DeltaKstep = KStepArray[1]-KStepArray[0]	#KStep Interval 		[-]
+			except: DeltaKstep = KStepArray[0]
+			try: DeltaTime = TimeArray[1]-TimeArray[0]		#Time Interval 			[ms]
+			except: DeltaTime = TimeArray[0]
+			KStepMod = len(KStepArray)/len(SEQArray)		#KStep indices per SEQ 	[-]
+			ntor_tot = ntorArray[2]							#Total number of positive & negative modes (Inc n=0)
+			ntor_pos = ntorArray[1]							#Number of positive modes (Ignoring n=0)
+			ntor0Idx = ntorArray[0]							#ntor = 0 index, contains (var0 + dvar) data
 
 			#Set Kstep ranges as requested - else default to max range
 			KStepRange,KStepStep = Set_KStepRange(KStepArray,setting_kstep)
@@ -3010,12 +3059,14 @@ if savefig_1Dequilibrium == True:
 
 		#Extract Kstep [-] & Time [ms] arrays from SEQ.harmonics & toroidal harmonics from energy_n.txt
 		SEQArray, KStepArray, TimeArray, ntorArray = ExtractMEGA_DataRanges(Dir[l], DataFile='harmonics')
-		DeltaKstep = KStepArray[1]-KStepArray[0]	#KStep Interval 		[-]
-		DeltaTime = TimeArray[1]-TimeArray[0]		#Time Interval 			[ms]
-		KStepMod = len(KStepArray)/len(SEQArray)	#KStep indices per SEQ 	[-]
-		ntor_tot = ntorArray[2]						#Total number of positive & negative modes (Inc n=0)
-		ntor_pos = ntorArray[1]						#Number of positive modes (Ignoring n=0)
-		ntor0Idx = ntorArray[0]						#ntor = 0 index, contains (var0 + dvar) data
+		try: DeltaKstep = KStepArray[1]-KStepArray[0]	#KStep Interval 		[-]
+		except: DeltaKstep = KStepArray[0]
+		try: DeltaTime = TimeArray[1]-TimeArray[0]		#Time Interval 			[ms]
+		except: DeltaTime = TimeArray[0]
+		KStepMod = len(KStepArray)/len(SEQArray)		#KStep indices per SEQ 	[-]
+		ntor_tot = ntorArray[2]							#Total number of positive & negative modes (Inc n=0)
+		ntor_pos = ntorArray[1]							#Number of positive modes (Ignoring n=0)
+		ntor0Idx = ntorArray[0]							#ntor = 0 index, contains (var0 + dvar) data
 
 		#Extract toroidal mode number array index (ntorIdx) from requested mode number (ntor)
 		ntorIdx = Set_ntorIdx(ntor,ntorArray)
@@ -3035,6 +3086,11 @@ if savefig_1Dequilibrium == True:
 		#HarmonicsData.Variables[i]: [3D Array] of shape [mpol][ntor][lpsi][A/B] for a single kstep
 		HarmonicsData = ExtractMEGA_Harmonics(Dir[l],'All',ntor_tot,KStepIdx,SEQ,'3D')
 		rho_pol = HarmonicsData.rho_pol				#Normalised radius		[-]
+
+		#Extract relevant spatial normalisation factors
+		NormVariables,NormValues,NormUnits = ExtractMEGA_Normalisations(Dir[l])
+		ZMin = NormValues[NormVariables.index('bottom_sim')]; ZMax = NormValues[NormVariables.index('top_sim')]
+		Zgeo = NormValues[NormVariables.index('zaxis')]; Rgeo = NormValues[NormVariables.index('raxis')]
 
 		#Extract data resolution and poloidal axes from repository .dat files
 		#DataShape contains data resolution of form: [mpol,ntor,lpsi,ltheta]
@@ -3064,7 +3120,7 @@ if savefig_1Dequilibrium == True:
 				ntorString = ', n='+str(ntor); mpolString=', m='+str(-mpol_res+1)+','+str(mpol_res-1)
 				TimeString = ', t='+str(round(Time,3))+' ms'
 				Title = VariableLabel+ntorString+mpolString+TimeString+' \n Simulation: '+DirString
-				Xlabel,Ylabel = 'Radius $R$ [m]', VariableLabel
+				Xlabel,Ylabel = 'Normalised Major Radius $\\rho_{pol}$ [-]', VariableLabel
 				Legend = list()
 
 				#Plot 1D radially resolved profiles for current simulation folder
@@ -3204,12 +3260,14 @@ if savefig_2Dequilibrium == True:
 
 		#Extract Kstep [-] & Time [ms] arrays from SEQ.harmonics & toroidal harmonics from energy_n.txt
 		SEQArray, KStepArray, TimeArray, ntorArray = ExtractMEGA_DataRanges(Dir[l], DataFile='harmonics')
-		DeltaKstep = KStepArray[1]-KStepArray[0]	#KStep Interval 		[-]
-		DeltaTime = TimeArray[1]-TimeArray[0]		#Time Interval 			[ms]
-		KStepMod = len(KStepArray)/len(SEQArray)	#KStep indices per SEQ 	[-]
-		ntor_tot = ntorArray[2]						#Total number of positive & negative modes (Inc n=0)
-		ntor_pos = ntorArray[1]						#Number of positive modes (Ignoring n=0)
-		ntor0Idx = ntorArray[0]						#ntor = 0 index, contains (var0 + dvar) data
+		try: DeltaKstep = KStepArray[1]-KStepArray[0]	#KStep Interval 		[-]
+		except: DeltaKstep = KStepArray[0]
+		try: DeltaTime = TimeArray[1]-TimeArray[0]		#Time Interval 			[ms]
+		except: DeltaTime = TimeArray[0]
+		KStepMod = len(KStepArray)/len(SEQArray)		#KStep indices per SEQ 	[-]
+		ntor_tot = ntorArray[2]							#Total number of positive & negative modes (Inc n=0)
+		ntor_pos = ntorArray[1]							#Number of positive modes (Ignoring n=0)
+		ntor0Idx = ntorArray[0]							#ntor = 0 index, contains (var0 + dvar) data
 
 		#Set Kstep ranges as requested - else default to max range
 		KStepRange,KStepStep = Set_KStepRange(KStepArray,setting_kstep)
@@ -3347,12 +3405,14 @@ if savefig_2Dequilmovie == True:
 
 		#Extract Kstep [-] & Time [ms] arrays from SEQ.harmonics & toroidal harmonics from energy_n.txt
 		SEQArray, KStepArray, TimeArray, ntorArray = ExtractMEGA_DataRanges(Dir[l], DataFile='harmonics')
-		DeltaKstep = KStepArray[1]-KStepArray[0]	#KStep Interval 		[-]
-		DeltaTime = TimeArray[1]-TimeArray[0]		#Time Interval 			[ms]
-		KStepMod = len(KStepArray)/len(SEQArray)	#KStep indices per SEQ 	[-]
-		ntor_tot = ntorArray[2]						#Total number of positive & negative modes (Inc n=0)
-		ntor_pos = ntorArray[1]						#Number of positive modes (Ignoring n=0)
-		ntor0Idx = ntorArray[0]						#ntor = 0 index, contains (var0 + dvar) data
+		try: DeltaKstep = KStepArray[1]-KStepArray[0]	#KStep Interval 		[-]
+		except: DeltaKstep = KStepArray[0]
+		try: DeltaTime = TimeArray[1]-TimeArray[0]		#Time Interval 			[ms]
+		except: DeltaTime = TimeArray[0]
+		KStepMod = len(KStepArray)/len(SEQArray)		#KStep indices per SEQ 	[-]
+		ntor_tot = ntorArray[2]							#Total number of positive & negative modes (Inc n=0)
+		ntor_pos = ntorArray[1]							#Number of positive modes (Ignoring n=0)
+		ntor0Idx = ntorArray[0]							#ntor = 0 index, contains (var0 + dvar) data
 
 		#Extract toroidal mode number array index (ntorIdx) from requested mode number (ntor)
 		ntorIdx = Set_ntorIdx(ntor,ntorArray)
@@ -3828,12 +3888,14 @@ if savefig_2Dcontinuum == True:
 
 		#Extract Kstep [-] & Time [ms] arrays from SEQ.harmonics & toroidal harmonics from energy_n.txt
 		SEQArray, KStepArray, TimeArray, ntorArray = ExtractMEGA_DataRanges(Dir[l], DataFile='harmonics')
-		DeltaKstep = KStepArray[1]-KStepArray[0]	#KStep Interval 		[-]
-		DeltaTime = TimeArray[1]-TimeArray[0]		#Time Interval 			[ms]
-		KStepMod = len(KStepArray)/len(SEQArray)	#KStep indices per SEQ 	[-]
-		ntor_tot = ntorArray[2]						#Total number of positive & negative modes (Inc n=0)
-		ntor_pos = ntorArray[1]						#Number of positive modes (Ignoring n=0)
-		ntor0 = ntorArray[0]						#ntor = 0, baseline equilibrium data
+		try: DeltaKstep = KStepArray[1]-KStepArray[0]	#KStep Interval 		[-]
+		except: DeltaKstep = KStepArray[0]
+		try: DeltaTime = TimeArray[1]-TimeArray[0]		#Time Interval 			[ms]
+		except: DeltaTime = TimeArray[0]
+		KStepMod = len(KStepArray)/len(SEQArray)		#KStep indices per SEQ 	[-]
+		ntor_tot = ntorArray[2]							#Total number of positive & negative modes (Inc n=0)
+		ntor_pos = ntorArray[1]							#Number of positive modes (Ignoring n=0)
+		ntor0 = ntorArray[0]							#ntor = 0, baseline equilibrium data
 
 		#Extract toroidal mode number array index (ntorIdx) from requested mode number (ntor)
 #		ntorIdx = Set_ntorIdx(ntor,ntorArray)
@@ -4226,23 +4288,26 @@ if savefig_2Dkinetics == True:
 	# 	HistData2D,XAxis2D,YAxis2D = np.histogram2d(KineticsData[6,:], Lambda1, bins=(XRange,YRange)) 
 	# 	HistData2D,XAxis2D,YAxis2D = np.histogram2d(KineticsData[3,:], Lambda1, bins=(XRange,YRange))
 
+#	OLD Variables :: 0:R, 1:Z, 2:lambda, 3:E, 4:p, 5:Mu, 6:p_phi, 7:fff*fnrml, 8:psip, 9:phi
+#	OLD Labels = ['Radius $R$ [m]','Height $Z$ [m]','Pitch Angle $\lambda$ [-]','Energy $\epsilon_{i}$ [keV]','Momentum $p$ \n [kg m${^2}$ s$^{-1}$]','Magnetic Moment $\mu$ [N m T$^{-1}$]','Canonical Momentum $p_{\phi}$ \n [kg m${^2}$ s$^{-1}$]','Distribution $f_{FI}$ [-]','Poloidal Flux $\psi$ [-]','Toroidal Angle $\phi$ [Rads]']
+			#Select variables to be plotted											Phasespace	 Sphi	  dCl
+#			XIdx = 3;				Xlabel = Labels[XIdx]		#X-axis (Radius)	[6]	[3]		[0,1]	[3] [3]
+#			YIdx = 2;				Ylabel = Labels[YIdx]		#Y-axis (Axial) 	[3] [4]		[3,4]	[2] [5]
+#			VarIdx = 7;				Varlabel = Labels[VarIdx]	#Histogram var 		[7]	[7]		 [7]	[7] [7]
+
 
 	#DEVELOPMENT SETTINGS - settings_inputs to be moved to switchboard
 	print Dir[l].split('/')[-2]
-	KMarker = 1				#Marker file readin interval	- Move to Low-Level Inputs
+	KMarker = 8					#Marker file readin interval	- Move to Low-Level Inputs
 	nBins = 100					#Kinetics Histogram Bins		- Move to Low-Level Inputs
-	KStepMin = 100000			#KStepMin						- Automate readin - Use Switchboard?
-	KStepMax = 300000			#KStepMax						- Automate readin - Use Switchboard?
+	KStepMin = 000000			#KStepMin						- Automate readin - Use Switchboard?
+	KStepMax = 200000			#KStepMax						- Automate readin - Use Switchboard?
 	KWep = 100000				#Write_ep save interval (kwep)	- Automate readin - Use icp.nam readin function?
 
-#	EP_testing cases
-#	KStepMin = 00000			#KStepMin						- Automate readin - Use Switchboard?
-#	KStepMax = 20000			#KStepMax						- Automate readin - Use Switchboard?
-#	KWep = 500					#Write_ep save interval (kwep)	- Automate readin - Use icp.nam readin function?
-
-	Labels = ['Radius $R$ [m]','Height $Z$ [m]','pitch angle $\lambda$ [-]','Energy $\epsilon_{i}$ [keV]','Momentum $p$ \n [kg m${^2}$ s$^{-1}$]','Magnetic Moment $\mu$ [N m T$^{-1}$]','Canonical Momentum $p_{\phi}$ \n [kg m${^2}$ s$^{-1}$]','Distribution $f_{FI}$ [-]','Poloidal Flux $\psi$ [-]','Toroidal Angle $\phi$ [Rads]']
+	Labels = ['Radius $R$ [m]','Height $Z$ [m]','Toroidal Angle $\phi$ [Rads]','Momentum $p$ \n [kg m${^2}$ s$^{-1}$]','Canonical Momentum $p_{\phi}$ \n [kg m${^2}$ s$^{-1}$]','Energy $\epsilon_{i}$ [keV]','Magnetic Moment $\mu$ [N m T$^{-1}$]','Pitch Angle $\lambda$ [-]','Energy Ratio $\Lambda$ [-]','Poloidal Flux $\psi$ [-]','Distribution $f_{FI}$ [-]']
 	#N.B. Magnetic moment units: '[A m$^{2}$]', '[J T$^{-1}$]', '[N m T$^{-1}$]'
-	#Uppercase Lambda: "Energy Ratio"  ==  $\Lambda = \\frac{\mu B}{E}$ [-]'
+	#Uppercase CLambda: "Energy Ratio"  ==  $\Lambda = \\frac{\mu B_{0}}{0.5mVpara^{2} + \mu B}}$ [-]'
+		# 'Energy Coefficient $(\\frac{M_{E}}{K_{E}})$ $\Lambda$ [-]'
 	#Lowercase lambda: "Pitch Angle "  ==  $v_{parallel} / v_{total}$
 
 	#Cycle through all simulation folders
@@ -4263,13 +4328,13 @@ if savefig_2Dkinetics == True:
 
 			#Concatenate variables into KineticsData - Override KineticsData on first iteration
 			#KineticsData :: 2D Array of shape [variable,marker(n)]
-			#Variables :: 0:R, 1:Z, 2:lambda, 3:E, 4:p, 5:Mu, 6:pphi, 7:fff*fnrml, 8:psip, 9:phi (psip is poloidal flux)
+			#Variables :: 0:R, 1:Z, 2:phi, 3:p, 4:p_phi, 5:E, 6:mu, 7:lambda, 8:clambda, 9:psip, 10:fff*fnrml
 			KineticsData,Header_Kin = ExtractMEGA_Markers(Dir[l],KStep,KMarker)
 
-			#Select variables to be plotted											Phasespace	Sphi	dCl
-			XIdx = 1;				Xlabel = Labels[XIdx]		#X-axis (Radius)	[6]	[3]		[1]		[2]
-			YIdx = 4;				Ylabel = Labels[YIdx]		#Y-axis (Axial) 	[3] [4]		[3,4]	[3]
-			VarIdx = 7;				Varlabel = Labels[VarIdx]	#Histogram var 		[7]	[7]		[7]		[7]
+			#Select variables to be plotted											Phasespace	Pitch Angle	Sphi
+			XIdx = 5;				Xlabel = Labels[XIdx]		#X-axis (Radius)	[4,0]		[5]			[0,1]
+			YIdx = 7;				Ylabel = Labels[YIdx]		#Y-axis (Axial) 	[5]			[7,8] 		[3,5]
+			VarIdx = 10;			Varlabel = Labels[VarIdx]	#Histogram var 		[10]		[10]		[10]
 
 			#Perform 2D histogram, summing total VarIdx markers in each grid cell
 			#Histogram grid is created by interpolating onto an [XIdx,YIdx] grid 
@@ -4362,7 +4427,8 @@ if savefig_2Dkinetics == True:
 
 				#Set ASCII data file name string and header
 #				SaveString = variables[j]+'_n'+str(ntor)+'_t='+str(round(Time,3))+'.dat'
-				SaveString = 'kstep='+str(KStep).zfill(7)+'.dat'
+#				SaveString = 'kstep='+str(KStep).zfill(7)+'.dat'
+				SaveString =  Xlabel+Ylabel+'_kstep'+str(KStep).zfill(7)+'.dat'
 				Header = ['VariableLabel','   ', 'X',[extent[0],extent[1]], 'Y', [extent[2],extent[3]],  '\n']
 
 				#Write 1D data header, then 2D PoloidalImage
