@@ -148,7 +148,7 @@ Kin = ['R_gc','Z_gc','Phi_gc','p_gc','pphi_gc','etot_gc','mu_gc','lambda_gc','cl
 
 #Requested Variables and Plotting Locations:
 variables = Phys						#Requested Harmonic/Moments variables to plot
-#['prs','brad','vrad'] #['dns_a','mom_a', 'ppara_a','pperp_a']
+#Phys #['prs','brad','vrad'] #['dns_a','mom_a', 'ppara_a','pperp_a']
 
 radialprofiles = [90]					#1D Radial Profiles (fixed theta, phi) :: Poloidal Angle [deg]
 poloidalprofiles = []#[0.20,0.40,0.65]	#1D Poloidal Profiles (fixed rho_pol, phi) :: Norm. Radius [-]
@@ -156,29 +156,34 @@ toroidalprofiles = []					#1D Toroidal Profiles (fixed rho_pol, theta) :: Toroid
 trendlocation = [] 						#Cell location For Trend Analysis [R,theta,phi], ([] = min/max)
 
 #Various Diagnostic Settings:
-setting_SEQ = [0,0]						#Simulation SEQ to load		- [Min,Max], [Int], [0,0] = SEQ001
-setting_ntor = [0,0]					#ntor range to plot 		- [Min,Max], [Int], [] to plot all
-setting_kstep = [0,1,1]					#kstep index range to plot 	- [Min,Max,Step], [Int], [] to plot all
+setting_SEQ = [9,9]						#Simulation SEQ to load		- [Min,Max], [Int], [0,0] = SEQ001
+setting_kstep = [0,1,1]					#kstep index range to plot 	- [Min,Max,Step], [Int], Implement [*] to plot max
+#[0,1,1]	[0,60,10]
+setting_mpol = [0,64]					#mpol range to plot			- [Min,Max], [Int], Implement [*] to plot max
+setting_ntor = [0,-2]					#ntor range to plot 		- [Min,Max], [Int], Implement [*] to plot max
 
 
 #Requested diagnostics and plotting routines:
-savefig_1Denergy = True				#Plot 1D MHD energies (1 Sim) 		(xxx.energy_p)	- Working
-savefig_1Denergytrends = True			#Plot 1D MHD energies (multi-Sim) 	(xxx.energy_n)	- Working
+savefig_1Denergy = False				#Plot 1D MHD energies (1 Sim) 		(xxx.energy_p)	- Working
+savefig_1Denergytrends = False			#Plot 1D MHD energies (multi-Sim) 	(xxx.energy_n)	- Working
+#ADD COMPARISON OF energy_phys VARIABLES AS WELL.
 
 savefig_1Dequilibrium = False			#Plot 1D radial/poloidal profiles	(xxx.harmonics) - Working	-ASCII
 savefig_2Dequilibrium = False			#Plot 2D poloidal x-sections		(xxx.harmonics)	- Working
-savefig_2Dequilmovie = False			#Plot 2D poloidal x-section movies	(xxx.harmonics)	- Working	-ASCII
+savefig_2Dequilmovie = True				#Plot 2D poloidal x-section movies	(xxx.harmonics)	- Working	-ASCII
 
 savefig_2Dcontinuum = False				#Plot 2D harmonic continuum		 	(xxx.harmonics)	- Working
 savefig_2Dpolspectrum = False			#Plot 2D poloidal spectra 			(xxx.harmonics)	- Working	-ASCII
 #NOTE: Add optional correction to polspectrum so image is always plotted with positive harmonics
 #	   Also check that polspectra perform correct integration through all toroidal harmonics...
+#	   ALSO also, add savefig_1Dpolspectrum diagnostic which plots 1D profiles for all setting_mpol range
 SpectralVariable = 'brad'; QuickPROES = False		#Link this to 'variables'
 ContinuumVariable = 'vrad'							#Link this to 'variables'
 
 savefig_1Dkinetics = False				#Plot 1D kinetic distributions	 	(gc_a_kstepxxx)	- Working	!NEED FUNCS
 savefig_2Dkinetics = False				#Plot 2D kinetic distributions	 	(gc_a_kstepxxx)	- Working	!NEED FUNCS
-
+#NOTE: Add kin_variables input to switchboard and implement these properly
+#	   Probably need to have some "default" settings for the most used figures
 
 #Requested diagnostic terminal outputs:
 print_generaltrends = False				#Verbose Trend Outputs								- In Development
@@ -193,7 +198,7 @@ write_ASCIIFormat = 'RSV'				#Choose ASCII file output format ('RSV', 'CSV')		- 
 image_extension = '.png'				#Extensions ('.png', '.jpg', '.eps')				- Working
 image_aspectratio = [10,10]				#[x,y] in cm 										- Working
 image_rhocrop = []						#Crop image radius/rho_pol [min,max]				- In Development
-image_thetacrop = []					#Crop image poloidal angle [min,max]g				- In Development
+image_thetacrop = []					#Crop image poloidal angle [min,max]				- In Development
 image_mpolcrop = [-16,16]				#Crop image poloidal modes [min,max]				- Working (ish)
 image_ntorcrop = []						#Crop image toroidal modes [min,max]				- In Development
 image_cbarlimit = []					#[min,max] colourbar limits							- Working
@@ -3322,7 +3327,7 @@ if savefig_2Dequilibrium == True:
 
 				#Define Title, Legend, Axis Labels etc...
 				SupTitle = VariableLabel+', n='+str(ntor)+', t='+str(round(Time,3))+' ms \n Simulation: '+DirString
-				Xlabel,Ylabel = 'Major Radius $R$ [m]', 'Height $Z$ [m]'
+				Xlabel,Ylabel = 'Radius $R$ [m]', 'Height $Z$ [m]'
 				Legend = list()
 
 				#Plot 2D poloidally resolved figure and beautify
@@ -4301,7 +4306,7 @@ if savefig_2Dkinetics == True:
 	KMarker = 8					#Marker file readin interval	- Move to Low-Level Inputs
 	nBins = 100					#Kinetics Histogram Bins		- Move to Low-Level Inputs
 	KStepMin = 000000			#KStepMin						- Automate readin - Use Switchboard?
-	KStepMax = 200000			#KStepMax						- Automate readin - Use Switchboard?
+	KStepMax = 001000			#KStepMax						- Automate readin - Use Switchboard?
 	KWep = 100000				#Write_ep save interval (kwep)	- Automate readin - Use icp.nam readin function?
 
 	Labels = ['Radius $R$ [m]','Height $Z$ [m]','Toroidal Angle $\phi$ [Rads]','Momentum $p$ \n [kg m${^2}$ s$^{-1}$]','Canonical Momentum $p_{\phi}$ \n [kg m${^2}$ s$^{-1}$]','Energy $\epsilon_{i}$ [keV]','Magnetic Moment $\mu$ [N m T$^{-1}$]','Pitch Angle $\lambda$ [-]','Energy Ratio $\Lambda$ [-]','Poloidal Flux $\psi$ [-]','Distribution $f_{FI}$ [-]']
