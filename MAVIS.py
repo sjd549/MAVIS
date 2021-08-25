@@ -157,10 +157,10 @@ trendlocation = [] 						#Cell location For Trend Analysis [R,theta,phi], ([] = 
 
 #Various Diagnostic Settings:
 setting_SEQ = [9,9]						#Simulation SEQ to load		- [Min,Max], [Int], [0,0] = SEQ001
-setting_kstep = [0,1,1]					#kstep index range to plot 	- [Min,Max,Step], [Int], Implement [*] to plot max
+setting_kstep = [0,60,1]					#kstep index range to plot 	- [Min,Max,Step], [Int], Implement [*] to plot max
 #[0,1,1]	[0,60,10]
 setting_mpol = [0,64]					#mpol range to plot			- [Min,Max], [Int], Implement [*] to plot max
-setting_ntor = [0,-2]					#ntor range to plot 		- [Min,Max], [Int], Implement [*] to plot max
+setting_ntor = [0,2]					#ntor range to plot 		- [Min,Max], [Int], Implement [*] to plot max
 
 
 #Requested diagnostics and plotting routines:
@@ -170,9 +170,10 @@ savefig_1Denergytrends = False			#Plot 1D MHD energies (multi-Sim) 	(xxx.energy_
 
 savefig_1Dequilibrium = False			#Plot 1D radial/poloidal profiles	(xxx.harmonics) - Working	-ASCII
 savefig_2Dequilibrium = False			#Plot 2D poloidal x-sections		(xxx.harmonics)	- Working
-savefig_2Dequilmovie = True				#Plot 2D poloidal x-section movies	(xxx.harmonics)	- Working	-ASCII
+savefig_2Dequilmovie = False			#Plot 2D poloidal x-section movies	(xxx.harmonics)	- Working	-ASCII
 
 savefig_2Dcontinuum = False				#Plot 2D harmonic continuum		 	(xxx.harmonics)	- Working
+savefig_1Dpolspectrum = True			#Plot 1D poloidal spectra 			(xxx.harmonics)	- In Development
 savefig_2Dpolspectrum = False			#Plot 2D poloidal spectra 			(xxx.harmonics)	- Working	-ASCII
 #NOTE: Add optional correction to polspectrum so image is always plotted with positive harmonics
 #	   Also check that polspectra perform correct integration through all toroidal harmonics...
@@ -197,7 +198,7 @@ write_ASCIIFormat = 'RSV'				#Choose ASCII file output format ('RSV', 'CSV')		- 
 #Image plotting options:
 image_extension = '.png'				#Extensions ('.png', '.jpg', '.eps')				- Working
 image_aspectratio = [10,10]				#[x,y] in cm 										- Working
-image_rhocrop = []						#Crop image radius/rho_pol [min,max]				- In Development
+image_rhopolcrop = []						#Crop image radius/rho_pol [min,max]				- In Development
 image_thetacrop = []					#Crop image poloidal angle [min,max]				- In Development
 image_mpolcrop = [-16,16]				#Crop image poloidal modes [min,max]				- Working (ish)
 image_ntorcrop = []						#Crop image toroidal modes [min,max]				- In Development
@@ -2430,7 +2431,7 @@ print(' |  \  /  |    /  ^  \  \   \/   /  |  |    |   (----` ')
 print(' |  |\/|  |   /  /_\  \  \      /   |  |     \   \     ')
 print(' |  |  |  |  /  _____  \  \    /    |  | .----)   |    ')
 print(' |__|  |__| /__/     \__\  \__/     |__| |_______/     ')
-print('                                                 v0.6.7')
+print('                                                 v0.7.0')
 print('-------------------------------------------------------')
 print('')
 print('The following diagnostics were requested:')
@@ -2443,7 +2444,7 @@ if True in [savefig_2Dequilibrium,savefig_2Dequilmovie]:
 	print('# 2D Equilibrium Analysis')
 if True in [savefig_2Dcontinuum]:
 	print('# 2D Continuum Analysis')
-if True in [savefig_2Dpolspectrum]:
+if True in [savefig_1Dpolspectrum,savefig_2Dpolspectrum]:
 	print('# 2D Spectral Analysis')
 if True in [savefig_1Dkinetics,savefig_2Dkinetics]:
 	print('# Kinetic Distribution Analysis')
@@ -3564,7 +3565,190 @@ if any([savefig_2Dequilibrium,savefig_2Dequilmovie]) == True:
 #====================================================================#
 
 #====================================================================#
-					 #POLOIDAL SPECTRUM ANALYSIS#
+					 #1D POLOIDAL SPECTRUM ANALYSIS#
+#====================================================================#
+
+if savefig_1Dpolspectrum == True:
+
+	#For each detected simulation folder
+	for l in range(0,len(Dir)):
+
+		#DEVELOPMENT SETTINGS - all need looped over... - settings_inputs to be moved to switchboard
+		print Dir[l].split('/')[-2]
+		ntor = setting_ntor[1]				#requested ntor mode number			!!! NEEDS A FUNCTION !!!
+		variable = SpectralVariable			#requested response variable 		!!! Need to impliment vrad etc...
+
+		#Create global 2D diagnostics folder and extract current simulation name
+		DirSpectral = CreateNewFolder(Dir[l],'1DSpectral_Plots/')						#Spatio-Temporal Folder
+		DirSpectral_ntor = CreateNewFolder(DirSpectral,variable+'_ntor='+str(ntor))		#Spatio-Temporal Images Folder	
+		DirString = Dir[l].split('/')[-2]									#Full Simulation Name
+		SubString = DirString.split('_')[-1]								#Simulation Nickname
+
+		#Extract Kstep [-] & Time [ms] arrays from SEQ.harmonics & toroidal harmonics from energy_n.txt
+		SEQArray, KStepArray, TimeArray, ntorArray = ExtractMEGA_DataRanges(Dir[l], DataFile='harmonics')
+		DeltaKstep = KStepArray[1]-KStepArray[0]	#KStep Interval 		[-]
+		DeltaTime = TimeArray[1]-TimeArray[0]		#Time Interval 			[ms]
+		KStepMod = len(KStepArray)/len(SEQArray)	#KStep indices per SEQ 	[-]
+		ntor_tot = ntorArray[2]						#Total number of positive & negative modes (Inc n=0)
+		ntor_pos = ntorArray[1]						#Number of positive modes (Ignoring n=0)
+		ntor0 = ntorArray[0]						#ntor = 0, baseline equilibrium data
+
+		#Extract Energy_n outputs and header for plotting
+		#energy_n: [ntor][timestep]
+		Energy_n,Header_n = ExtractMEGA_Energy(Dir[l],'energy_n')
+		Energy_TimeArray = Energy_n[1]				#Extract full time array [ms] for plotting
+		Energy_n = Energy_n[2::]					#Remove KStep and Time arrays from array
+
+		#Extract toroidal mode number array index (ntorIdx) from requested mode number (ntor)
+		ntorIdx = Set_ntorIdx(ntor,ntorArray)
+
+		#Set Kstep ranges as requested - else default to max range
+		KStepRange,KStepStep = Set_KStepRange(KStepArray,setting_kstep)
+		SEQRange = Set_SEQRange(setting_SEQ)
+
+		#Extract Variablelabel for chosen variable
+		VariableLabel = VariableLabelMaker(variable)			#Units='Perturbation [-]'
+
+		for j in tqdm( range(SEQRange[0],SEQRange[1])  ):
+			#Set SEQIndex for current simulation folder
+			SEQ = j
+
+			#Extract and plot data for each timestep
+			for i in range(KStepRange[0],KStepRange[1],KStepStep):
+
+				#Set TimeIndex and employ to extract KStep and Time
+				KStepIdx = i								#[-]
+				IdxOffset = SEQ*KStepMod					#[-]
+				KStep = KStepArray[KStepIdx+IdxOffset]		#[-]
+				Time = TimeArray[KStepIdx+IdxOffset]		#[ms]
+
+				#Extract ALL VARIABLES FOR SINGLE KSTEP from Harmonics, it contains:
+				#HarmonicsData.rho_pol [1D array] :: HarmonicsData.q_psi [1D array]
+				#HarmonicsData.kst [1D array]     :: HarmonicsData.time [1D array]    
+				#HarmonicsData.Variables[i]: [3D Array] of shape [mpol][ntor][lpsi][A/B] for a single kstep
+				HarmonicsData = ExtractMEGA_Harmonics(Dir[l],'All',ntor_tot,KStepIdx,SEQ,'3D')
+				rho_pol = HarmonicsData.rho_pol; q_psi = HarmonicsData.q_psi
+
+				#DataShape contains data resolution of form: [mpol,ntor,lpsi,ltheta]
+				DataShape = ExtractMEGA_DataShape(HarmonicsData)#; print DataShape
+				mpol_res = DataShape[0]; ntor_res = DataShape[1]
+				lpsi_res = DataShape[2]; ltheta_res = DataShape[3]
+
+				#Extract radial magnetic field (brad) from SEQ.harmonic object
+				#Data is of shape: Data[mpol,ntor,lpsi,A/B]
+				Data = getattr(HarmonicsData, variable)
+
+				#Combine spectral components A and B in quadrature to obtain variable amplitude
+				#Pos corresponds to resonant poloidal modes 	i.e. +m on RHS of image
+				#Neg corresponds to non-resonant poloidal modes i.e. -m on LHS of image
+				#One of ntor_pos-ntor or ntor_pos+ntor will equal 0, representing the equilibrium values.
+				DataAmpPos = np.sqrt( (Data[:, ntor_pos-ntor,:,0]**2) + (Data[:, ntor_pos-ntor,:,1]**2) )
+				DataAmpNeg = np.sqrt( (Data[:, ntor_pos+ntor,:,0]**2) + (Data[:, ntor_pos+ntor,:,1]**2) )
+				DataAmpNeg = np.flip( DataAmpNeg,axis=0)		#Flip LHS of image for plotting
+
+				#Concat positive and negative ntor to obtain full poloidal harmonic spectrum
+				#DataAmp is of shape: [2*mpol-1][lpsi]
+				DataAmp = np.concatenate((DataAmpNeg,DataAmpPos[1:,:]),axis=0)
+
+
+
+				#		~~~ TESTING PURPOSES	TO BE MOVED TO SWITCHBOARD 		TESTING PURPOSES ~~~~		#
+				setting_mpol = [5,9,1]		#[-9,-5,1]		#[-64,64,16]
+				#		~~~ TESTING PURPOSES	TO BE MOVED TO SWITCHBOARD 		TESTING PURPOSES ~~~~		#
+
+
+
+				#CREATE A FUNCTION WHICH READS SEQ.in files
+				#	CREATE AN ARRAY OF ALL INPUT VALUES FOR EACH SEQ
+				#	DETERMINE MAX SEQ FROM LENGTH OF INPUT ARRAY ENTRIES
+				#	DETERMINE KSTEP RANGE AND STEP SIZE FROM INPUT ARRAY
+				#	CREATE FUNCTION WHICH CALCULATES SEQ FROM GIVEN KSTEP RANGE
+				#	CHANGE KSTEP INPUT IN SWITCHBOARD TO "REAL" KSTEP 
+				#		AND USE FUNCTION TO AUTO-CALC SEQ IN DIAGNOSTIC LOOP
+				#		THEN REMOVE THE REQUIREMENT OF USER TO SPECIFY SEQ (EASIER TO USE)
+				#	REMOVE SEQ LOOPS FROM ALL DIAGNOSTICS AND ONLY USE KSTEP LOOPS (SEQ IS NOW IMPLICIT)
+				# 	??????
+				#	PROFIT.
+
+
+
+				#Define mpol data index and true value ranges applying user settings
+				#mpol index ranges 		::	0 to (2*mpol_res)+1, starting at zero
+				#mpol harmonic ranges	::	-mpol_res to mpol_res, including zero
+				mpol_idxmin = setting_mpol[0] + (mpol_res-1)
+				mpol_idxmax = setting_mpol[1] + (mpol_res)
+				mpol_idxrange = [mpol_idxmin, mpol_idxmax]
+				mpol_valrange = [mpol_idxmin-mpol_res+1, mpol_idxmax-mpol_res]
+				mpol_step = setting_mpol[2]
+
+				#==========##==========#
+
+				#NEED TO ADD COMMENTS FOR THIS FIGURE AND BEAUTIFICATION
+				#SIDE NOTE	::	ALSO NEED TO ADDRESS THE DIRECTION OF SAFETY FACTOR (q_psi) AT READIN!!!
+				fig,ax = figure(subplots=[1,1], aspectratio=image_aspectratio)
+
+				Legend = list()
+				for k in range(mpol_idxrange[0],mpol_idxrange[1],mpol_step):
+					mpol_idx = k;								#mpol data array index
+					mpol = k-mpol_res+1							#mpol real harmonic (+1 accounts for mpol=0)
+
+					ax.plot(rho_pol,DataAmp[:][mpol_idx], lw=2)
+					Legend.append('$m_{pol}$: '+str(mpol))
+					#endif
+				#endfor
+
+				#####
+				Title = 'Poloidal Spectrum: n='+str(ntor)+', m='+str(setting_mpol[0])+','+str(setting_mpol[1])+', t='+str(round(Time,3))+' [ms] \n Simulation: '+DirString
+				Xlabel,Ylabel = 'Normalised Minor Radius $\\rho_{pol}$ [-]', VariableLabel
+				ImageOptions(fig,ax,Xlabel,Ylabel,Title,'')
+#				ax.set_xlim(image_rhopolcrop[0],image_rhopolcrop[1])
+				ax.set_ylim(0,1.4)
+
+				ax.legend(Legend, fontsize=18, frameon=False)
+				ax.set_xlabel('Normalised Minor Radius $\\rho_{pol}$ [-]', fontsize=18)
+				ax.set_ylabel(VariableLabel, fontsize=18)
+
+				#Save poloidal spectrum figure for current SEQ and Kstep
+				SaveString = 'PoloidalSpectrum_'+variable+'_n'+str(ntor)+'_kstep'+str('%07.f'%KStep)+ext
+				plt.savefig(DirSpectral_ntor+SaveString)
+#				plt.show()
+				plt.close('all')
+
+				#==========##==========#
+				#==========##==========#
+
+				if write_ASCII == True:
+					DirASCII = CreateNewFolder(DirSpectral_ntor,"ASCII_Data")			#Spatio-Temporal Data Folder
+
+					#Save Yaxis (rho_pol) and safety factor for future plotting
+					WriteFile_ASCII(rho_pol, DirASCII+'rho_pol', 'w', write_ASCIIFormat)
+					WriteFile_ASCII(q_psi, DirASCII+'q_psi', 'w', write_ASCIIFormat)
+
+					#Write 1D data header, then 1D radially resolved poloidal perturbation amplitude array
+					mpolString = '_m'+str(mpol_valrange[0])+':'+str(mpol_valrange[1])
+					ntorString = '_n'+str(ntor)
+					TimeString = '_t='+str(round(Time,3))
+					SaveString = '1DPolSpectrum_'+variable+ntorString+mpolString+TimeString+'.dat'
+					Header = [VariableLabel,'   ', 'mpol',mpol_valrange[0],mpol_valrange[-1], 'rhopol',rho_pol[0],rho_pol[-1], '\n']
+					WriteFile_ASCII(Header, DirASCII+SaveString, 'w', 'RSV')
+
+								  #DataAmp is of shape: [2*mpol-1][lpsi]
+					ASCII_Output = DataAmp[:][mpol_idxrange[0]:mpol_idxrange[1]]
+					WriteFile_ASCII(ASCII_Output, DirASCII+SaveString, 'a', write_ASCIIFormat)
+				#endif - Write_ASCII
+
+			#endfor	- KStep loop
+		#endfor	- SEQ loop
+
+
+	#endfor	- Folder loop
+
+			
+#endif
+
+
+#====================================================================#
+					 #2D POLOIDAL SPECTRUM ANALYSIS#
 #====================================================================#
 
 if savefig_2Dpolspectrum == True:
@@ -3675,11 +3859,11 @@ if savefig_2Dpolspectrum == True:
 					cbar = Colourbar(ax[0],im,VariableLabel,5)
 					#####
 					Title = 'Poloidal Spectrum: n='+str(ntor)+', m='+str(-mpol_res+1)+','+str(mpol_res-1)+', t='+str(round(Time,3))+' [ms] \n Simulation: '+DirString
-					Xlabel,Ylabel = 'Poloidal Harmonic $m_{pol}$ [-]', 'Radial Magnetic Coordinate $\\rho_{pol}$ [-]'
+					Xlabel,Ylabel = 'Poloidal Harmonic $m_{pol}$ [-]', 'Normalised Minor Radius $\\rho_{pol}$ [-]'
 					ImageOptions(fig,ax[0],Xlabel,Ylabel,Title,'')
 					ax[0].set_xlim(image_mpolcrop[0],image_mpolcrop[1])
 
-					#Plot total energy for each harmonic component (where "except:" accounts for energy_n -n values)
+					#Plot total energy for each harmonic component (where "except:" accounts for energy_n -ntor values)
 					try: ax[1].plot(Energy_TimeArray,np.log10(Energy_n[ntorIdx]), lw=2)
 					except: ax[1].plot(Energy_TimeArray,np.log10(Energy_n[ntorIdx-ntor_pos]), lw=2)
 					ax[1].axvline(TimeArray[KStepIdx+IdxOffset],0,1)
@@ -3772,7 +3956,7 @@ if savefig_2Dpolspectrum == True:
 #			im = plt.contourf(XaxisPROES, Yaxis, PROESImage_rad, 50)
 			cbar = Colourbar(ax,im,VariableLabel,5)
 			ImageOptions(fig,ax,Xlabel,Ylabel,Title,Legend)
-			ax.set_ylim(0,1)									#ax.set_ylim(image_rhocrop[0],image_rhocrop[1])
+			ax.set_ylim(0,1)								#ax.set_ylim(image_rhopolcrop[0],image_rhopolcrop[1])
 
 			#Save temporal spectrum figure for current simulation directory
 			SaveString = 'RadialSpectrum_'+variable+'_n'+str(ntor)+'_t='+str(round(Time,3))+ext
