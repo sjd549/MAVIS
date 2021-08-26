@@ -134,8 +134,9 @@ Kin = ['R_gc','Z_gc','Phi_gc','p_gc','pphi_gc','etot_gc','mu_gc','lambda_gc','cl
 #trendlocation = []
 
 #setting_SEQ = [0,1]
-#setting_ntor = [0,-2]
 #setting_kstep = [00,40,5]
+#setting_ntor = [0,-2]
+
 
 ####################
 
@@ -156,24 +157,24 @@ toroidalprofiles = []					#1D Toroidal Profiles (fixed rho_pol, theta) :: Toroid
 trendlocation = [] 						#Cell location For Trend Analysis [R,theta,phi], ([] = min/max)
 
 #Various Diagnostic Settings:
-setting_SEQ = [9,9]						#Simulation SEQ to load		- [Min,Max], [Int], [0,0] = SEQ001
-setting_kstep = [0,60,1]					#kstep index range to plot 	- [Min,Max,Step], [Int], Implement [*] to plot max
+setting_SEQ = [0,9]						#Simulation SEQs to load	- [Min,Max], 	  [Int], [0,0] = SEQ001
+setting_kstep = [0,60,1]				#kstep index range to plot 	- [Min,Max,Step], [Int], Implement [*] to plot max
 #[0,1,1]	[0,60,10]
-setting_mpol = [0,64]					#mpol range to plot			- [Min,Max], [Int], Implement [*] to plot max
-setting_ntor = [0,2]					#ntor range to plot 		- [Min,Max], [Int], Implement [*] to plot max
-
+setting_mpol = [0,64,1]					#mpol range to plot			- [Min,Max,Step], [Int], Implement [*] to plot max
+#[0,64,1]	[4,8,1]
+setting_ntor = [0,2,1]					#ntor range to plot 		- [Min,Max,Step], [Int], Implement [*] to plot max
+#[0,2,1]	[0,-2,1]
 
 #Requested diagnostics and plotting routines:
-savefig_1Denergy = False				#Plot 1D MHD energies (1 Sim) 		(xxx.energy_p)	- Working
-savefig_1Denergytrends = False			#Plot 1D MHD energies (multi-Sim) 	(xxx.energy_n)	- Working
-#ADD COMPARISON OF energy_phys VARIABLES AS WELL.
+savefig_1Denergy = True				#Plot 1D MHD energies (1 Sim) 		(xxx.energy_p)	- Working
+savefig_1Denergytrends = True			#Plot 1D MHD energies (multi-Sim) 	(xxx.energy_n)	- Working
 
 savefig_1Dequilibrium = False			#Plot 1D radial/poloidal profiles	(xxx.harmonics) - Working	-ASCII
 savefig_2Dequilibrium = False			#Plot 2D poloidal x-sections		(xxx.harmonics)	- Working
 savefig_2Dequilmovie = False			#Plot 2D poloidal x-section movies	(xxx.harmonics)	- Working	-ASCII
 
 savefig_2Dcontinuum = False				#Plot 2D harmonic continuum		 	(xxx.harmonics)	- Working
-savefig_1Dpolspectrum = True			#Plot 1D poloidal spectra 			(xxx.harmonics)	- In Development
+savefig_1Dpolspectrum = False			#Plot 1D poloidal spectra 			(xxx.harmonics)	- In Development
 savefig_2Dpolspectrum = False			#Plot 2D poloidal spectra 			(xxx.harmonics)	- Working	-ASCII
 #NOTE: Add optional correction to polspectrum so image is always plotted with positive harmonics
 #	   Also check that polspectra perform correct integration through all toroidal harmonics...
@@ -211,7 +212,7 @@ image_plotgrid = False					#Plot major/minor gridlines in all figures			- Workin
 image_plotmesh = False					#Plot material mesh outlines in images				- In Development
 
 image_normalise = False					#Normalise image/profiles to local maximum			- In Development
-image_logaxes = [False,False]			#Apply logarithmic axes to image/profiles [x,y]		- In Development
+image_logaxes = [False,False]			#Apply logarithmic axes to image/profiles [x,y]		- Working
 
 #Overrides the automatic image labelling:
 titleoverride = []
@@ -230,6 +231,20 @@ cbaroverride = []
 #        ####TODO####        #
 #============================#
 #
+#
+#CREATE A FUNCTION WHICH READS SEQ.in files
+#	CREATE AN ARRAY OF ALL INPUT VALUES FOR EACH SEQ
+#	DETERMINE MAX SEQ FROM LENGTH OF INPUT ARRAY ENTRIES
+#	DETERMINE KSTEP RANGE AND STEP SIZE FROM INPUT ARRAY
+#	CREATE FUNCTION WHICH CALCULATES SEQ FROM GIVEN KSTEP RANGE
+#	CHANGE KSTEP INPUT IN SWITCHBOARD TO "REAL" KSTEP 
+#		AND USE FUNCTION TO AUTO-CALC SEQ IN DIAGNOSTIC LOOP
+#		THEN REMOVE THE REQUIREMENT OF USER TO SPECIFY SEQ (EASIER TO USE)
+#	REMOVE SEQ LOOPS FROM ALL DIAGNOSTICS AND ONLY USE KSTEP LOOPS (SEQ IS NOW IMPLICIT)
+# 	??????
+#	PROFIT.
+#
+#
 #EXTRACT PHIMODE FROM THE INPUT FILE, DEFAULT TO 1.0 IF NOT FOUND
 #	Multiply the toroidal mode number in all figures by phimode, 
 #	Won't change most calculations, but check if it makes a difference for the Alfven Continuum stuff
@@ -238,12 +253,13 @@ cbaroverride = []
 #	Need to know how to denormalise each one, also needs a denormalisation toggle in the switchboard
 #	Tie this option to any other applicable function, e.g. variablelabelmaker, etc...
 #	Needs testing for all diagnostics and any special cases identified
+#	Add a sign convention toggle in lower level inputs to apply correct negative signs to B-field and q_psi etc...
 #
 #UPDATE THE NORMALISATION FUNCTIONS WHERE DATA FROM THE SIM128-AUG.TXT FILE
 #	Read in all of the data, not just the stuff at the bottom - Most won't be useful at the moment
 #	Dynamically read in the data, rather than lambda-ing prescribed variables
 #	Rename the normalised and denormalised variables in MAVIS for easier access later
-#	Essentially, this is quite a core function so it needs to be resiliant to changing toMEGA.f structures
+#	This is a core function so it needs to be resiliant to changing toMEGA.f structures
 #
 #ADD A POLOIDAL HARMONIC 1D PLOTTER (see Liu2010, 2016 papers for examples)
 #	This will need to be able to select a poloidal harmonic range and compare between sim folders
@@ -256,7 +272,7 @@ cbaroverride = []
 #NEED TO ADD ENERGY PROFILE SUBPLOT TO THE EQUILMOVIE FIGURES
 #	This needs to be an optional extra for both the spectral and equilibrium movie figures
 #
-#NEED TO ADD VARIABLE LOOP TO THE savefig_polspectrum DIAGNOSTIC
+#NEED TO ADD VARIABLE LOOP TO THE savefig_polspectrum DIAGNOSTICS
 #	Loop over all regular variables by default
 #
 #NEED TO MAKE savefig_continuum AND savefig_equilibrium BOTH USE THE setting_ntor RANGE WHEN PLOTTING
@@ -1879,11 +1895,18 @@ def ImageOptions(fig,ax='NaN',Xlabel='',Ylabel='',Title='',Legend=[]):
 	if image_plotgrid == True: ax.grid(True)
 	#endif
 
+	#Log axes if requested.
+	if image_logaxes[0] == True:
+		ax.set_xscale('log')
+	if image_logaxes[1] == True:
+		ax.set_yscale('log')
+	#endif
+
 	#Plot mesh outline if requested.	### HACKY ###
 	if image_plotmesh == True:
 		mesh_auto_plot = 1 				# !!AUTO PLOT MESH NOT IMPLIMENTED!! #
 	elif image_plotmesh == 'ASDEX' and Crop == True:	
-		ManualASDEXMesh(ax)
+		ManualASDEXMesh(ax)				# !!MANUAL PLOT MESH NOT IMPLIMENTED!! #
 	#endif
 
 	#Arrange figure such that labels, legends and titles fit within frame.
@@ -2120,7 +2143,7 @@ def VectorDerivative(XArray,YArray,Order=1,Trend='lin'):
 # 	DyArray - 1D array containing nth derivative of YArray, i.e. difference between successive indices
 #Warnings: 
 #	Function only works for 1D Arrays
-#Example: DxDyArray = VectorDerivative(TimeArray,EnergyArray,Order=1 )[0]
+#Example: DxDyArray = VectorDerivative(TimeArray,EnergyArray,Order=1,Trend='lin' )[0]
 
 	#Compute i'th derivative of supplied arrays
 	for i in range(0,Order):
@@ -2133,11 +2156,15 @@ def VectorDerivative(XArray,YArray,Order=1,Trend='lin'):
 		#Calculate gradient array - i.e. derivative of Y to X
 		DxDyArray = [DyArray[j]/DxArray[j] for j in range(0,len(DxArray))]
 
-		#Sum derivatives up to each index in SEQuence to reconstruct XArray and set YArray to DxDy
-		#Only required for calculation of higher order derivatives (Order > 1) - ARRAYS NOT RETURNED
-		XArray = [sum(DxArray[0:j]).tolist() for j in range(0,len(DxArray))]
-		if Trend == 'exp': 		YArray = np.log(DxDyArray)
-		elif Trend == 'lin':	YArray = DxDyArray
+		#For higher order derivatives, need to update the new XArray and YArray
+		if Order > 1:
+			#Sum derivatives up to each index in SEQuence to reconstruct XArray
+			XArray = [sum(DxArray[0:j]).tolist() for j in range(0,len(DxArray))]
+			
+			#Set new YArray to the previous derivative DxDy
+			if Trend == 'exp': 		YArray = np.log(DxDyArray)
+			elif Trend == 'lin':	YArray = DxDyArray
+		#endif
 	#endfor
 
 	return(DxDyArray,DxArray,DyArray)
@@ -2199,7 +2226,11 @@ def ComputeTAEThresholds(HarmonicData,Harmonic,eps,Va,ax='NaN'):
 #=========================#
 #=========================#
 
-def ComputeMHDGrowthRates(EnergyArray,TimeArray,Threshold=100):
+
+#THIS IS NOT WORKING PROPERLY, NEEDS A COMPLETE OVERHAUL...
+#THE d log(E)/dt IS SUSPECT, AND THE WHOLE UTILITY OF THIS IS ALSO CURRENTLY IN QUESTION...
+
+def ComputeMHDGrowthRates(EnergyArray,TimeArray,Trend='exp',Threshold=100):
 #Determines MHD toroidal mode linear growth rates through analysis of 1st and 2nd energy derivatives
 #Derivatives are taken of log(E)/dt such that the 1st and 2nd derivatives are linear (flat)
 #Solves: Eend = Estart*exp{gamma*dt} over time indices where 2nd derivative is close to zero
@@ -2209,23 +2240,23 @@ def ComputeMHDGrowthRates(EnergyArray,TimeArray,Threshold=100):
 #	Threshold - 0D float determining the 'sensitivity' of the function, higher values are more sensitive.
 #				Specifically, Threshold sets the maximum 'distance from zero' when creating LinearRegion
 #Outputs:
-#	gamma - 0D scalar 'linear' growth rate [s-1] for supplied MHD mode number
-# 	Delta1Energy - 1D array containing 1st derivative of provided EnergyArray to TimeArray
-# 	Delta2Energy - 1D array containing 2nd derivative of provided EnergyArray to TimeArray
-#Example: gamma, dEdt, d2Edt2 = ComputeMHDGrowthRates(Energy_n[ntor],TimeArray)
+#	gamma - 0D scalar 'linear' growth rate [s-1] for supplied ntor mode
+#Example: gamma = ComputeMHDGrowthRates(Energy_n[ntor],TimeArray)
 
 	#Use log(Energy) for all calculations
-	LogEnergyArray = np.log(EnergyArray)
+	if Trend == 'lin': EnergyArray = EnergyArray
+	elif Trend == 'exp': EnergyArray = np.log(EnergyArray)
+	#endif
 
-	#Compute 1st derivative of energy:		d log(E) / dt
+	#Compute 1st derivative of energy:		e.g:	d E / dt
 	Delta1Energy = list()
-	Delta1Energy.append(TimeArray[0:-1])											#Add time array
-	Delta1Energy.append( VectorDerivative(TimeArray,LogEnergyArray,1,'exp' )[0] )	#Add n'th harmonic array
+	Delta1Energy.append(TimeArray[0:-1])										#Add time array
+	Delta1Energy.append( VectorDerivative(TimeArray,EnergyArray,1,Trend )[0] )	#Add n'th harmonic array
 	
-	#Compute 2nd derivative of energy:		d^2 log(E) / dt^2
+	#Compute 2nd derivative of energy:		e.g.	d^2 E / dt^2
 	Delta2Energy = list()
-	Delta2Energy.append(TimeArray[0:-2])											#Add time array
-	Delta2Energy.append( VectorDerivative(TimeArray,LogEnergyArray,2,'exp' )[0] )	#Add n'th harmonic array
+	Delta2Energy.append(TimeArray[0:-2])										#Add time array
+	Delta2Energy.append( VectorDerivative(TimeArray,EnergyArray,2,Trend )[0] )	#Add n'th harmonic array
 
 	#==========##==========#
 
@@ -2248,7 +2279,7 @@ def ComputeMHDGrowthRates(EnergyArray,TimeArray,Threshold=100):
 
 	#==========##==========#
 
-	#Determine temporal extent of linear growth region, i.e. where 2nd derivative is close to zero
+	#Determine temporal extent of linear growth region, i.e. where 2nd derivative is 'close' to zero
 	#Threshold is the maximum allowed distance from zero, Threshold is set by function input.
 	LinearRegion = list()
 	for i in range(0,len(Delta2Energy_Smooth[1])):
@@ -2266,6 +2297,24 @@ def ComputeMHDGrowthRates(EnergyArray,TimeArray,Threshold=100):
 		if LinearRegion[i] > 0.5: LinearRegion[i] = 1.0
 		else: LinearRegion[i] = 0.0
 	#endfor
+
+
+
+	#ATTEMPTING TO FIX FUNCTION
+	# THE ISSUE IS THAT THE 2nd DERIVATIVE IS TOO NOISY AND THE "LINEAR REGION" IS COMPLETELY ARBITRARY
+	# NEED SOME WAY OF MORE EFFECTIVELY IDENTIFYING THE LINEAR REGION TO CALCULATE A GROWTH RATE...
+	if DebugMode == True:
+
+		#Scaled the linear region purely to make it easier to see...
+		LinearRegion_Scaled = [LinearRegion[x]*max(Delta2Energy_Smooth[1])/4.0 for x in range(0,len(LinearRegion))]
+
+		plt.plot(TimeArray[2::],Delta2Energy_Smooth[1])
+		plt.plot(TimeArray[2::],LinearRegion_Scaled)
+		plt.show()
+	#endif
+	#ATTEMPTING TO FIX FUNCTION
+
+
 
 	#Compute 'linear' phase growth rate (gamma [s-1]) over full linear phase.
 	#Assumes exponential growth where: Eend = Estart*exp{gamma*dt}
@@ -2310,7 +2359,7 @@ def ComputeMHDGrowthRates(EnergyArray,TimeArray,Threshold=100):
 		print('')
 	#endif
 
-	return(gamma,Delta1Energy,Delta2Energy)
+	return(gamma)
 #enddef
 
 #=========================#
@@ -2650,15 +2699,20 @@ if savefig_1Denergy == True:
 		Variables,Values,Units = ExtractMEGA_Normalisations(Dir[l])
 #		print Variables[1],Values[1],Units[1]
 
+		#Compute energy derivative for convergence checking
+		dEdtArray = list() 
+		for i in range(0,len(Energy_n)):
+			dEdt = VectorDerivative(TimeArray,Energy_n[i],Order=1,Trend='lin')[0]
+			dEdtArray.append(dEdt)
+		#endfor
+
 		#Compute 1st and 2nd energy derivatives and determine MHD linear growth rates
 		#Solves: Eend = Estart*exp{gamma*dt} where 2nd derivative is close to zero
-		gamma_Array = list()
-		dEnergydt_Array, d2Energydt2_Array = list(),list()
+		#THIS IS NOT WORKING PROPERLY, NEEDS A COMPLETE OVERHAUL...
+		gammaArray = list()
 		for i in range(0,len(Energy_n)):
-			gamma,dEdt,d2Edt2 = ComputeMHDGrowthRates(Energy_n[i],TimeArray)
-			gamma_Array.append(gamma)
-			dEnergydt_Array.append(dEdt)
-			d2Energydt2_Array.append(d2Edt2)
+			gamma = ComputeMHDGrowthRates(Energy_n[i],TimeArray,'exp')
+			gammaArray.append(gamma)
 		#endfor
 
 		#==========##==========#
@@ -2669,24 +2723,25 @@ if savefig_1Denergy == True:
 
 		#Energy_n Ax[0] Title, Legend, Axis Labels etc...
 		Title = 'Spectrally Resolved Energy Evolution for \n '+DirString
-		Xlabel,Ylabel = '', 'Energy $\epsilon_{n}$ (Log$_{10}$) [-]'
+		Xlabel,Ylabel = '', 'Energy $\epsilon_{n}$ [-]'
 		Legend = list()
 
 		#Plot total energy for each harmonic component
 		for i in range(0,len(Energy_n)):
-			ax[0].plot(TimeArray,np.log10(Energy_n[i]), lw=2)
-			Legend.append( '$\gamma'+'_{'+str(i)+'}$ = '+str(gamma_Array[i])+' [s$^{-1}$]' )
+			ax[0].plot(TimeArray,Energy_n[i], lw=2)
+			Legend.append( 'n$_{tor}$ = '+str(i) )
+#			Legend.append( '$\gamma'+'_{'+str(i)+'}$ = '+str(gamma_Array[i])+' [s$^{-1}$]' )
 		#endfor
 		ImageOptions(fig,ax[0],Xlabel,Ylabel,Title,Legend)
 
 		#Energy_n Ax[1] Title, Legend, Axis Labels etc...
-		Title = 'Spectrally Resolved Energy Evolution for \n '+DirString
-		Xlabel,Ylabel = 'Time [ms]', '$\Delta$ Energy $\\frac{d \epsilon_{n}}{d t}$ (Log$_{10}$) [-]'
+		Title = 'Toroidal Mode Energy Evolution for \n '+DirString
+		Xlabel,Ylabel = 'Time [ms]', '$\Delta$ Energy $\\frac{d \epsilon_{n}}{d t}$ [-]'
 		Legend = list()
 
 		#Plot 1st derivative of energy for each harmonic component
 		for i in range(0,len(Energy_n)):
-			ax[1].plot(dEnergydt_Array[i][0],np.log10(dEnergydt_Array[i][1]), lw=2)
+			ax[1].plot(TimeArray[1::],dEdtArray[i], lw=2)
 			Legend.append( 'n$_{tor}$ = '+str(i) )
 		#endfor
 		ImageOptions(fig,ax[1],Xlabel,Ylabel,'',Legend)
@@ -2703,27 +2758,27 @@ if savefig_1Denergy == True:
 		fig,ax = figure(subplots=[3,1], aspectratio=image_aspectratio)
 
 		#Energy_phys[0,1,2] Title, Legend, Axis Labels etc...
-		Title = 'Spectrally Integrated Energy Evolution for \n '+DirString
-		Xlabel,Ylabel = 'Time [ms]', 'Energy [-]'
+		Title = 'Integrated Energy Evolution for \n '+DirString
+		Xlabel,Ylabel = 'Time [ms]', 'Energy $\epsilon$ [-]'
 
-		#Plot total thermal, kinetic and magnetic MHD (fluid solver) energy over time
-		ax[0].plot(Energy_Phys[1],Energy_Phys[2],'k-',lw=2)		#Kinetic
-		ax[0].plot(Energy_Phys[1],Energy_Phys[3],'r-',lw=2)		#Magnetic
-		ax[0].plot(Energy_Phys[1],Energy_Phys[4],'b-',lw=2)		#Thermal
-		Legend = ['Kinetic','Magnetic','Thermal']				#Header_Phys[2::]
+		#Plot Thermal, Kinetic and Magnetic MHD (fluid solver) energy over time
+		ax[0].plot(Energy_Phys[1],Energy_Phys[2],'k-',lw=2)			#Kinetic
+		ax[0].plot(Energy_Phys[1],Energy_Phys[3],'r-',lw=2)			#Magnetic
+		ax[0].plot(Energy_Phys[1],Energy_Phys[4],'b-',lw=2)			#Thermal
+		Legend = ['Kinetic','Magnetic','Thermal']		#Header_Phys[2::]
 		ImageOptions(fig,ax[0],'','MHD '+Ylabel,Title,Legend)
 
-		#Plot parallel, perpendicular and total fast ion (kinetic solver) energy over time
-		ax[1].plot(Energy_Phys[1],Energy_Phys[5],'k-',lw=2)				#Energy parallel to current flow
-		ax[1].plot(Energy_Phys[1],Energy_Phys[6],'r-',lw=2)				#Energy perpendicular to current flow
-		ax[1].plot(Energy_Phys[1],Energy_Phys[7],'b-',lw=2)				#Total Energy (only for df, not full-f)
-		Legend = ['$\hat{J}$ Parallel','$\hat{J}$ Perpendicular','Total']	#Header_Phys[2::]
-		ImageOptions(fig,ax[1],'','Fast Ion '+Ylabel,'',Legend)
+		#Plot Parallel, Perpendicular and Total fast-ion (kinetic solver) energy over time
+		ax[1].plot(Energy_Phys[1],Energy_Phys[5],'k-',lw=2)					#Energy parallel to current flow
+		ax[1].plot(Energy_Phys[1],Energy_Phys[6],'r-',lw=2)					#Energy perpendicular to current flow
+		ax[1].plot(Energy_Phys[1],Energy_Phys[7],'b-',lw=2)					#Total Energy (only for df, not full-f)
+		Legend = ['Parallel FI Energy','Perpendicular FI Energy','Total FI Energy']	#Header_Phys[2::]
+		ImageOptions(fig,ax[1],'','FI '+Ylabel,'',Legend)
 
-		#Plot ?Transferred? and ?Total? energy over time
-		ax[2].plot(Energy_Phys[1],Energy_Phys[8],'k-',lw=2)		#Transferred
-		ax[2].plot(Energy_Phys[1],Energy_Phys[9],'r-',lw=2)		#Total
-		Legend = ['Transferred','Total']						#Header_Phys[2::]
+		#Plot Transferred fast-ion energy and Total MHD+FI energy over time
+		ax[2].plot(Energy_Phys[1],Energy_Phys[8],'k-',lw=2)			#Transferred
+		ax[2].plot(Energy_Phys[1],Energy_Phys[9],'r-',lw=2)			#Total
+		Legend = ['Transferred FI Energy','Total MHD+FI Energy']	#Header_Phys[2::]
 		ImageOptions(fig,ax[2],Xlabel,Ylabel,'',Legend)
 
 		#Save and close open figure(s)
@@ -2761,16 +2816,14 @@ if savefig_1Denergytrends == True:
 	#For each toroidal mode number
 	for i in range(0,ntor_pos+1):
 
-		#Create figure for energy_n trend comparison
+		#Create figures for energy_n and energy_phys trend comparisons
 		fig,ax = figure(subplots=[2,1], aspectratio=image_aspectratio)
+		fig2,ax2 = figure(subplots=[3,1], aspectratio=image_aspectratio)
+		fig3,ax3 = figure(subplots=[3,1], aspectratio=image_aspectratio)
 
-		#Append new dimension to lists used when comparing growth rates
-		dEnergydt_Array.append([]), d2Energydt2_Array.append([])
+		#Refresh or expand lists used for comparing energy profiles
+		Legend,Legendgamma = list(),list(); TrendAxis = list()
 		gamma_Array.append([])
-
-		#Refresh lists used when comparing energy profiles
-		Legend0,Legend1 = list(),list()
-		TrendAxis = list()
 
 		#For each detected simulation folder
 		for l in tqdm(range(0,len(Dir))):
@@ -2778,7 +2831,7 @@ if savefig_1Denergytrends == True:
 			#Write simulation folder name strings
 			DirString = Dir[l].split('/')[-2]
 			SubString = DirString.split('_')[-1]
-			TrendAxis.append(SubString)
+			Legend.append(SubString); TrendAxis = Legend
 
 			#Extract SEQArray [-], KstepArray [-] and timeArray [ms] for the current simulation folder 'l'
 			SEQArray = ExtractMEGA_DataRanges(Dir[l], DataFile='energy_n')[0]
@@ -2793,55 +2846,97 @@ if savefig_1Denergytrends == True:
 			#Extract Energy_n outputs for all ntor in current folder
 			#Energy_n: [ntor][timestep]
 			Energy_n,Header_n = ExtractMEGA_Energy(Dir[l],'energy_n')
-			#EnergyProfile: [timestep]
-			EnergyProfile = Energy_n[i+2]					#Remove KStep and Time arrays from ntor(i) array
-#			EnergyProfile = EnergyProfile[0:MaxSharedKStep]	#Reduce KStep range to maximum shared range
+			Energy_n = Energy_n[i+2]		#Single ntor profile where i+2 ignores KStep and Time arrays
+
+			#Extract Energy_Phys outputs and header for plotting
+			#Energy_Phys: [variable][timestep]
+			Energy_Phys,Header_Phys = ExtractMEGA_Energy(Dir[l],'energy_phys')
 
 			#Extract normalisation factors for current simulation folder
 			Variables,Values,Units = ExtractMEGA_Normalisations(Dir[l])
 #			print Variables[1],Values[1],Units[1]
 
+			#Compute energy derivative for convergence checking
+			dEdt = VectorDerivative(TimeArray,Energy_n,Order=1,Trend='lin')[0]
+
 			#Compute 1st and 2nd energy derivatives and determine MHD linear growth rates
 			#Solves: Eend = Estart*exp{gamma*dt} where 2nd derivative is close to zero
-			gamma,dEdt,d2Edt2 = ComputeMHDGrowthRates(EnergyProfile,TimeArray)
-			#dEnergydt_Array, d2Energydt2_Array 3D arrays of shape: [SimFolder][ntor][kstep]
-			#gamma_Array 2D array of shape: [SimFolder][ntor]
-			dEnergydt_Array[i].append([dEdt]); d2Energydt2_Array[i].append([d2Edt2])
+			#THIS IS NOT WORKING PROPERLY, NEEDS A COMPLETE OVERHAUL...
+			gamma = ComputeMHDGrowthRates(Energy_n,TimeArray,'exp')
 			gamma_Array[i].append(gamma)
 
-			#============##============#
-			#Energy Profile Comparisons#
-			#============##============#
+
+			#=============##==============#
+			#Energy_n Profile Comparisons#
+			#=============##==============#
 
 			#Energy_n Ax[0] Title, Legend, Axis Labels etc...
+#			Legendgamma.append( SubString+': $\gamma'+'_{'+str(i)+'}$ = '+str(gamma)+' [s$^{-1}$]' )
 			Title = 'MHD Energy Evolution for ntor = '+str(i)+' \n '+DirString
-			Xlabel,Ylabel = '', 'Energy $\epsilon_{n}$ (Log$_{10}$) [-]'
+			Xlabel,Ylabel = '', 'Energy $\epsilon_{n}$ [-]'
+
 
 			#Plot total energy for each folder (for ntor[i])
-			ax[0].plot(TimeArray,np.log10(EnergyProfile), lw=2)
-			Legend0.append( SubString+': $\gamma'+'_{'+str(i)+'}$ = '+str(gamma)+' [s$^{-1}$]' )
-			#endfor
-			ImageOptions(fig,ax[0],Xlabel,Ylabel,Title,Legend0)
+			ax[0].plot(TimeArray,Energy_n, lw=2)
+			ImageOptions(fig,ax[0],Xlabel,Ylabel,Title,Legend)		#Legendgamma
 
 			#Energy_n Ax[1] Title, Legend, Axis Labels etc...
-			Xlabel,Ylabel = 'Time [ms]', '$\Delta$ Energy $\\frac{d \epsilon_{n}}{d t}$ (Log$_{10}$) [-]'
+			Xlabel,Ylabel = 'Time [ms]', '$\Delta$ Energy $\\frac{d \epsilon_{n}}{d t}$ [-]'
 
 			#Plot 1st derivative of energy for each folder (for ntor[i])
-			ax[1].plot(dEdt[0],np.log10(dEdt[1]), lw=2)
-			Legend1.append( SubString )
-			#endfor
-			ImageOptions(fig,ax[1],Xlabel,Ylabel,'',Legend1)
+			ax[1].plot(TimeArray[1::],dEdt, lw=2)
+			ImageOptions(fig,ax[1],Xlabel,Ylabel,'',Legend)
+
+
+			#==============##===============#
+			#Energy_Phys Profile Comparisons#
+			#==============##===============#
+
+			#Energy_phys[0,1,2] Title, Legend, Axis Labels etc...
+			Title = 'Spectrally Integrated Energy Evolution for \n '+DirString
+			Xlabel,Ylabel = 'Time [ms]', 'Energy $\epsilon$ [-]'
+
+			#Plot total thermal, kinetic and magnetic MHD (fluid solver) energy over time
+			ax2[0].plot(TimeArray,Energy_Phys[2], lw=2)
+			ImageOptions(fig2,ax2[0],'','Kinetic \n Energy $\epsilon_{K}$ [-]',Title,Legend)
+			ax2[1].plot(TimeArray,Energy_Phys[3], lw=2)
+			ImageOptions(fig2,ax2[1],'','Magnetic \n Energy $\epsilon_{M}$ [-]','',Legend)
+			ax2[2].plot(TimeArray,Energy_Phys[4], lw=2)
+			ImageOptions(fig2,ax2[2],'Time [ms]','Thermal \n Energy $\epsilon_{T}$ [-]','',Legend)
+
+			#Plot parallel, perpendicular, and total fast ion (kinetic solver) energy over time	(parallel to B-field)
+			ax3[0].plot(Energy_Phys[1],Energy_Phys[5], lw=2)
+			ImageOptions(fig3,ax3[0],'','Parallel FI \n Energy $\epsilon_{para}$',Title,Legend)
+			ax3[1].plot(Energy_Phys[1],Energy_Phys[6], lw=2)
+			ImageOptions(fig3,ax3[1],'','Perpendicular FI \n Energy $\epsilon_{perp}$','',Legend)
+			ax3[2].plot(Energy_Phys[1],Energy_Phys[7], lw=2)			#(only for df, not full-f)
+			ImageOptions(fig3,ax3[2],'Time [ms]','Total FI \n Energy $\epsilon_{tot}$','',Legend)
+
+			#Plot Transferred fast-ion energy and Total MHD+FI energy over time
+			#TO BE ADDED IF REQUIRED.
+
 		#endfor - Dir loop
 
-		#Save and close 1D energy evolution profile figures for current ntor[i]
-		plt.savefig(DirEnergy+'SpectralEnergy_n='+str(i)+'_Trends'+ext)
+		#Save and close 1D energy_n figures for current ntor[i]
+		fig.savefig(DirEnergy+'SpectralEnergy_n='+str(i)+'_Trends'+ext)
 #		plt.show()
 		plt.close('all')
+
+		#Save and close 1D energy_phys figures (only needed once)
+		if i == 0:
+			fig2.savefig(DirEnergy+'MHDEnergy_Trends'+ext)
+	#		plt.show()
+			plt.close('all')
+
+			fig3.savefig(DirEnergy+'FIEnergy_Trends'+ext)
+	#		plt.show()
+			plt.close('all')
+		#endif
 	#endfor - ntor loop
 	
-	#==========##==========#
-	#Growth Rate Comparison#
-	#==========##==========#
+	#==========##===========#
+	#Growth Rate Comparisons#		#NOT CURRENTLY WORKING - SEE ComputeMHDGrowthRates() FUNCTION
+	#==========##===========#
 
 	#Create figure for energy_n growth rate comparison
 	fig,ax = figure(subplots=[1,1], aspectratio=image_aspectratio)
@@ -2860,9 +2955,9 @@ if savefig_1Denergytrends == True:
 	ImageOptions(fig,ax,Xlabel,Ylabel,Title,Legend)
 
 	#Save and close open figure(s)
-	plt.savefig(DirEnergy+'GrowthRate_Trends'+ext)
+#	plt.savefig(DirEnergy+'GrowthRate_Trends'+ext)
 #	plt.show()
-	plt.close('all')
+#	plt.close('all')
 
 	#endfor
 	ImageOptions(fig,ax,Xlabel,Ylabel,Title,Legend)
@@ -3578,6 +3673,11 @@ if savefig_1Dpolspectrum == True:
 		ntor = setting_ntor[1]				#requested ntor mode number			!!! NEEDS A FUNCTION !!!
 		variable = SpectralVariable			#requested response variable 		!!! Need to impliment vrad etc...
 
+		#		~~~ TESTING PURPOSES	TO BE MOVED TO SWITCHBOARD 		TESTING PURPOSES ~~~~		#
+		ntor = -2
+		setting_mpol = [3,10,1]		#[5,9,1]		#[-9,-5,1]
+		#		~~~ TESTING PURPOSES	TO BE MOVED TO SWITCHBOARD 		TESTING PURPOSES ~~~~		#
+
 		#Create global 2D diagnostics folder and extract current simulation name
 		DirSpectral = CreateNewFolder(Dir[l],'1DSpectral_Plots/')						#Spatio-Temporal Folder
 		DirSpectral_ntor = CreateNewFolder(DirSpectral,variable+'_ntor='+str(ntor))		#Spatio-Temporal Images Folder	
@@ -3650,28 +3750,6 @@ if savefig_1Dpolspectrum == True:
 				#DataAmp is of shape: [2*mpol-1][lpsi]
 				DataAmp = np.concatenate((DataAmpNeg,DataAmpPos[1:,:]),axis=0)
 
-
-
-				#		~~~ TESTING PURPOSES	TO BE MOVED TO SWITCHBOARD 		TESTING PURPOSES ~~~~		#
-				setting_mpol = [5,9,1]		#[-9,-5,1]		#[-64,64,16]
-				#		~~~ TESTING PURPOSES	TO BE MOVED TO SWITCHBOARD 		TESTING PURPOSES ~~~~		#
-
-
-
-				#CREATE A FUNCTION WHICH READS SEQ.in files
-				#	CREATE AN ARRAY OF ALL INPUT VALUES FOR EACH SEQ
-				#	DETERMINE MAX SEQ FROM LENGTH OF INPUT ARRAY ENTRIES
-				#	DETERMINE KSTEP RANGE AND STEP SIZE FROM INPUT ARRAY
-				#	CREATE FUNCTION WHICH CALCULATES SEQ FROM GIVEN KSTEP RANGE
-				#	CHANGE KSTEP INPUT IN SWITCHBOARD TO "REAL" KSTEP 
-				#		AND USE FUNCTION TO AUTO-CALC SEQ IN DIAGNOSTIC LOOP
-				#		THEN REMOVE THE REQUIREMENT OF USER TO SPECIFY SEQ (EASIER TO USE)
-				#	REMOVE SEQ LOOPS FROM ALL DIAGNOSTICS AND ONLY USE KSTEP LOOPS (SEQ IS NOW IMPLICIT)
-				# 	??????
-				#	PROFIT.
-
-
-
 				#Define mpol data index and true value ranges applying user settings
 				#mpol index ranges 		::	0 to (2*mpol_res)+1, starting at zero
 				#mpol harmonic ranges	::	-mpol_res to mpol_res, including zero
@@ -3683,17 +3761,27 @@ if savefig_1Dpolspectrum == True:
 
 				#==========##==========#
 
-				#NEED TO ADD COMMENTS FOR THIS FIGURE AND BEAUTIFICATION
-				#SIDE NOTE	::	ALSO NEED TO ADDRESS THE DIRECTION OF SAFETY FACTOR (q_psi) AT READIN!!!
+				#Create figure
 				fig,ax = figure(subplots=[1,1], aspectratio=image_aspectratio)
 
+				#Plot 1D radial profiles (rho_pol) of poloidal perturbation amplitude over mpol_range
 				Legend = list()
 				for k in range(mpol_idxrange[0],mpol_idxrange[1],mpol_step):
-					mpol_idx = k;								#mpol data array index
-					mpol = k-mpol_res+1							#mpol real harmonic (+1 accounts for mpol=0)
+					mpol_idx = k;								#mpol HarmonicsData/DataAmp array index
+					mpol = k-mpol_res+1							#mpol real harmonic number (+1 accounts for mpol=0)
 
+					#Structure:		DataAmp[rho_pol][mpol]
 					ax.plot(rho_pol,DataAmp[:][mpol_idx], lw=2)
 					Legend.append('$m_{pol}$: '+str(mpol))
+
+					#Alternative idea for plotting - plot difference between Pure-MHD and total perturbations
+#					k=2														#Overwrite k for testing purposes
+#					DataAmpNeg = np.flip( DataAmpNeg,axis=0)				#Flip it back so 'k' indices align
+#					AmpDiff = DataAmpPos[:][k] - DataAmpNeg[:][k]			#Amplitude difference for mpol == k
+#					ax.plot(rho_pol,DataAmpNeg[:][k], 'k--', lw=1)			#negative mpol = pure MHD perturbation
+#					ax.plot(rho_pol,DataAmpPos[:][k], 'r--', lw=1)			#positive mpol = total MHD perturbation
+#					ax.plot(rho_pol,AmpDiff, 'b-', lw=2)					#Plasma response portion of MHD pert.
+
 					#endif
 				#endfor
 
@@ -3702,7 +3790,7 @@ if savefig_1Dpolspectrum == True:
 				Xlabel,Ylabel = 'Normalised Minor Radius $\\rho_{pol}$ [-]', VariableLabel
 				ImageOptions(fig,ax,Xlabel,Ylabel,Title,'')
 #				ax.set_xlim(image_rhopolcrop[0],image_rhopolcrop[1])
-				ax.set_ylim(0,1.4)
+				ax.set_ylim(0,0.8)
 
 				ax.legend(Legend, fontsize=18, frameon=False)
 				ax.set_xlabel('Normalised Minor Radius $\\rho_{pol}$ [-]', fontsize=18)
@@ -3732,19 +3820,27 @@ if savefig_1Dpolspectrum == True:
 					Header = [VariableLabel,'   ', 'mpol',mpol_valrange[0],mpol_valrange[-1], 'rhopol',rho_pol[0],rho_pol[-1], '\n']
 					WriteFile_ASCII(Header, DirASCII+SaveString, 'w', 'RSV')
 
-								  #DataAmp is of shape: [2*mpol-1][lpsi]
+					#			   DataAmp is of shape: [2*mpol-1][lpsi]
 					ASCII_Output = DataAmp[:][mpol_idxrange[0]:mpol_idxrange[1]]
 					WriteFile_ASCII(ASCII_Output, DirASCII+SaveString, 'a', write_ASCIIFormat)
 				#endif - Write_ASCII
 
 			#endfor	- KStep loop
 		#endfor	- SEQ loop
+	#endfor	- Dir loop
+#endif - Diag loop
 
+#==========##==========##==========#
+#==========##==========##==========#
 
-	#endfor	- Folder loop
-
-			
+if any([savefig_1Dpolspectrum]) == True:
+	print '--------------------------------------'
+	print '1D Poloidal Spectrum Analysis Complete'
+	print '--------------------------------------'
 #endif
+
+#====================================================================#
+#====================================================================#
 
 
 #====================================================================#
